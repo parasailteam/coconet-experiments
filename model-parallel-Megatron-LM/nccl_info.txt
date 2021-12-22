@@ -1,0 +1,1597 @@
+using world size: 16 and model-parallel size: 16 
+> building BertWordPieceLowerCase tokenizer ...
+ > padded vocab (size: 30522) with 198 dummy tokens (new size: 30720)
+> initializing torch distributed ...
+> initializing model parallel with size 16
+> setting random seeds to 1234 ...
+> initializing model parallel cuda seeds on global rank 0, model parallel rank 0, and data parallel rank 0 with model parallel seed: 3952 and data parallel seed: 1234
+building BERT model ...
+ > number of parameters on model parallel rank 8: 23632258
+ > number of parameters on model parallel rank 13: 23632258
+ > number of parameters on model parallel rank 6: 23632258
+ > number of parameters on model parallel rank 10: 23632258
+ > number of parameters on model parallel rank 5: 23632258
+ > number of parameters on model parallel rank 15: 23632258
+ > number of parameters on model parallel rank 3: 23632258
+ > number of parameters on model parallel rank 7: 23632258
+ > number of parameters on model parallel rank 9: 23632258
+ > number of parameters on model parallel rank 4: 23632258
+ > number of parameters on model parallel rank 2: 23632258
+ > number of parameters on model parallel rank 14: 23632258
+ > number of parameters on model parallel rank 12: 23632258
+ > number of parameters on model parallel rank 1: 23632258
+ > number of parameters on model parallel rank 0: 23632258
+ > number of parameters on model parallel rank 11: 23632258
+> learning rate decay style: linear
+> building train, validation, and test datasets for BERT ...
+ > building dataset index ...
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+ > finished creating indexed dataset in 0.119303 seconds
+ > indexed dataset stats:
+    number of documents: 6091006
+    number of sentences: 105005246
+ > dataset split:
+    train:
+     document indices in [0, 5780365) total of 5780365 documents
+     sentence indices in [0, 101602660) total of 101602660 sentences
+    validation:
+     document indices in [5780365, 6084915) total of 304550 documents
+     sentence indices in [101602660, 104945630) total of 3342970 sentences
+    test:
+     document indices in [6084915, 6091006) total of 6091 documents
+     sentence indices in [104945630, 105005246) total of 59616 sentences
+container-e33-1594414986030-11519-04-000050:37165:37165 [0] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37165:37165 [0] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37165:37165 [0] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37165:37165 [0] NCCL INFO Using network IB
+NCCL version 2.6.4+cuda10.1
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO Setting affinity for GPU 0 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37165:37303 [0] NCCL INFO comm 0x7f4550001060 rank 0 nranks 1 cudaDev 0 busId 34000 - Init COMPLETE
+ > loading indexed mapping from /philly/rr3/msrhyperprojvc2_scratch/saemal/amir/data/wikidata/raid/Megatron-LM/my-bert_text_sentence_train_indexmap_6400mns_512msl_0.10ssp_1234s.npy
+    loaded indexed file in 0.009 seconds
+    total number of samples: 8716847
+ > loading indexed mapping from /philly/rr3/msrhyperprojvc2_scratch/saemal/amir/data/wikidata/raid/Megatron-LM/my-bert_text_sentence_valid_indexmap_6400mns_512msl_0.10ssp_1234s.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 358908
+ > loading indexed mapping from /philly/rr3/msrhyperprojvc2_scratch/saemal/amir/data/wikidata/raid/Megatron-LM/my-bert_text_sentence_test_indexmap_6400mns_512msl_0.10ssp_1234s.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 6871
+> finished creating BERT datasets ...
+container-e33-1594414986030-11519-04-000050:37180:37180 [15] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37173:37173 [8] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37172:37172 [7] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37170:37170 [5] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37174:37174 [9] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37175:37175 [10] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37178:37178 [13] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37168:37168 [3] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37169:37169 [4] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37171:37171 [6] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37179:37179 [14] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37167:37167 [2] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37177:37177 [12] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37166:37166 [1] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37176:37176 [11] NCCL INFO Bootstrap : Using [0]enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37172:37172 [7] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37173:37173 [8] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37170:37170 [5] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37180:37180 [15] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37174:37174 [9] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37175:37175 [10] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37178:37178 [13] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37169:37169 [4] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37168:37168 [3] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37167:37167 [2] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37166:37166 [1] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37171:37171 [6] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37177:37177 [12] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37179:37179 [14] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37176:37176 [11] NCCL INFO NET/Plugin : No plugin found (libnccl-net.so), using internal implementation
+container-e33-1594414986030-11519-04-000050:37172:37172 [7] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37172:37172 [7] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37169:37169 [4] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37169:37169 [4] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37166:37166 [1] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37166:37166 [1] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37179:37179 [14] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37179:37179 [14] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37180:37180 [15] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37180:37180 [15] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37167:37167 [2] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37167:37167 [2] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37170:37170 [5] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37170:37170 [5] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37175:37175 [10] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37175:37175 [10] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37173:37173 [8] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37173:37173 [8] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37171:37171 [6] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37171:37171 [6] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37168:37168 [3] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37168:37168 [3] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37176:37176 [11] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37176:37176 [11] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37174:37174 [9] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37174:37174 [9] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37178:37178 [13] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37178:37178 [13] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37177:37177 [12] NCCL INFO NET/IB : Using [0]mlx5_6:1/IB [1]mlx5_8:1/IB [2]mlx5_1:1/IB [3]mlx5_3:1/IB [4]mlx5_7:1/IB [5]mlx5_9:1/IB [6]mlx5_0:1/IB [7]mlx5_2:1/IB ; OOB enp134s0f1:10.184.185.59<0>
+container-e33-1594414986030-11519-04-000050:37177:37177 [12] NCCL INFO Using network IB
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Trees [0] 3/-1/-1->2->1|1->2->3/-1/-1 [1] 3/-1/-1->2->1|1->2->3/-1/-1 [2] 3/-1/-1->2->1|1->2->3/-1/-1 [3] 3/-1/-1->2->1|1->2->3/-1/-1 [4] 3/-1/-1->2->1|1->2->3/-1/-1 [5] 3/-1/-1->2->1|1->2->3/-1/-1 [6] 3/-1/-1->2->1|1->2->3/-1/-1 [7] 3/-1/-1->2->1|1->2->3/-1/-1 [8] 3/-1/-1->2->1|1->2->3/-1/-1 [9] 3/-1/-1->2->1|1->2->3/-1/-1 [10] 3/-1/-1->2->1|1->2->3/-1/-1 [11] 3/-1/-1->2->1|1->2->3/-1/-1
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Setting affinity for GPU 2 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Trees [0] 4/-1/-1->3->2|2->3->4/-1/-1 [1] 4/-1/-1->3->2|2->3->4/-1/-1 [2] 4/-1/-1->3->2|2->3->4/-1/-1 [3] 4/-1/-1->3->2|2->3->4/-1/-1 [4] 4/-1/-1->3->2|2->3->4/-1/-1 [5] 4/-1/-1->3->2|2->3->4/-1/-1 [6] 4/-1/-1->3->2|2->3->4/-1/-1 [7] 4/-1/-1->3->2|2->3->4/-1/-1 [8] 4/-1/-1->3->2|2->3->4/-1/-1 [9] 4/-1/-1->3->2|2->3->4/-1/-1 [10] 4/-1/-1->3->2|2->3->4/-1/-1 [11] 4/-1/-1->3->2|2->3->4/-1/-1
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Setting affinity for GPU 3 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Trees [0] 5/-1/-1->4->3|3->4->5/-1/-1 [1] 5/-1/-1->4->3|3->4->5/-1/-1 [2] 5/-1/-1->4->3|3->4->5/-1/-1 [3] 5/-1/-1->4->3|3->4->5/-1/-1 [4] 5/-1/-1->4->3|3->4->5/-1/-1 [5] 5/-1/-1->4->3|3->4->5/-1/-1 [6] 5/-1/-1->4->3|3->4->5/-1/-1 [7] 5/-1/-1->4->3|3->4->5/-1/-1 [8] 5/-1/-1->4->3|3->4->5/-1/-1 [9] 5/-1/-1->4->3|3->4->5/-1/-1 [10] 5/-1/-1->4->3|3->4->5/-1/-1 [11] 5/-1/-1->4->3|3->4->5/-1/-1
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Setting affinity for GPU 4 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Trees [0] 6/-1/-1->5->4|4->5->6/-1/-1 [1] 6/-1/-1->5->4|4->5->6/-1/-1 [2] 6/-1/-1->5->4|4->5->6/-1/-1 [3] 6/-1/-1->5->4|4->5->6/-1/-1 [4] 6/-1/-1->5->4|4->5->6/-1/-1 [5] 6/-1/-1->5->4|4->5->6/-1/-1 [6] 6/-1/-1->5->4|4->5->6/-1/-1 [7] 6/-1/-1->5->4|4->5->6/-1/-1 [8] 6/-1/-1->5->4|4->5->6/-1/-1 [9] 6/-1/-1->5->4|4->5->6/-1/-1 [10] 6/-1/-1->5->4|4->5->6/-1/-1 [11] 6/-1/-1->5->4|4->5->6/-1/-1
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Setting affinity for GPU 5 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Trees [0] 7/-1/-1->6->5|5->6->7/-1/-1 [1] 7/-1/-1->6->5|5->6->7/-1/-1 [2] 7/-1/-1->6->5|5->6->7/-1/-1 [3] 7/-1/-1->6->5|5->6->7/-1/-1 [4] 7/-1/-1->6->5|5->6->7/-1/-1 [5] 7/-1/-1->6->5|5->6->7/-1/-1 [6] 7/-1/-1->6->5|5->6->7/-1/-1 [7] 7/-1/-1->6->5|5->6->7/-1/-1 [8] 7/-1/-1->6->5|5->6->7/-1/-1 [9] 7/-1/-1->6->5|5->6->7/-1/-1 [10] 7/-1/-1->6->5|5->6->7/-1/-1 [11] 7/-1/-1->6->5|5->6->7/-1/-1
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Setting affinity for GPU 6 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Trees [0] 8/-1/-1->7->6|6->7->8/-1/-1 [1] 8/-1/-1->7->6|6->7->8/-1/-1 [2] 8/-1/-1->7->6|6->7->8/-1/-1 [3] 8/-1/-1->7->6|6->7->8/-1/-1 [4] 8/-1/-1->7->6|6->7->8/-1/-1 [5] 8/-1/-1->7->6|6->7->8/-1/-1 [6] 8/-1/-1->7->6|6->7->8/-1/-1 [7] 8/-1/-1->7->6|6->7->8/-1/-1 [8] 8/-1/-1->7->6|6->7->8/-1/-1 [9] 8/-1/-1->7->6|6->7->8/-1/-1 [10] 8/-1/-1->7->6|6->7->8/-1/-1 [11] 8/-1/-1->7->6|6->7->8/-1/-1
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Setting affinity for GPU 7 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Trees [0] 9/-1/-1->8->7|7->8->9/-1/-1 [1] 9/-1/-1->8->7|7->8->9/-1/-1 [2] 9/-1/-1->8->7|7->8->9/-1/-1 [3] 9/-1/-1->8->7|7->8->9/-1/-1 [4] 9/-1/-1->8->7|7->8->9/-1/-1 [5] 9/-1/-1->8->7|7->8->9/-1/-1 [6] 9/-1/-1->8->7|7->8->9/-1/-1 [7] 9/-1/-1->8->7|7->8->9/-1/-1 [8] 9/-1/-1->8->7|7->8->9/-1/-1 [9] 9/-1/-1->8->7|7->8->9/-1/-1 [10] 9/-1/-1->8->7|7->8->9/-1/-1 [11] 9/-1/-1->8->7|7->8->9/-1/-1
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Setting affinity for GPU 8 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Trees [0] 10/-1/-1->9->8|8->9->10/-1/-1 [1] 10/-1/-1->9->8|8->9->10/-1/-1 [2] 10/-1/-1->9->8|8->9->10/-1/-1 [3] 10/-1/-1->9->8|8->9->10/-1/-1 [4] 10/-1/-1->9->8|8->9->10/-1/-1 [5] 10/-1/-1->9->8|8->9->10/-1/-1 [6] 10/-1/-1->9->8|8->9->10/-1/-1 [7] 10/-1/-1->9->8|8->9->10/-1/-1 [8] 10/-1/-1->9->8|8->9->10/-1/-1 [9] 10/-1/-1->9->8|8->9->10/-1/-1 [10] 10/-1/-1->9->8|8->9->10/-1/-1 [11] 10/-1/-1->9->8|8->9->10/-1/-1
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Setting affinity for GPU 9 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Trees [0] 11/-1/-1->10->9|9->10->11/-1/-1 [1] 11/-1/-1->10->9|9->10->11/-1/-1 [2] 11/-1/-1->10->9|9->10->11/-1/-1 [3] 11/-1/-1->10->9|9->10->11/-1/-1 [4] 11/-1/-1->10->9|9->10->11/-1/-1 [5] 11/-1/-1->10->9|9->10->11/-1/-1 [6] 11/-1/-1->10->9|9->10->11/-1/-1 [7] 11/-1/-1->10->9|9->10->11/-1/-1 [8] 11/-1/-1->10->9|9->10->11/-1/-1 [9] 11/-1/-1->10->9|9->10->11/-1/-1 [10] 11/-1/-1->10->9|9->10->11/-1/-1 [11] 11/-1/-1->10->9|9->10->11/-1/-1
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Setting affinity for GPU 10 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Trees [0] 12/-1/-1->11->10|10->11->12/-1/-1 [1] 12/-1/-1->11->10|10->11->12/-1/-1 [2] 12/-1/-1->11->10|10->11->12/-1/-1 [3] 12/-1/-1->11->10|10->11->12/-1/-1 [4] 12/-1/-1->11->10|10->11->12/-1/-1 [5] 12/-1/-1->11->10|10->11->12/-1/-1 [6] 12/-1/-1->11->10|10->11->12/-1/-1 [7] 12/-1/-1->11->10|10->11->12/-1/-1 [8] 12/-1/-1->11->10|10->11->12/-1/-1 [9] 12/-1/-1->11->10|10->11->12/-1/-1 [10] 12/-1/-1->11->10|10->11->12/-1/-1 [11] 12/-1/-1->11->10|10->11->12/-1/-1
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Setting affinity for GPU 11 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Trees [0] 14/-1/-1->13->12|12->13->14/-1/-1 [1] 14/-1/-1->13->12|12->13->14/-1/-1 [2] 14/-1/-1->13->12|12->13->14/-1/-1 [3] 14/-1/-1->13->12|12->13->14/-1/-1 [4] 14/-1/-1->13->12|12->13->14/-1/-1 [5] 14/-1/-1->13->12|12->13->14/-1/-1 [6] 14/-1/-1->13->12|12->13->14/-1/-1 [7] 14/-1/-1->13->12|12->13->14/-1/-1 [8] 14/-1/-1->13->12|12->13->14/-1/-1 [9] 14/-1/-1->13->12|12->13->14/-1/-1 [10] 14/-1/-1->13->12|12->13->14/-1/-1 [11] 14/-1/-1->13->12|12->13->14/-1/-1
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Trees [0] 15/-1/-1->14->13|13->14->15/-1/-1 [1] 15/-1/-1->14->13|13->14->15/-1/-1 [2] 15/-1/-1->14->13|13->14->15/-1/-1 [3] 15/-1/-1->14->13|13->14->15/-1/-1 [4] 15/-1/-1->14->13|13->14->15/-1/-1 [5] 15/-1/-1->14->13|13->14->15/-1/-1 [6] 15/-1/-1->14->13|13->14->15/-1/-1 [7] 15/-1/-1->14->13|13->14->15/-1/-1 [8] 15/-1/-1->14->13|13->14->15/-1/-1 [9] 15/-1/-1->14->13|13->14->15/-1/-1 [10] 15/-1/-1->14->13|13->14->15/-1/-1 [11] 15/-1/-1->14->13|13->14->15/-1/-1
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Trees [0] 13/-1/-1->12->11|11->12->13/-1/-1 [1] 13/-1/-1->12->11|11->12->13/-1/-1 [2] 13/-1/-1->12->11|11->12->13/-1/-1 [3] 13/-1/-1->12->11|11->12->13/-1/-1 [4] 13/-1/-1->12->11|11->12->13/-1/-1 [5] 13/-1/-1->12->11|11->12->13/-1/-1 [6] 13/-1/-1->12->11|11->12->13/-1/-1 [7] 13/-1/-1->12->11|11->12->13/-1/-1 [8] 13/-1/-1->12->11|11->12->13/-1/-1 [9] 13/-1/-1->12->11|11->12->13/-1/-1 [10] 13/-1/-1->12->11|11->12->13/-1/-1 [11] 13/-1/-1->12->11|11->12->13/-1/-1
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Setting affinity for GPU 13 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Setting affinity for GPU 14 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Setting affinity for GPU 12 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 00/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 01/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 02/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Trees [0] -1/-1/-1->15->14|14->15->-1/-1/-1 [1] -1/-1/-1->15->14|14->15->-1/-1/-1 [2] -1/-1/-1->15->14|14->15->-1/-1/-1 [3] -1/-1/-1->15->14|14->15->-1/-1/-1 [4] -1/-1/-1->15->14|14->15->-1/-1/-1 [5] -1/-1/-1->15->14|14->15->-1/-1/-1 [6] -1/-1/-1->15->14|14->15->-1/-1/-1 [7] -1/-1/-1->15->14|14->15->-1/-1/-1 [8] -1/-1/-1->15->14|14->15->-1/-1/-1 [9] -1/-1/-1->15->14|14->15->-1/-1/-1 [10] -1/-1/-1->15->14|14->15->-1/-1/-1 [11] -1/-1/-1->15->14|14->15->-1/-1/-1
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 03/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 04/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Setting affinity for GPU 15 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Trees [0] 2/-1/-1->1->0|0->1->2/-1/-1 [1] 2/-1/-1->1->0|0->1->2/-1/-1 [2] 2/-1/-1->1->0|0->1->2/-1/-1 [3] 2/-1/-1->1->0|0->1->2/-1/-1 [4] 2/-1/-1->1->0|0->1->2/-1/-1 [5] 2/-1/-1->1->0|0->1->2/-1/-1 [6] 2/-1/-1->1->0|0->1->2/-1/-1 [7] 2/-1/-1->1->0|0->1->2/-1/-1 [8] 2/-1/-1->1->0|0->1->2/-1/-1 [9] 2/-1/-1->1->0|0->1->2/-1/-1 [10] 2/-1/-1->1->0|0->1->2/-1/-1 [11] 2/-1/-1->1->0|0->1->2/-1/-1
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 05/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 06/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Setting affinity for GPU 1 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 07/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 08/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 09/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 10/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Channel 11/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Trees [0] 1/-1/-1->0->-1|-1->0->1/-1/-1 [1] 1/-1/-1->0->-1|-1->0->1/-1/-1 [2] 1/-1/-1->0->-1|-1->0->1/-1/-1 [3] 1/-1/-1->0->-1|-1->0->1/-1/-1 [4] 1/-1/-1->0->-1|-1->0->1/-1/-1 [5] 1/-1/-1->0->-1|-1->0->1/-1/-1 [6] 1/-1/-1->0->-1|-1->0->1/-1/-1 [7] 1/-1/-1->0->-1|-1->0->1/-1/-1 [8] 1/-1/-1->0->-1|-1->0->1/-1/-1 [9] 1/-1/-1->0->-1|-1->0->1/-1/-1 [10] 1/-1/-1->0->-1|-1->0->1/-1/-1 [11] 1/-1/-1->0->-1|-1->0->1/-1/-1
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Setting affinity for GPU 0 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 00 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 00 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 00 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 00 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 00 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 00 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 00 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 00 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 00 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 00 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 00 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 00 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 00 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 00 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 00 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 00 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 00 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 00 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 00 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 00 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 00 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 00 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 00 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 00 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 00 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 00 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 00 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 00 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 00 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 00 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 00 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 01 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 01 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 01 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 01 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 01 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 01 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 01 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 01 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 01 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 01 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 01 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 01 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 01 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 01 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 01 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 01 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 01 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 01 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 01 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 01 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 01 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 01 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 01 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 01 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 01 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 01 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 01 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 01 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 01 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 01 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 01 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 02 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 02 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 02 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 02 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 02 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 02 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 02 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 02 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 02 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 02 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 02 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 02 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 02 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 02 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 02 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 02 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 02 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 02 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 02 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 02 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 02 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 02 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 02 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 02 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 02 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 02 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 02 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 02 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 02 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 02 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 02 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 03 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 03 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 03 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 03 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 03 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 03 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 03 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 03 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 03 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 03 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 03 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 03 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 03 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 03 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 03 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 03 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 03 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 03 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 03 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 03 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 03 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 03 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 03 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 03 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 03 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 03 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 03 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 03 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 03 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 03 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 03 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 04 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 04 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 04 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 04 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 04 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 04 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 04 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 04 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 04 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 04 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 04 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 04 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 04 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 04 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 04 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 04 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 04 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 04 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 04 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 04 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 04 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 04 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 04 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 04 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 04 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 04 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 04 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 04 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 04 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 04 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 04 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 05 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 05 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 05 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 05 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 05 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 05 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 05 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 05 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 05 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 05 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 05 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 05 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 05 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 05 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 05 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 05 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 05 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 05 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 05 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 05 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 05 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 05 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 05 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 05 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 05 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 05 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 05 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 05 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 05 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 05 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 05 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 06 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 06 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 06 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 06 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 06 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 06 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 06 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 06 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 06 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 06 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 06 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 06 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 06 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 06 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 06 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 06 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 06 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 06 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 06 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 06 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 06 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 06 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 06 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 06 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 06 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 06 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 06 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 06 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 06 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 06 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 06 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 07 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 07 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 07 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 07 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 07 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 07 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 07 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 07 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 07 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 07 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 07 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 07 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 07 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 07 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 07 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 07 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 07 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 07 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 07 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 07 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 07 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 07 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 07 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 07 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 07 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 07 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 07 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 07 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 07 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 07 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 07 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 08 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 08 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 08 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 08 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 08 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 08 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 08 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 08 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 08 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 08 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 08 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 08 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 08 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 08 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 08 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 08 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 08 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 08 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 08 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 08 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 08 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 08 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 08 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 08 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 08 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 08 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 08 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 08 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 08 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 08 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 08 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 09 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 09 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 09 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 09 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 09 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 09 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 09 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 09 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 09 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 09 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 09 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 09 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 09 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 09 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 09 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 09 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 09 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 09 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 09 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 09 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 09 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 09 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 09 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 09 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 09 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 09 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 09 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 09 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 09 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 09 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 09 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 10 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 10 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 10 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 10 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 10 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 10 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 10 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 10 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 10 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 10 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 10 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 10 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 10 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 10 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 10 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 10 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 10 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 10 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 10 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 10 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 10 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 10 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 10 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 10 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 10 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 10 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 10 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 10 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 10 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 10 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 10 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 11 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO Ring 11 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 11 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 11 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 11 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 11 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 11 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 11 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 11 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 11 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 11 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 11 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 11 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 11 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 11 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 11 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO Ring 11 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO Ring 11 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO Ring 11 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO Ring 11 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO Ring 11 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO Ring 11 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO Ring 11 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO Ring 11 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37431 [15] NCCL INFO comm 0x7f568c001060 rank 15 nranks 16 cudaDev 15 busId e7000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO Ring 11 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO Ring 11 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO Ring 11 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO Ring 11 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO Ring 11 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO Ring 11 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO Ring 11 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37306 [0] NCCL INFO comm 0x7f45600010b0 rank 0 nranks 16 cudaDev 0 busId 34000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37165:37165 [0] NCCL INFO Launch mode Parallel
+container-e33-1594414986030-11519-04-000050:37174:37439 [9] NCCL INFO comm 0x7f146c001060 rank 9 nranks 16 cudaDev 9 busId b9000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37176:37438 [11] NCCL INFO comm 0x7f2d2c001060 rank 11 nranks 16 cudaDev 11 busId be000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37172:37427 [7] NCCL INFO comm 0x7f627c001060 rank 7 nranks 16 cudaDev 7 busId 5e000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37171:37436 [6] NCCL INFO comm 0x7f7244001060 rank 6 nranks 16 cudaDev 6 busId 5c000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37175:37434 [10] NCCL INFO comm 0x7f3348001060 rank 10 nranks 16 cudaDev 10 busId bc000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37170:37433 [5] NCCL INFO comm 0x7fa364001060 rank 5 nranks 16 cudaDev 5 busId 59000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37169:37428 [4] NCCL INFO comm 0x7f799c001060 rank 4 nranks 16 cudaDev 4 busId 57000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37168:37437 [3] NCCL INFO comm 0x7fecac001060 rank 3 nranks 16 cudaDev 3 busId 3b000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37167:37432 [2] NCCL INFO comm 0x7f6d8c001060 rank 2 nranks 16 cudaDev 2 busId 39000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37178:37440 [13] NCCL INFO comm 0x7f5518001060 rank 13 nranks 16 cudaDev 13 busId e2000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37177:37441 [12] NCCL INFO comm 0x7f7570001060 rank 12 nranks 16 cudaDev 12 busId e0000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37166:37429 [1] NCCL INFO comm 0x7fa818001060 rank 1 nranks 16 cudaDev 1 busId 36000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37173:37435 [8] NCCL INFO comm 0x7f6d84001060 rank 8 nranks 16 cudaDev 8 busId b7000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37179:37430 [14] NCCL INFO comm 0x7f3ca4001060 rank 14 nranks 16 cudaDev 14 busId e5000 - Init COMPLETE
+done with setups ...
+time (ms) | model and optimizer: 3613.34 | train/valid/test data iterators: 9601.63
+training ...
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Trees [0] 4/-1/-1->3->2|2->3->4/-1/-1 [1] 4/-1/-1->3->2|2->3->4/-1/-1 [2] 4/-1/-1->3->2|2->3->4/-1/-1 [3] 4/-1/-1->3->2|2->3->4/-1/-1 [4] 4/-1/-1->3->2|2->3->4/-1/-1 [5] 4/-1/-1->3->2|2->3->4/-1/-1 [6] 4/-1/-1->3->2|2->3->4/-1/-1 [7] 4/-1/-1->3->2|2->3->4/-1/-1 [8] 4/-1/-1->3->2|2->3->4/-1/-1 [9] 4/-1/-1->3->2|2->3->4/-1/-1 [10] 4/-1/-1->3->2|2->3->4/-1/-1 [11] 4/-1/-1->3->2|2->3->4/-1/-1
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Setting affinity for GPU 3 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Trees [0] 5/-1/-1->4->3|3->4->5/-1/-1 [1] 5/-1/-1->4->3|3->4->5/-1/-1 [2] 5/-1/-1->4->3|3->4->5/-1/-1 [3] 5/-1/-1->4->3|3->4->5/-1/-1 [4] 5/-1/-1->4->3|3->4->5/-1/-1 [5] 5/-1/-1->4->3|3->4->5/-1/-1 [6] 5/-1/-1->4->3|3->4->5/-1/-1 [7] 5/-1/-1->4->3|3->4->5/-1/-1 [8] 5/-1/-1->4->3|3->4->5/-1/-1 [9] 5/-1/-1->4->3|3->4->5/-1/-1 [10] 5/-1/-1->4->3|3->4->5/-1/-1 [11] 5/-1/-1->4->3|3->4->5/-1/-1
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Trees [0] 7/-1/-1->6->5|5->6->7/-1/-1 [1] 7/-1/-1->6->5|5->6->7/-1/-1 [2] 7/-1/-1->6->5|5->6->7/-1/-1 [3] 7/-1/-1->6->5|5->6->7/-1/-1 [4] 7/-1/-1->6->5|5->6->7/-1/-1 [5] 7/-1/-1->6->5|5->6->7/-1/-1 [6] 7/-1/-1->6->5|5->6->7/-1/-1 [7] 7/-1/-1->6->5|5->6->7/-1/-1 [8] 7/-1/-1->6->5|5->6->7/-1/-1 [9] 7/-1/-1->6->5|5->6->7/-1/-1 [10] 7/-1/-1->6->5|5->6->7/-1/-1 [11] 7/-1/-1->6->5|5->6->7/-1/-1
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Setting affinity for GPU 4 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Setting affinity for GPU 6 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Trees [0] 6/-1/-1->5->4|4->5->6/-1/-1 [1] 6/-1/-1->5->4|4->5->6/-1/-1 [2] 6/-1/-1->5->4|4->5->6/-1/-1 [3] 6/-1/-1->5->4|4->5->6/-1/-1 [4] 6/-1/-1->5->4|4->5->6/-1/-1 [5] 6/-1/-1->5->4|4->5->6/-1/-1 [6] 6/-1/-1->5->4|4->5->6/-1/-1 [7] 6/-1/-1->5->4|4->5->6/-1/-1 [8] 6/-1/-1->5->4|4->5->6/-1/-1 [9] 6/-1/-1->5->4|4->5->6/-1/-1 [10] 6/-1/-1->5->4|4->5->6/-1/-1 [11] 6/-1/-1->5->4|4->5->6/-1/-1
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Setting affinity for GPU 5 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Trees [0] 8/-1/-1->7->6|6->7->8/-1/-1 [1] 8/-1/-1->7->6|6->7->8/-1/-1 [2] 8/-1/-1->7->6|6->7->8/-1/-1 [3] 8/-1/-1->7->6|6->7->8/-1/-1 [4] 8/-1/-1->7->6|6->7->8/-1/-1 [5] 8/-1/-1->7->6|6->7->8/-1/-1 [6] 8/-1/-1->7->6|6->7->8/-1/-1 [7] 8/-1/-1->7->6|6->7->8/-1/-1 [8] 8/-1/-1->7->6|6->7->8/-1/-1 [9] 8/-1/-1->7->6|6->7->8/-1/-1 [10] 8/-1/-1->7->6|6->7->8/-1/-1 [11] 8/-1/-1->7->6|6->7->8/-1/-1
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Setting affinity for GPU 7 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Trees [0] 9/-1/-1->8->7|7->8->9/-1/-1 [1] 9/-1/-1->8->7|7->8->9/-1/-1 [2] 9/-1/-1->8->7|7->8->9/-1/-1 [3] 9/-1/-1->8->7|7->8->9/-1/-1 [4] 9/-1/-1->8->7|7->8->9/-1/-1 [5] 9/-1/-1->8->7|7->8->9/-1/-1 [6] 9/-1/-1->8->7|7->8->9/-1/-1 [7] 9/-1/-1->8->7|7->8->9/-1/-1 [8] 9/-1/-1->8->7|7->8->9/-1/-1 [9] 9/-1/-1->8->7|7->8->9/-1/-1 [10] 9/-1/-1->8->7|7->8->9/-1/-1 [11] 9/-1/-1->8->7|7->8->9/-1/-1
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Setting affinity for GPU 8 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Trees [0] 10/-1/-1->9->8|8->9->10/-1/-1 [1] 10/-1/-1->9->8|8->9->10/-1/-1 [2] 10/-1/-1->9->8|8->9->10/-1/-1 [3] 10/-1/-1->9->8|8->9->10/-1/-1 [4] 10/-1/-1->9->8|8->9->10/-1/-1 [5] 10/-1/-1->9->8|8->9->10/-1/-1 [6] 10/-1/-1->9->8|8->9->10/-1/-1 [7] 10/-1/-1->9->8|8->9->10/-1/-1 [8] 10/-1/-1->9->8|8->9->10/-1/-1 [9] 10/-1/-1->9->8|8->9->10/-1/-1 [10] 10/-1/-1->9->8|8->9->10/-1/-1 [11] 10/-1/-1->9->8|8->9->10/-1/-1
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Setting affinity for GPU 9 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Trees [0] 12/-1/-1->11->10|10->11->12/-1/-1 [1] 12/-1/-1->11->10|10->11->12/-1/-1 [2] 12/-1/-1->11->10|10->11->12/-1/-1 [3] 12/-1/-1->11->10|10->11->12/-1/-1 [4] 12/-1/-1->11->10|10->11->12/-1/-1 [5] 12/-1/-1->11->10|10->11->12/-1/-1 [6] 12/-1/-1->11->10|10->11->12/-1/-1 [7] 12/-1/-1->11->10|10->11->12/-1/-1 [8] 12/-1/-1->11->10|10->11->12/-1/-1 [9] 12/-1/-1->11->10|10->11->12/-1/-1 [10] 12/-1/-1->11->10|10->11->12/-1/-1 [11] 12/-1/-1->11->10|10->11->12/-1/-1
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Trees [0] 11/-1/-1->10->9|9->10->11/-1/-1 [1] 11/-1/-1->10->9|9->10->11/-1/-1 [2] 11/-1/-1->10->9|9->10->11/-1/-1 [3] 11/-1/-1->10->9|9->10->11/-1/-1 [4] 11/-1/-1->10->9|9->10->11/-1/-1 [5] 11/-1/-1->10->9|9->10->11/-1/-1 [6] 11/-1/-1->10->9|9->10->11/-1/-1 [7] 11/-1/-1->10->9|9->10->11/-1/-1 [8] 11/-1/-1->10->9|9->10->11/-1/-1 [9] 11/-1/-1->10->9|9->10->11/-1/-1 [10] 11/-1/-1->10->9|9->10->11/-1/-1 [11] 11/-1/-1->10->9|9->10->11/-1/-1
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Setting affinity for GPU 11 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Setting affinity for GPU 10 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Trees [0] 13/-1/-1->12->11|11->12->13/-1/-1 [1] 13/-1/-1->12->11|11->12->13/-1/-1 [2] 13/-1/-1->12->11|11->12->13/-1/-1 [3] 13/-1/-1->12->11|11->12->13/-1/-1 [4] 13/-1/-1->12->11|11->12->13/-1/-1 [5] 13/-1/-1->12->11|11->12->13/-1/-1 [6] 13/-1/-1->12->11|11->12->13/-1/-1 [7] 13/-1/-1->12->11|11->12->13/-1/-1 [8] 13/-1/-1->12->11|11->12->13/-1/-1 [9] 13/-1/-1->12->11|11->12->13/-1/-1 [10] 13/-1/-1->12->11|11->12->13/-1/-1 [11] 13/-1/-1->12->11|11->12->13/-1/-1
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Setting affinity for GPU 12 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 00/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Trees [0] 14/-1/-1->13->12|12->13->14/-1/-1 [1] 14/-1/-1->13->12|12->13->14/-1/-1 [2] 14/-1/-1->13->12|12->13->14/-1/-1 [3] 14/-1/-1->13->12|12->13->14/-1/-1 [4] 14/-1/-1->13->12|12->13->14/-1/-1 [5] 14/-1/-1->13->12|12->13->14/-1/-1 [6] 14/-1/-1->13->12|12->13->14/-1/-1 [7] 14/-1/-1->13->12|12->13->14/-1/-1 [8] 14/-1/-1->13->12|12->13->14/-1/-1 [9] 14/-1/-1->13->12|12->13->14/-1/-1 [10] 14/-1/-1->13->12|12->13->14/-1/-1 [11] 14/-1/-1->13->12|12->13->14/-1/-1
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Trees [0] -1/-1/-1->15->14|14->15->-1/-1/-1 [1] -1/-1/-1->15->14|14->15->-1/-1/-1 [2] -1/-1/-1->15->14|14->15->-1/-1/-1 [3] -1/-1/-1->15->14|14->15->-1/-1/-1 [4] -1/-1/-1->15->14|14->15->-1/-1/-1 [5] -1/-1/-1->15->14|14->15->-1/-1/-1 [6] -1/-1/-1->15->14|14->15->-1/-1/-1 [7] -1/-1/-1->15->14|14->15->-1/-1/-1 [8] -1/-1/-1->15->14|14->15->-1/-1/-1 [9] -1/-1/-1->15->14|14->15->-1/-1/-1 [10] -1/-1/-1->15->14|14->15->-1/-1/-1 [11] -1/-1/-1->15->14|14->15->-1/-1/-1
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 01/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Setting affinity for GPU 13 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 02/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Setting affinity for GPU 15 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Trees [0] 15/-1/-1->14->13|13->14->15/-1/-1 [1] 15/-1/-1->14->13|13->14->15/-1/-1 [2] 15/-1/-1->14->13|13->14->15/-1/-1 [3] 15/-1/-1->14->13|13->14->15/-1/-1 [4] 15/-1/-1->14->13|13->14->15/-1/-1 [5] 15/-1/-1->14->13|13->14->15/-1/-1 [6] 15/-1/-1->14->13|13->14->15/-1/-1 [7] 15/-1/-1->14->13|13->14->15/-1/-1 [8] 15/-1/-1->14->13|13->14->15/-1/-1 [9] 15/-1/-1->14->13|13->14->15/-1/-1 [10] 15/-1/-1->14->13|13->14->15/-1/-1 [11] 15/-1/-1->14->13|13->14->15/-1/-1
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 03/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 04/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Trees [0] 3/-1/-1->2->1|1->2->3/-1/-1 [1] 3/-1/-1->2->1|1->2->3/-1/-1 [2] 3/-1/-1->2->1|1->2->3/-1/-1 [3] 3/-1/-1->2->1|1->2->3/-1/-1 [4] 3/-1/-1->2->1|1->2->3/-1/-1 [5] 3/-1/-1->2->1|1->2->3/-1/-1 [6] 3/-1/-1->2->1|1->2->3/-1/-1 [7] 3/-1/-1->2->1|1->2->3/-1/-1 [8] 3/-1/-1->2->1|1->2->3/-1/-1 [9] 3/-1/-1->2->1|1->2->3/-1/-1 [10] 3/-1/-1->2->1|1->2->3/-1/-1 [11] 3/-1/-1->2->1|1->2->3/-1/-1
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 05/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Trees [0] 2/-1/-1->1->0|0->1->2/-1/-1 [1] 2/-1/-1->1->0|0->1->2/-1/-1 [2] 2/-1/-1->1->0|0->1->2/-1/-1 [3] 2/-1/-1->1->0|0->1->2/-1/-1 [4] 2/-1/-1->1->0|0->1->2/-1/-1 [5] 2/-1/-1->1->0|0->1->2/-1/-1 [6] 2/-1/-1->1->0|0->1->2/-1/-1 [7] 2/-1/-1->1->0|0->1->2/-1/-1 [8] 2/-1/-1->1->0|0->1->2/-1/-1 [9] 2/-1/-1->1->0|0->1->2/-1/-1 [10] 2/-1/-1->1->0|0->1->2/-1/-1 [11] 2/-1/-1->1->0|0->1->2/-1/-1
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Setting affinity for GPU 14 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 06/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Setting affinity for GPU 2 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 07/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Setting affinity for GPU 1 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 08/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 09/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 10/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Channel 11/12 :    0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO threadThresholds 8/8/64 | 128/8/64 | 8/8/64
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Trees [0] 1/-1/-1->0->-1|-1->0->1/-1/-1 [1] 1/-1/-1->0->-1|-1->0->1/-1/-1 [2] 1/-1/-1->0->-1|-1->0->1/-1/-1 [3] 1/-1/-1->0->-1|-1->0->1/-1/-1 [4] 1/-1/-1->0->-1|-1->0->1/-1/-1 [5] 1/-1/-1->0->-1|-1->0->1/-1/-1 [6] 1/-1/-1->0->-1|-1->0->1/-1/-1 [7] 1/-1/-1->0->-1|-1->0->1/-1/-1 [8] 1/-1/-1->0->-1|-1->0->1/-1/-1 [9] 1/-1/-1->0->-1|-1->0->1/-1/-1 [10] 1/-1/-1->0->-1|-1->0->1/-1/-1 [11] 1/-1/-1->0->-1|-1->0->1/-1/-1
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Setting affinity for GPU 0 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 00 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 00 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 00 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 00 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 00 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 00 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 00 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 00 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 00 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 00 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 00 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 00 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 00 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 00 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 00 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 00 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 00 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 00 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 00 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 00 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 00 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 00 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 00 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 00 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 00 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 00 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 00 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 00 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 00 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 00 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 00 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 01 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 01 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 01 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 01 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 01 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 01 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 01 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 01 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 01 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 01 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 01 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 01 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 01 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 01 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 01 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 01 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 01 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 01 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 01 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 01 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 01 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 01 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 01 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 01 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 01 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 01 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 01 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 01 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 01 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 01 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 01 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 02 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 02 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 02 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 02 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 02 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 02 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 02 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 02 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 02 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 02 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 02 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 02 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 02 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 02 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 02 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 02 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 02 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 02 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 02 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 02 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 02 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 02 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 02 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 02 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 02 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 02 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 02 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 02 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 02 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 02 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 02 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 03 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 03 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 03 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 03 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 03 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 03 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 03 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 03 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 03 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 03 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 03 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 03 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 03 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 03 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 03 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 03 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 03 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 03 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 03 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 03 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 03 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 03 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 03 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 03 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 03 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 03 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 03 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 03 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 03 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 03 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 03 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 04 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 04 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 04 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 04 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 04 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 04 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 04 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 04 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 04 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 04 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 04 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 04 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 04 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 04 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 04 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 04 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 04 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 04 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 04 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 04 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 04 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 04 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 04 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 04 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 04 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 04 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 04 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 04 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 04 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 04 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 04 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 05 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 05 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 05 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 05 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 05 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 05 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 05 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 05 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 05 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 05 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 05 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 05 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 05 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 05 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 05 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 05 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 05 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 05 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 05 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 05 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 05 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 05 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 05 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 05 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 05 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 05 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 05 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 05 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 05 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 05 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 05 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 06 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 06 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 06 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 06 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 06 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 06 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 06 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 06 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 06 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 06 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 06 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 06 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 06 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 06 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 06 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 06 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 06 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 06 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 06 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 06 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 06 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 06 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 06 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 06 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 06 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 06 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 06 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 06 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 06 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 06 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 06 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 07 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 07 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 07 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 07 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 07 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 07 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 07 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 07 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 07 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 07 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 07 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 07 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 07 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 07 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 07 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 07 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 07 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 07 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 07 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 07 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 07 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 07 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 07 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 07 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 07 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 07 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 07 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 07 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 07 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 07 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 07 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 08 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 08 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 08 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 08 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 08 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 08 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 08 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 08 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 08 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 08 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 08 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 08 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 08 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 08 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 08 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 08 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 08 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 08 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 08 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 08 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 08 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 08 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 08 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 08 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 08 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 08 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 08 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 08 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 08 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 08 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 08 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 09 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 09 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 09 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 09 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 09 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 09 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 09 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 09 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 09 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 09 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 09 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 09 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 09 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 09 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 09 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 09 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 09 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 09 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 09 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 09 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 09 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 09 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 09 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 09 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 09 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 09 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 09 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 09 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 09 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 09 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 09 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 10 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 10 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 10 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 10 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 10 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 10 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 10 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 10 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 10 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 10 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 10 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 10 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 10 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 10 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 10 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 10 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 10 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 10 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 10 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 10 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 10 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 10 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 10 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 10 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 10 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 10 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 10 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 10 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 10 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 10 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 10 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 11 : 15[e7000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO Ring 11 : 0[34000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 11 : 6[5c000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 11 : 3[3b000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 11 : 4[57000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 11 : 5[59000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 11 : 7[5e000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 11 : 2[39000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 11 : 1[36000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 11 : 8[b7000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 11 : 9[b9000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 11 : 10[bc000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 11 : 11[be000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 11 : 12[e0000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 11 : 13[e2000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 11 : 14[e5000] -> 15[e7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO Ring 11 : 15[e7000] -> 14[e5000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO Ring 11 : 6[5c000] -> 5[59000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO Ring 11 : 3[3b000] -> 2[39000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO Ring 11 : 4[57000] -> 3[3b000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO Ring 11 : 5[59000] -> 4[57000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO Ring 11 : 7[5e000] -> 6[5c000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO Ring 11 : 2[39000] -> 1[36000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37180:37491 [15] NCCL INFO comm 0x7f5640001060 rank 15 nranks 16 cudaDev 15 busId e7000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO Ring 11 : 1[36000] -> 0[34000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO Ring 11 : 8[b7000] -> 7[5e000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO Ring 11 : 9[b9000] -> 8[b7000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO Ring 11 : 10[bc000] -> 9[b9000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO Ring 11 : 11[be000] -> 10[bc000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO Ring 11 : 12[e0000] -> 11[be000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO Ring 11 : 13[e2000] -> 12[e0000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO Ring 11 : 14[e5000] -> 13[e2000] via P2P/IPC
+container-e33-1594414986030-11519-04-000050:37165:37486 [0] NCCL INFO comm 0x7f4440001060 rank 0 nranks 16 cudaDev 0 busId 34000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37165:37165 [0] NCCL INFO Launch mode Parallel
+container-e33-1594414986030-11519-04-000050:37171:37489 [6] NCCL INFO comm 0x7f71e4001060 rank 6 nranks 16 cudaDev 6 busId 5c000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37168:37497 [3] NCCL INFO comm 0x7fec4c001060 rank 3 nranks 16 cudaDev 3 busId 3b000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37169:37494 [4] NCCL INFO comm 0x7f793c001060 rank 4 nranks 16 cudaDev 4 busId 57000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37170:37492 [5] NCCL INFO comm 0x7fa304001060 rank 5 nranks 16 cudaDev 5 busId 59000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37172:37493 [7] NCCL INFO comm 0x7f6218001060 rank 7 nranks 16 cudaDev 7 busId 5e000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37167:37501 [2] NCCL INFO comm 0x7f6d30001060 rank 2 nranks 16 cudaDev 2 busId 39000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37166:37499 [1] NCCL INFO comm 0x7fa7b4001060 rank 1 nranks 16 cudaDev 1 busId 36000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37173:37487 [8] NCCL INFO comm 0x7f6d28001060 rank 8 nranks 16 cudaDev 8 busId b7000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37174:37495 [9] NCCL INFO comm 0x7f1408001060 rank 9 nranks 16 cudaDev 9 busId b9000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37175:37490 [10] NCCL INFO comm 0x7f32e8001060 rank 10 nranks 16 cudaDev 10 busId bc000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37176:37498 [11] NCCL INFO comm 0x7f2ccc001060 rank 11 nranks 16 cudaDev 11 busId be000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37177:37500 [12] NCCL INFO comm 0x7f7514001060 rank 12 nranks 16 cudaDev 12 busId e0000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37178:37488 [13] NCCL INFO comm 0x7f54b4001060 rank 13 nranks 16 cudaDev 13 busId e2000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37179:37496 [14] NCCL INFO comm 0x7f3c44001060 rank 14 nranks 16 cudaDev 14 busId e5000 - Init COMPLETE
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+NCCL version 2.6.4+cuda10.1
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO Setting affinity for GPU 2 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO Setting affinity for GPU 4 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO Setting affinity for GPU 5 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO Setting affinity for GPU 6 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO Setting affinity for GPU 1 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37167:37775 [2] NCCL INFO comm 0x7f6a20001060 rank 0 nranks 1 cudaDev 2 busId 39000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO Setting affinity for GPU 8 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37169:37777 [4] NCCL INFO comm 0x7f7618001060 rank 0 nranks 1 cudaDev 4 busId 57000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO Setting affinity for GPU 9 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37170:37779 [5] NCCL INFO comm 0x7f9fe8001060 rank 0 nranks 1 cudaDev 5 busId 59000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37171:37783 [6] NCCL INFO comm 0x7f6ed4001060 rank 0 nranks 1 cudaDev 6 busId 5c000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37166:37784 [1] NCCL INFO comm 0x7fa4ac001060 rank 0 nranks 1 cudaDev 1 busId 36000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37173:37785 [8] NCCL INFO comm 0x7f6a18001060 rank 0 nranks 1 cudaDev 8 busId b7000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37174:37787 [9] NCCL INFO comm 0x7f10f0001060 rank 0 nranks 1 cudaDev 9 busId b9000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO Setting affinity for GPU 10 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO Setting affinity for GPU 15 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO Setting affinity for GPU 11 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO Setting affinity for GPU 12 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37175:37793 [10] NCCL INFO comm 0x7f2fd8001060 rank 0 nranks 1 cudaDev 10 busId bc000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO Setting affinity for GPU 13 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO Setting affinity for GPU 7 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/-
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO Setting affinity for GPU 3 to ff,ffff0000,00ffffff
+container-e33-1594414986030-11519-04-000050:37180:37795 [15] NCCL INFO comm 0x7f533c001060 rank 0 nranks 1 cudaDev 15 busId e7000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 00/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 01/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 02/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 03/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 04/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 05/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 06/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 07/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 08/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 09/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 10/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 11/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 12/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 13/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 14/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 15/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 16/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 17/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 18/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 19/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 20/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 21/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 22/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 23/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 24/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 25/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 26/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 27/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 28/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 29/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 30/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Channel 31/32 :    0
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Trees [0] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [1] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [2] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [3] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [4] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [5] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [6] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [7] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [8] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [9] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [10] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [11] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [12] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [13] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [14] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [15] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [16] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [17] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [18] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [19] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [20] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [21] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [22] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [23] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [24] -1/-1/-1->0->-1|-1->0->-1/-1/-1 [25] -1/-1/-1->0->-1|-1->0->-1/
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO Setting affinity for GPU 14 to febfaf00,0000febf,af000000
+container-e33-1594414986030-11519-04-000050:37176:37789 [11] NCCL INFO comm 0x7f29bc001060 rank 0 nranks 1 cudaDev 11 busId be000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37177:37797 [12] NCCL INFO comm 0x7f71fc001060 rank 0 nranks 1 cudaDev 12 busId e0000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37178:37799 [13] NCCL INFO comm 0x7f51ac001060 rank 0 nranks 1 cudaDev 13 busId e2000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37172:37791 [7] NCCL INFO comm 0x7f5f08001060 rank 0 nranks 1 cudaDev 7 busId 5e000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37168:37801 [3] NCCL INFO comm 0x7fe928001060 rank 0 nranks 1 cudaDev 3 busId 3b000 - Init COMPLETE
+container-e33-1594414986030-11519-04-000050:37179:37803 [14] NCCL INFO comm 0x7f3930001060 rank 0 nranks 1 cudaDev 14 busId e5000 - Init COMPLETE

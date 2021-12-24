@@ -57,5 +57,10 @@ cd apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 ```
 
+## Install BERT and Megatron-LM Dependencies
+
+```
+conda install h5py boto3 
+```
 # Experiments
 

@@ -15,6 +15,16 @@ Clone all submodules by
 git submodule sync
 git submodule update --init --recursive
 ```
+## Install cuDNN
+
+Download cudnn 8.2.1 for CUDA 11.3 from (https://developer.nvidia.com/compute/machine-learning/cudnn/secure/8.2.1.32/11.3_06072021/cudnn-11.3-linux-x64-v8.2.1.32.tgz). 
+Install cudnn by:
+```
+tar -xvf cudnn-11.3-linux-x64-v8.2.1.32.tgz
+sudo cp cuda/include/cudnn*.h /usr/local/cuda/include 
+sudo cp -P cuda/lib64/libcudnn* /usr/local/cuda/lib64 
+sudo chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*
+```
 
 ## Build PyTorch
 We will now build modified PyTorch. However, make sure to remove existing PyTorch installations from the conda environment.
@@ -36,6 +46,15 @@ Build PyTorch by:
 cd pytorch
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 python setup.py install
+```
+
+## Install Apex
+
+NVIDIA Apex (https://github.com/NVIDIA/apex) is one of the baselines. After building Pytorch, we need to reinstall Apex.
+```
+git clone https://github.com/NVIDIA/apex
+cd apex
+pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 ```
 
 # Experiments

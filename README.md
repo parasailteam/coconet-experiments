@@ -71,5 +71,13 @@ To install DLLogger, run (separate commands):
 pip install nvidia-pyindex
 pip install nvidia-dllogger
 ```
-# Experiments
+# Data Parallel Training Experiment
+
+Download the dataset from here[] and extract the directory to `coconet-experiments/BERT/training-data`. 
+Execute `data_parallel_training_results.py` to replicate Table 1 results
+
+```
+cd coconet-experiments/BERT
+python data_parallel_training_results.py coconet-experiments/BERT/training-data
+```
 

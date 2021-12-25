@@ -3,7 +3,7 @@
 This repository contains integration experiments for CoCoNet[https://github.com/parasailteam/coconet].
 * `pytorch` directory contains modified PyTorch to be used by BERT and Megatron-LM.
 * `pytorch/third_party/nccl/nccl` contains NCCL modified with scattered tensors implementation for Data Parallel Training and overlapping implementation for Model and Pipeline Parallel Inference.
-* `data-parallel-BERT` contains NVIDIA BERT integrated with CoCoNet's scattered tensors implementation of Adam and LAMB.
+* `BERT` contains NVIDIA BERT integrated with CoCoNet's scattered tensors implementation of Adam and LAMB.
 * `model-parallel-Megatron-LM` contains Megatron-LM integrated with CoCoNet's optimized Model Parallel Inference.
 
 # Installation

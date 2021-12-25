@@ -60,7 +60,14 @@ pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp
 ## Install BERT and Megatron-LM Dependencies
 
 ```
-conda install h5py boto3 
+conda install h5py boto3
+```
+
+To install DLLogger, run (separate commands):
+
+```
+pip install nvidia-pyindex
+pip install nvidia-dllogger
 ```
 # Experiments
 

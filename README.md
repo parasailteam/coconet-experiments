@@ -78,6 +78,6 @@ Execute `data_parallel_training_results.py` to replicate Table 1 results
 
 ```
 cd coconet-experiments/BERT
-python data_parallel_training_results.py coconet-experiments/BERT/training-data
+NPROC=<number-of-process-to-invoke> python data_parallel_training_results.py coconet-experiments/BERT/training-data
 ```
 

@@ -1,17 +1,17 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
 
 #if CONFIG == 1
 
-#if !defined(__AVX__)
+#if !defined(__AVX__) && !defined(SLEEF_GENHEADER)
 #error Please specify -mavx.
 #endif
 
 #elif CONFIG == 4
 
-#if !defined(__AVX__) || !defined(__FMA4__)
+#if (!defined(__AVX__) || !defined(__FMA4__)) && !defined(SLEEF_GENHEADER)
 #error Please specify -mavx and -mfma4.
 #endif
 
@@ -20,16 +20,25 @@
 #endif
 
 #define ENABLE_DP
+//@#define ENABLE_DP
 #define LOG2VECTLENDP 2
+//@#define LOG2VECTLENDP 2
 #define VECTLENDP (1 << LOG2VECTLENDP)
+//@#define VECTLENDP (1 << LOG2VECTLENDP)
 
 #define ENABLE_SP
+//@#define ENABLE_SP
 #define LOG2VECTLENSP (LOG2VECTLENDP+1)
+//@#define LOG2VECTLENSP (LOG2VECTLENDP+1)
 #define VECTLENSP (1 << LOG2VECTLENSP)
+//@#define VECTLENSP (1 << LOG2VECTLENSP)
 
 #define FULL_FP_ROUNDING
+//@#define FULL_FP_ROUNDING
 #define ACCURATE_SQRT
+//@#define ACCURATE_SQRT
 
+#if !defined(SLEEF_GENHEADER)
 #if defined(_MSC_VER)
 #include <intrin.h>
 #else
@@ -38,6 +47,7 @@
 
 #include <stdint.h>
 #include "misc.h"
+#endif // #if !defined(SLEEF_GENHEADER)
 
 typedef __m256i vmask;
 typedef __m256i vopmask;
@@ -48,23 +58,30 @@ typedef __m128i vint;
 typedef __m256 vfloat;
 typedef struct { __m128i x, y; } vint2;
 
+typedef __m256i vint64;
+typedef __m256i vuint64;
+
 typedef struct {
   vmask x, y;
 } vmask2;
 
+typedef vmask2 vargquad;
+
 //
+
+#if !defined(SLEEF_GENHEADER)
 
 #ifndef __SLEEF_H__
 void Sleef_x86CpuID(int32_t out[4], uint32_t eax, uint32_t ecx);
 #endif
 
-static int cpuSupportsAVX() {
+static INLINE int cpuSupportsAVX() {
     int32_t reg[4];
     Sleef_x86CpuID(reg, 1, 0);
     return (reg[2] & (1 << 28)) != 0;
 }
 
-static int cpuSupportsFMA4() {
+static INLINE int cpuSupportsFMA4() {
     int32_t reg[4];
     Sleef_x86CpuID(reg, 0x80000001, 0);
     return (reg[2] & (1 << 16)) != 0;
@@ -94,6 +111,8 @@ static INLINE int vavailability_i(int name) {
 #define ISANAME "AVX"
 #define DFTPRIORITY 20
 #endif
+
+#endif // #if !defined(SLEEF_GENHEADER)
 
 static INLINE void vprefetch_v_p(const void *ptr) { _mm_prefetch(ptr, _MM_HINT_T0); }
 
@@ -563,92 +582,14 @@ static INLINE void vsscatter2_v_p_i_i_vf(float *ptr, int offset, int step, vfloa
 
 //
 
-typedef Sleef_quad4 vargquad;
-
-static INLINE vmask2 vinterleave_vm2_vm2(vmask2 v) {
-  return (vmask2) {
-    vreinterpret_vm_vd(_mm256_unpacklo_pd(vreinterpret_vd_vm(v.x), vreinterpret_vd_vm(v.y))),
-      vreinterpret_vm_vd(_mm256_unpackhi_pd(vreinterpret_vd_vm(v.x), vreinterpret_vd_vm(v.y))) };
-}
-
-static INLINE vmask2 vuninterleave_vm2_vm2(vmask2 v) {
-  return (vmask2) {
-    vreinterpret_vm_vd(_mm256_unpacklo_pd(vreinterpret_vd_vm(v.x), vreinterpret_vd_vm(v.y))),
-      vreinterpret_vm_vd(_mm256_unpackhi_pd(vreinterpret_vd_vm(v.x), vreinterpret_vd_vm(v.y))) };
-}
-
-static INLINE vint vuninterleave_vi_vi(vint v) {
-  return _mm_shuffle_epi32(v, (0 << 0) | (2 << 2) | (1 << 4) | (3 << 6));
-}
-
-static INLINE vdouble vinterleave_vd_vd(vdouble vd) {
-  double tmp[4];
-  vstoreu_v_p_vd(tmp, vd);
-  double t = tmp[1]; tmp[1] = tmp[2]; tmp[2] = t;
-  return vloadu_vd_p(tmp);
-}
-
-static INLINE vdouble vuninterleave_vd_vd(vdouble vd) {
-  double tmp[4];
-  vstoreu_v_p_vd(tmp, vd);
-  double t = tmp[1]; tmp[1] = tmp[2]; tmp[2] = t;
-  return vloadu_vd_p(tmp);
-}
-
-static INLINE vmask vinterleave_vm_vm(vmask vm) {
-  double tmp[4];
-  vstoreu_v_p_vd(tmp, vreinterpret_vd_vm(vm));
-  double t = tmp[1]; tmp[1] = tmp[2]; tmp[2] = t;
-  return vreinterpret_vm_vd(vloadu_vd_p(tmp));
-}
-
-static INLINE vmask vuninterleave_vm_vm(vmask vm) {
-  double tmp[4];
-  vstoreu_v_p_vd(tmp, vreinterpret_vd_vm(vm));
-  double t = tmp[1]; tmp[1] = tmp[2]; tmp[2] = t;
-  return vreinterpret_vm_vd(vloadu_vd_p(tmp));
-}
-
 static vmask2 vloadu_vm2_p(void *p) {
-  vmask2 vm2 = {
-    vcast_vm_vi2(vloadu_vi2_p((int32_t *)p)),
-    vcast_vm_vi2(vloadu_vi2_p((int32_t *)((uint8_t *)p + sizeof(vmask))))
-  };
+  vmask2 vm2;
+  memcpy(&vm2, p, VECTLENDP * 16);
   return vm2;
 }
 
-static void vstoreu_v_p_vm2(void *p, vmask2 vm2) {
-  vstoreu_v_p_vi2((int32_t *)p, vcast_vi2_vm(vm2.x));
-  vstoreu_v_p_vi2((int32_t *)((uint8_t *)p + sizeof(vmask)), vcast_vi2_vm(vm2.y));
-}
-
-static INLINE vmask2 vcast_vm2_aq(vargquad aq) {
-#if !defined(_MSC_VER)
-  union {
-    vargquad aq;
-    vmask2 vm2;
-  } c;
-  c.aq = aq;
-  return vinterleave_vm2_vm2(c.vm2);
-#else
-  return vinterleave_vm2_vm2(vloadu_vm2_p(&aq));
-#endif
-}
-
-static INLINE vargquad vcast_aq_vm2(vmask2 vm2) {
-#if !defined(_MSC_VER)
-  union {
-    vargquad aq;
-    vmask2 vm2;
-  } c;
-  c.vm2 = vuninterleave_vm2_vm2(vm2);
-  return c.aq;
-#else
-  vargquad a;
-  vstoreu_v_p_vm2(&a, vuninterleave_vm2_vm2(vm2));
-  return a;
-#endif
-}
+static INLINE vmask2 vcast_vm2_aq(vargquad aq) { return aq; }
+static INLINE vargquad vcast_aq_vm2(vmask2 vm2) { return vm2; }
 
 static INLINE int vtestallzeros_i_vo64(vopmask g) {
   return _mm_movemask_epi8(_mm_or_si128(_mm256_extractf128_si256(g, 0), _mm256_extractf128_si256(g, 1))) == 0;
@@ -680,6 +621,9 @@ static INLINE vopmask vgt64_vo_vm_vm(vmask x, vmask y) {
   _mm256_insertf128_si256(_mm256_castsi128_si256(_mm_srli_epi64(_mm256_extractf128_si256(x, 0), c)), \
 			  _mm_srli_epi64(_mm256_extractf128_si256(x, 1), c), 1)
 
+//@#define vsll64_vm_vm_i(x, c) _mm256_insertf128_si256(_mm256_castsi128_si256(_mm_slli_epi64(_mm256_extractf128_si256(x, 0), c)), _mm_slli_epi64(_mm256_extractf128_si256(x, 1), c), 1)
+//@#define vsrl64_vm_vm_i(x, c) _mm256_insertf128_si256(_mm256_castsi128_si256(_mm_srli_epi64(_mm256_extractf128_si256(x, 0), c)), _mm_srli_epi64(_mm256_extractf128_si256(x, 1), c), 1)
+
 static INLINE vmask vcast_vm_vi(vint vi) {
   vint vi0 = _mm_and_si128(_mm_shuffle_epi32(vi, (1 << 4) | (1 << 6)), _mm_set_epi32(0, -1, 0, -1));
   vint vi1 = _mm_and_si128(_mm_shuffle_epi32(vi, (2 << 0) | (2 << 2) | (3 << 4) | (3 << 6)), _mm_set_epi32(0, -1, 0, -1));
@@ -690,3 +634,8 @@ static INLINE vint vcast_vi_vm(vmask vm) {
   return _mm_or_si128(_mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(_mm256_castsi256_si128(vm)), _mm_set1_ps(0), 0x08)),
   		      _mm_castps_si128(_mm_shuffle_ps(_mm_set1_ps(0), _mm_castsi128_ps(_mm256_extractf128_si256(vm, 1)), 0x80)));
 }
+
+static INLINE vmask vreinterpret_vm_vi64(vint64 v) { return v; }
+static INLINE vint64 vreinterpret_vi64_vm(vmask m) { return m; }
+static INLINE vmask vreinterpret_vm_vu64(vuint64 v) { return v; }
+static INLINE vuint64 vreinterpret_vu64_vm(vmask m) { return m; }

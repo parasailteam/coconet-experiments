@@ -1,13 +1,15 @@
 #pragma once
 
+#include "./FbgemmBuild.h"
+#include "./QuantUtilsAvx2.h"
+#include "./Types.h"
+#include "./Utils.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include "./FbgemmBuild.h"
-#include "./QuantUtilsAvx2.h"
-#include "./Utils.h"
 
 namespace fbgemm {
 
@@ -48,27 +50,49 @@ T2 clamp(T1 src, int precision, bool is_signed = false) {
 
 /// Quantize src using zero_point and scale, clamp to the specified precision,
 /// and convert it to type T
-template <typename T>
+template <typename T, bool LEGACY = true>
 T Quantize(
     float src,
     std::int32_t zero_point,
     float scale,
     int result_precision,
     bool result_is_signed = std::is_signed<T>::value) {
-  const float transformed_val = zero_point + src / scale;
+  // Note: We want to multiply with src with inv_scale instead of
+  // dividing src by scale. The same is done in vector code and
+  // at other places.
+  //
+  // Example:
+  // With scale = 0.00214854861f, zero_point = 0 and src = 0.273939937f
+  // transformed_val is 127.5 for src * inv_scale while
+  // transformed_val is 127.499992 for src / scale.
+  // Eventually 127.5 gets rounded to 128 while 127.499992 gets rounded to 127.
+  float inv_scale = 1.0f / scale;
+
+  float transformed_val = src * inv_scale;
+  // nearbyint here performs round-to-nearest-ties-to-even with
+  // default rounding mode.
+  // For example, nearbyint(1.4) is 1.0, nearbyint(1.5) is 2.0
+  // and nearbyint(2.5) is 2.0
+  // Adding zero_point before or after rounding can make a difference
+  // in exactly halfway cases.
+  if (LEGACY) {
+    transformed_val = std::nearbyint(zero_point + transformed_val);
+  } else {
+    transformed_val = zero_point + std::nearbyint(transformed_val);
+  }
   // Please note the use of double. Unlike float, a double can represent
   // all int32 values exactly. Using a float results in a float value >
   // INT32_MAX conversion to int32 in clamp function and hence an UBSAN error.
-  return clamp<double, T>(
-      std::nearbyint(transformed_val), result_precision, result_is_signed);
+  return clamp<double, T>(transformed_val, result_precision, result_is_signed);
 }
 
-template <typename T>
+template <typename T, bool LEGACY = true>
 T Quantize(float src, const TensorQuantizationParams& qparams) {
-  return Quantize<T>(src, qparams.zero_point, qparams.scale, qparams.precision);
+  return Quantize<T, LEGACY>(
+      src, qparams.zero_point, qparams.scale, qparams.precision);
 }
 
-template <typename T>
+template <typename T, bool LEGACY = true>
 FBGEMM_API void Quantize(
     const float* src,
     T* dst,
@@ -126,10 +150,34 @@ void Dequantize(
     int num_threads = 1) {
   int i_begin, i_end;
   fbgemmPartition1D(thread_id, num_threads, len, i_begin, i_end);
-  for (std::size_t i = i_begin; i < i_end; i++) {
+  for (auto i = i_begin; i < i_end; i++) {
     dst[i] = Dequantize(src[i], qparams);
   }
 }
+
+template <typename T>
+float FusedQuantizeDequantize(
+    float src,
+    const TensorQuantizationParams& qparams) {
+  T q = Quantize<T, false>(
+      src, qparams.zero_point, qparams.scale, qparams.precision);
+  return Dequantize<T>(q, qparams);
+}
+
+/*
+Fused integer quantization dequantization kernel to accelerate
+quantization-aware training. Quantize fp32 values in src to (u)int8 using the
+provided qparams, and dequantize quantized integer values back into fp32.
+*/
+template <typename T>
+FBGEMM_API void FusedQuantizeDequantize(
+    const float* src,
+    float* dst,
+    int len,
+    const TensorQuantizationParams& qparams,
+    int thread_id = 0,
+    int num_threads = 1,
+    float noise_ratio = 0.0f);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Requantization (pure fixed-point)
@@ -205,5 +253,114 @@ FBGEMM_API void Requantize(
     const RequantizationParams& params,
     int thread_id = 0,
     int num_threads = 1);
+
+/**
+ * Convert float (fp32 or fp16) inputs to rowwise quantized outputs.
+ * bitrate specifies the number of bits in quantized output.
+ * Scale and Bias are in fp16. Each row's Scale and Bias are stored in
+ * the row itself (fused) at the end.
+ *
+ * @param bit_rate can be 2, 4, or 8
+ */
+template <typename InputType>
+FBGEMM_API void FloatOrHalfToFusedNBitRowwiseQuantizedSBHalf(
+    int bit_rate,
+    const InputType* input,
+    int input_rows,
+    int input_columns,
+    std::uint8_t* output);
+
+/**
+ * Convert fused rowwise quantized inputs to float (fp32 or fp16).
+ * bitrate specifies the number of bits in quantized input.
+ * Scale and Bias are in fp16. Each row's Scale and Bias are stored in
+ * the row itself (fused) at the end.
+ *
+ * @param bit_rate can be 2, 4, or 8
+ */
+template <typename OutputType>
+FBGEMM_API void FusedNBitRowwiseQuantizedSBHalfToFloatOrHalf(
+    int bit_rate,
+    const uint8_t* input,
+    int input_rows,
+    int input_columns,
+    OutputType* output);
+
+/**
+ * Convert float or half inputs to rowwise quantized (8-bit) outputs.
+ * Scale and Bias are in float. Each row's Scale and Bias are stored in
+ * the row itself (fused) at the end.
+ *
+ * This version intentionally supports only 8-bit because we want to discourage
+ * the usage of float scale and bias with 2 and 4 bit cases as that diminishes
+ * the overall memory savings.
+ */
+template <typename InputType>
+FBGEMM_API void FloatOrHalfToFused8BitRowwiseQuantizedSBFloat(
+    const InputType* input,
+    int input_rows,
+    int input_columns,
+    std::uint8_t* output);
+
+/**
+ * Convert fused rowwise quantized (8-bit) inputs to float or half outputs.
+ * Scale and Bias are in float. Each row's Scale and Bias are stored in
+ * the row itself (fused) at the end.
+ *
+ * This version intentionally supports only 8-bit because
+ * the corresponding quantize version only supports 8-bit.
+ */
+template <typename OutputType>
+FBGEMM_API void Fused8BitRowwiseQuantizedSBFloatToFloatOrHalf(
+    const uint8_t* input,
+    int input_rows,
+    int input_columns,
+    OutputType* output);
+
+/**
+ * Same as ToFusedNBitRowwiseQuantizedSBHalf but unoptimized.
+ * This should not be called directly except in testing.
+ */
+template <typename InputType>
+FBGEMM_API void FloatOrHalfToFusedNBitRowwiseQuantizedSBHalfRef(
+    int bit_rate,
+    const InputType* input,
+    int input_rows,
+    int input_columns,
+    std::uint8_t* output);
+
+/**
+ * Same as FloatOrHalfToFused8BitRowwiseQuantizedSBFloat but unoptimized.
+ * This should not be called directly except in testing.
+ */
+template <typename InputType>
+FBGEMM_API void FloatOrHalfToFused8BitRowwiseQuantizedSBFloatRef(
+    const InputType* input,
+    int input_rows,
+    int input_columns,
+    std::uint8_t* output);
+
+/**
+ * Same as FusedNBitRowwiseQuantizedSBHalfToFloat but unoptimized.
+ * This should not be called directly except in testing.
+ */
+template <typename OutputType>
+FBGEMM_API void FusedNBitRowwiseQuantizedSBHalfToFloatOrHalfRef(
+    int bit_rate,
+    const uint8_t* input,
+    int input_rows,
+    int input_columns,
+    OutputType* output);
+
+/**
+ * Same as Fused8BitRowwiseQuantizedSBFloatToFloatOrHalf but unoptimized.
+ * This should not be called directly except in testing.
+ */
+template <typename OutputType>
+FBGEMM_API void Fused8BitRowwiseQuantizedSBFloatToFloatOrHalfRef(
+    const uint8_t* input,
+    int input_rows,
+    int input_columns,
+    OutputType* output);
 
 } // namespace fbgemm

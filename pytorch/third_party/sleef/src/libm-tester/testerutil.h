@@ -1,4 +1,4 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -13,7 +13,7 @@
 
 #define M_PIf ((float)M_PI)
 
-int enableFlushToZero;
+extern int enableFlushToZero;
 double flushToZero(double y);
 
 int isnumber(double x);
@@ -30,7 +30,7 @@ float signf(float d);
 
 int readln(int fd, char *buf, int cnt);
 
-#define XRAND_MAX (0x100000000LL * (double)0x100000000LL)
+#define XRAND_MAX (INT64_C(0x100000000) * (double)INT64_C(0x100000000))
 
 void xsrand(uint64_t s);
 uint64_t xrand();

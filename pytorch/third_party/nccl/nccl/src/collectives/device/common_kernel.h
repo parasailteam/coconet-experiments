@@ -12,7 +12,6 @@
 #include <cstdio>
 #include <cstdint>
 
-#include <curand_kernel.h>
 #include <cuda_runtime.h>
 #include <assert.h>
 
@@ -34,7 +33,7 @@ struct MULTI {
   __device__ PackType operator()(const PackType x) const;
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const;
   __device__ PackType LAMBWeightUpdate(const PackType w, T ratio, const PackType rLambdaWeight) const;
-  __device__ PackType dropout(const PackType x, const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const;
+  __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const T unscaleParameter, const  T beta2) const;
 };
 
 struct FuncProd2 {
@@ -119,7 +118,7 @@ struct MULTI<FUNC, int8_t> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{return 0;}
   __device__ PackType LAMBWeightUpdate(const PackType w, int8_t ratio, const PackType rLambdaWeight) const {return 0;}
-  __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {return 0;}
+  __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const uint8_t unscaleParameter, const  int8_t beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -171,7 +170,7 @@ struct MULTI<FUNC, uint8_t> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{return 0;}
   __device__ PackType LAMBWeightUpdate(const PackType w, uint8_t ratio, const PackType rLambdaWeight) const {return w;}
-  __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {return 0;}
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const uint8_t unscaleParameter, const  uint8_t beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -246,7 +245,7 @@ struct MULTI<FUNC, int32_t> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{}
   __device__ PackType LAMBWeightUpdate(const PackType w, int32_t ratio, const PackType rLambdaWeight) const {}
-  __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {return 0;}
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const int32_t unscaleParameter, const  int32_t beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -331,7 +330,7 @@ struct MULTI<FUNC, uint32_t> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{}
   __device__ PackType LAMBWeightUpdate(const PackType w, int32_t ratio, const PackType rLambdaWeight) const {}
-  __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {return 0;}
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const uint32_t unscaleParameter, const  uint32_t beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -342,10 +341,8 @@ struct MULTI<FUNC, half> {
   struct PackHalf2 {
     half2 a, b;
   };
-
+  
   __device__ PackType operator()(const PackType x, const PackType y) const {
-    #if 1
-    //FuncSub do not work with half
     struct PackHalf2 cx, cy, cr;
     cx = *(reinterpret_cast<const struct PackHalf2*>(&x));
     cy = *(reinterpret_cast<const struct PackHalf2*>(&y));
@@ -354,10 +351,6 @@ struct MULTI<FUNC, half> {
     cr.b = FUNC()(cx.b, cy.b);
 
     return *(reinterpret_cast<PackType*>(&cr));
-    #else
-    assert(false);
-    return x;
-    #endif
   }
 
   __device__ PackType operator()(const PackType x, const half alpha) {
@@ -386,17 +379,7 @@ struct MULTI<FUNC, half> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{}
   __device__ PackType LAMBWeightUpdate(const PackType w, half ratio, const PackType rLambdaWeight) const {}
-  __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {
-    struct PackHalf2 cx, cy, cz, cr;
-    cx = *(reinterpret_cast<const struct PackHalf2*>(&x));
-    cy = *(reinterpret_cast<const struct PackHalf2*>(&addTensorVal));
-    cz = *(reinterpret_cast<const struct PackHalf2*>(&biasVal));
-
-    cr.a = FUNC()(cx.a, cy.a, cz.a, randState, val);
-    cr.b = FUNC()(cx.b, cy.b, cz.b, randState, val);
-
-    return *(reinterpret_cast<PackType*>(&cr));
-  }
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const half unscaleParameter, const  half beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -409,6 +392,7 @@ struct MULTI<FUNC, float> {
       float a, b;
     };
   };
+
 
   __device__ PackType operator()(const PackType x, const PackType y) const {
     converter cx, cy, cr;
@@ -497,7 +481,20 @@ __device__ PackType LAMBWeightUpdate(const PackType w, float ratio, const PackTy
   return cS5.storage;
 }
 
-  __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal,  curandState* randState, float val) const {
+  struct converterhalf{half2 x0;
+  __device__ half getx0(){ return __low2half(x0);}
+  __device__ half getx1(){ return __high2half(x0);}
+};
+  __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const float unscaleParameter, const  float beta2) {
+    converter cv;
+    cv.storage = v;
+    converterhalf cS0;
+    cS0 = *(reinterpret_cast<const converterhalf*>(&S0));
+    converter cS2;
+    cS2.a = FUNC()(cv.a, cS0.getx0(), unscaleParameter, beta2);
+    cS2.b = FUNC()(cv.b, cS0.getx1(), unscaleParameter, beta2);
+    //assert(cS2.FOO.x0 == 2.0f && cS2.FOO.x1 == 2.0f);
+    return cS2.storage;
   }
 };
 
@@ -536,8 +533,7 @@ struct MULTI<FUNC, double> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{}
   __device__ PackType LAMBWeightUpdate(const PackType w, double ratio, const PackType rLambdaWeight) const {}
-    __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal,  curandState* randState, float val) const {
-    }
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const double unscaleParameter, const  double beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -575,8 +571,7 @@ struct MULTI<FUNC, uint64_t> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{}
   __device__ PackType LAMBWeightUpdate(const PackType w, uint64_t ratio, const PackType rLambdaWeight) const {}
-    __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {
-    }
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const uint64_t unscaleParameter, const  uint64_t beta2) {return 0;}
 };
 
 template<class FUNC>
@@ -610,8 +605,7 @@ struct MULTI<FUNC, int64_t> {
   }
   __device__ PackType r(const PackType w, const PackType S3, const PackType S4) const{}
   __device__ PackType LAMBWeightUpdate(const PackType w, int64_t ratio, const PackType rLambdaWeight) const {}
-    __device__ PackType dropout(const PackType x,  const PackType addTensorVal, const PackType biasVal, curandState* randState, float val) const {
-    }
+    __device__ uint64_t operator()(const uint64_t v, const uint32_t S0, const int64_t unscaleParameter, const  int64_t beta2) {return 0;}
 };
 
 template<typename T> inline __device__
@@ -698,11 +692,54 @@ struct MULTI128 {
     S5.x = MULTI<FUNC, T>().LAMBWeightUpdate(w.x, ratio, rLambdaWeight.x);
     S5.y = MULTI<FUNC, T>().LAMBWeightUpdate(w.y, ratio, rLambdaWeight.y);
   }
+};
 
-  __device__ PackType dropout(Pack128& w,  Pack128& addTensorVal, Pack128& biasVal, curandState* randState, float val, Pack128& S5) const {
-    S5.x = MULTI<FUNC, T>().dropout(w.x, addTensorVal.x, biasVal.x, randState, val);
-    S5.y = MULTI<FUNC, T>().dropout(w.y, addTensorVal.y, biasVal.y, randState, val);
+template<class FUNC, typename T1, typename T2>
+struct MULTI128TwoTypes {
+  // __device__ void operator()(Pack128& x, Pack128& y) {
+  //   // x.x = MULTI<FUNC, T>()(x.x, y.x);
+  //   // x.y = MULTI<FUNC, T>()(x.y, y.y);
+  // }
+
+  // __device__ void operator()(Pack128& x, T2 alpha) {
+  //   // x.x = MULTI<FUNC, T1>()(x.x, alpha);
+  //   // x.y = MULTI<FUNC, T1>()(x.y, alpha);
+  // }
+
+  __device__ void operator()(Pack128& x, uint2 y, T2 unscaleParameter, T2 alpha) {
+    x.x = MULTI<FUNC, T2>()(x.x, y.x, unscaleParameter, alpha);
+    x.y = MULTI<FUNC, T2>()(x.y, y.y, unscaleParameter, alpha);
   }
+
+  // __device__ void operator()(Pack128& x, Pack128& y, Pack128& z, T2 alpha) {
+  //   x.x = MULTI<FUNC, T1>()(x.x, y.x, z.x, alpha);
+  //   x.y = MULTI<FUNC, T1>()(x.y, y.y, z.y, alpha);
+  // }
+
+  // __device__ void operator()(Pack128& x, T2 beta, int alpha) {
+  //   x.x = MULTI<FUNC, T1>()(x.x, beta, alpha);
+  //   x.y = MULTI<FUNC, T1>()(x.y, beta, alpha);
+  // }
+
+  //  __device__ void operator()(Pack128& x, Pack128& y, T2 z, int alpha) {
+  //   x.x = MULTI<FUNC, T1>()(x.x, y.x, z, alpha);
+  //   x.y = MULTI<FUNC, T1>()(x.y, y.y, z, alpha);
+  // }
+
+  //  __device__ void operator()(Pack128& x, Pack128& y, Pack128& z, T2 alpha, T2 epsilon) {
+  //   x.x = MULTI<FUNC, T1>()(x.x, y.x, z.x, alpha, epsilon);
+  //   x.y = MULTI<FUNC, T1>()(x.y, y.y, z.y, alpha, epsilon);
+  // }
+
+  // __device__ void r(Pack128& w, Pack128& S3, Pack128& S4, Pack128& S5) {
+  //   S5.x = MULTI<FUNC, T1>().r(w.x, S3.x, S4.x);
+  //   S5.y = MULTI<FUNC, T1>().r(w.y, S3.y, S4.y);
+  // }
+
+  // __device__ void LAMBWeightUpdate(Pack128& w, T2 ratio, Pack128& rLambdaWeight, Pack128& S5) {
+  //   S5.x = MULTI<FUNC, T1>().LAMBWeightUpdate(w.x, ratio, rLambdaWeight.x);
+  //   S5.y = MULTI<FUNC, T1>().LAMBWeightUpdate(w.y, ratio, rLambdaWeight.y);
+  // }
 };
 
 
@@ -746,12 +783,16 @@ inline __device__ void Store128(Pack128* p, Pack128& v) {
 //   }
 // }
 
-template<class FUNC, typename T, int MINSRCS, int MAXSRCS, int MINDSTS, int MAXDSTS, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE>
+template<class FUNC, typename T, typename T2, int MINSRCS, int MAXSRCS, int MINDSTS, int MAXDSTS, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE>
 __device__ __forceinline__ void ReduceCopyMulti(const int tid, const int nthreads,
     int nsrcs, const T* srcs[MAXSRCS], int ndsts, T* dsts[MAXDSTS],
-    const int offset, const int N, T alpha, T beta1, T beta2, const int epoch, T* m, T* v,
-    T* rStorage, const size_t mvStartOffset, int partStartOffset, int partSize, double* weightNorm, double* rNorm, const size_t buffNumElements) {
-
+    const int offset, const int N, T2 alpha, T2 beta1, T2 beta2, const T2 unscaleParameter,const int epoch, T2* m, T2* v,
+    T2* rStorage, T2* floatWeights, const size_t mvStartOffset, int partStartOffset, int partSize, double* weightNorm, double* rNorm, 
+    const size_t buffNumElements, int* numOverflows) {
+  
+  if (threadIdx.x == 0 && sizeof(T) == sizeof(double)) {
+    printf("%d\n", __LINE__);
+  } 
   double perThreadWeightNorm = 0, perThreadRNorm = 0;
   for (int idx = offset+tid; idx < offset+N; idx += nthreads) {
     T val = vFetch(srcs[0]+idx);
@@ -764,34 +805,38 @@ __device__ __forceinline__ void ReduceCopyMulti(const int tid, const int nthread
       const size_t totalOffset = (mvStartOffset + idx);//%(totalSize/nranks);
       const size_t mOffset = partStartOffset + totalOffset%partSize;
       // size_t mOffset = idx;
-      T m_ = vFetch(m + mOffset);
-      T v_ = vFetch(v + mOffset);
-      T wght_ = vFetch(dsts[0]+idx);
-      
-      m_ = FuncFirstMomentUpdate<T>()(m_, val, beta1);
+      T2 m_ = vFetch(m + mOffset);
+      T2 v_ = vFetch(v + mOffset);
+      T2 wght_ = vFetch(floatWeights + idx);
+      *numOverflows |= FuncIsOverflow<T>()(val);
+      m_ = FuncFirstMomentUpdateMP<T, T2>()(m_, val, unscaleParameter, beta1);
       vStore(m + mOffset, m_);
 
-      v_ = FuncSecondMomentUpdate<T>()(v_, val, beta2);
+      v_ = FuncSecondMomentUpdateMP<T, T2>()(v_, val, unscaleParameter, beta2);
       vStore(v + mOffset, v_);
 
-      m_ = FuncBiasCorrection<T>()(m_, beta1, epoch+1);
-      v_ = FuncBiasCorrection<T>()(v_, beta2, epoch+1);
+      m_ = FuncBiasCorrection<T2>()(m_, beta1, epoch+1);
+      v_ = FuncBiasCorrection<T2>()(v_, beta2, epoch+1);
 
       if (LAMB) {
         perThreadWeightNorm += ((double)(wght_*wght_))/buffNumElements;
         // perThreadWeightNorm += ((double)(wght_*wght_))/1;
-        T r_ = r<T>()(wght_, m_, v_);
+        T2 r_ = r<T2>()(wght_, m_, v_);
         perThreadRNorm += ((double)(r_*r_))/buffNumElements;
         vStore(rStorage + mOffset, r_);
       } else {
-        val = FuncAdamWeightUpdate<T>()(wght_, m_, v_, alpha, 1e-6);      
+        wght_ = FuncAdamWeightUpdate<T2>()(wght_, m_, v_, alpha, 1e-6);      
+        vStore(floatWeights + idx, wght_);
+        val = (T)(wght_);
       }
     } else if (LAMB_SEND_COMPUTE) {
       const size_t totalOffset = (mvStartOffset + idx);//%(totalSize/nranks);
       const size_t mOffset = partStartOffset + totalOffset%partSize;
-      
+      T2 wght_ = vFetch(floatWeights + idx);
+
       double scale = ((*weightNorm > 0) ? (*rNorm > 0 ? *weightNorm/(*rNorm) : 1.0f) : 1.0f)/(*rNorm);
-      val = LAMBWeightUpdate<T>()(val, (T)alpha*(T)scale, *(rStorage + mOffset));
+      wght_ = LAMBWeightUpdate<T2>()(wght_, alpha*(T2)scale, *(rStorage + mOffset));
+      val = (T)wght_;
       vStore((T*)srcs[0]+idx, val);
     }
 
@@ -812,20 +857,40 @@ union LasF {
   uint64_t l;
 };
 
-template<class FUNC, typename T, int UNROLL, int MINSRCS, int MAXSRCS, int MINDSTS, int MAXDSTS, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE, int DROPOUT_BIAS_LAYERNORM>
+struct halfToUint64_t {
+    half2 h1;
+    half2 h2;
+};
+
+inline __device__ uint64_t float4ToHalf4(Pack128& v) {
+  float2 h1 = *(reinterpret_cast<float2*>(&v.x));
+  float2 h2 = *(reinterpret_cast<float2*>(&v.y));
+  // assert (h1.x == -1.0f);
+  // assert (h1.y == -1.0f);
+  // assert (h1. == -1.0f);
+
+  half2 r1 = __floats2half2_rn(h1.x, h1.y);
+  half2 r2 = __floats2half2_rn(h2.x, h2.y);
+
+  halfToUint64_t converter;
+  converter.h1 = r1;
+  converter.h2 = r2;
+
+  return *(reinterpret_cast<uint64_t*>(&converter));
+}
+
+template<class FUNC, typename T, typename T2, int UNROLL, int MINSRCS, int MAXSRCS, int MINDSTS, int MAXDSTS, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE>
 __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, const int t,
     int nsrcs, const T* s[MAXSRCS], int ndsts, T* d[MAXDSTS],
-    T* firstMoment, T* secondMoment, T* rStorage,
-    const int elemOffset, const int Npack, const T alpha, const T beta1, const T beta2, const int epoch,
-    const size_t mvStartOffset, int partStartOffset, int partSize, double* weightNorm, double* rNorm, const size_t buffNumElements,
-    curandState* randState) {
+    T2* firstMoment, T2* secondMoment, T2* rStorage, T2* floatWeights,
+    const int elemOffset, const int Npack, const T2 alpha, const T2 beta1, const T2 beta2, const T2 unscaleParameter, const int epoch,
+    const size_t mvStartOffset, int partStartOffset, int partSize, double* weightNorm, double* rNorm, const size_t buffNumElements, int* numOverflows) {
   const int inc = nw * UNROLL * WARP_SIZE;
   int offset = w * UNROLL * WARP_SIZE + t;
-
-  const Pack128* srcs[MAXSRCS];
-  for (int i=0; i<MAXSRCS; i++) srcs[i] = ((const Pack128*)(s[i]+elemOffset))+offset;
-  Pack128* dsts[MAXDSTS];
-  for (int i=0; i<MAXDSTS; i++) dsts[i] = ((Pack128*)(d[i]+elemOffset))+offset;
+  const uint64_t* srcs[MAXSRCS];
+  for (int i=0; i<MAXSRCS; i++) srcs[i] = ((const uint64_t*)(s[i]+elemOffset))+offset;
+  uint64_t* dsts[MAXDSTS];
+  for (int i=0; i<MAXDSTS; i++) dsts[i] = ((uint64_t*)(d[i]+elemOffset))+offset;
   //Pack128* firstMomentPacked = ((Pack128*)(firstMoment+elemOffset))+offset;
   //Pack128* secondMomentPacked = ((Pack128*)(secondMoment+elemOffset))+offset;
   double perThreadWeightNorm = 0.0f;
@@ -835,21 +900,28 @@ __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, 
   //           printf("rStorage %p\n", rStorage);
   //         }
   // }
-  while (offset < Npack) {
-    Pack128 vals[UNROLL];
+  const int newNPack = (sizeof(T2) != sizeof(T)) ? (Npack*sizeof(T2)/sizeof(T)) : Npack * 2;
+  while (offset < newNPack) {
+    uint64_t vals[UNROLL];
     // Load and reduce
-    for (int u = 0; u < UNROLL; ++u) Fetch128(vals[u], srcs[0]+u*WARP_SIZE);
+    if (!LAMB_SEND_COMPUTE) {
+      for (int u = 0; u < UNROLL; ++u) {
+        vals[u] = *(srcs[0]+u*WARP_SIZE);
+        if (!WEIGHT_UPDATE)
+          *(const_cast<uint64_t*>(srcs[0]+u*WARP_SIZE)) = 0;
+      }
 
-    for (int i=1; i<MINSRCS; i++) {
-      Pack128 vals2[UNROLL];
-      for (int u = 0; u < UNROLL; ++u) Fetch128(vals2[u], srcs[i]+u*WARP_SIZE);
-      for (int u = 0; u < UNROLL; ++u) MULTI128<FUNC, T>()(vals[u], vals2[u]);
-    }
-    #pragma unroll 1
-    for (int i=MINSRCS; i<MAXSRCS && i<nsrcs; i++) {
-      Pack128 vals2[UNROLL];
-      for (int u = 0; u < UNROLL; ++u) Fetch128(vals2[u], srcs[i]+u*WARP_SIZE);
-      for (int u = 0; u < UNROLL; ++u) MULTI128<FUNC, T>()(vals[u], vals2[u]);
+      for (int i=1; i<MINSRCS; i++) {
+        uint64_t vals2[UNROLL];
+        for (int u = 0; u < UNROLL; ++u) vals2[u] = *(srcs[i]+u*WARP_SIZE);
+        for (int u = 0; u < UNROLL; ++u) vals[u] = MULTI<FUNC, T>()(vals[u], vals2[u]);
+      }
+      #pragma unroll 1
+      for (int i=MINSRCS; i<MAXSRCS && i<nsrcs; i++) {
+        uint64_t vals2[UNROLL];
+        for (int u = 0; u < UNROLL; ++u) vals2[u] = *(srcs[i]+u*WARP_SIZE);
+        for (int u = 0; u < UNROLL; ++u) vals[u] = MULTI<FUNC, T>()(vals[u], vals2[u]);
+      }
     }
 
     // Store
@@ -858,18 +930,30 @@ __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, 
         //ADAM
         for (int u = 0; u < UNROLL; ++u) {
           Pack128 wght, m, v;
-          Pack128 _vals = vals[u];
-          Fetch128(wght, dsts[0]+u*WARP_SIZE);
+          uint2 _vals = *(reinterpret_cast<const uint2*>(&vals[u]));
+          half2 half2_1 = *(reinterpret_cast<half2*>(&_vals.x));
+          half2 half2_2 = *(reinterpret_cast<half2*>(&_vals.y));
+          //TODO: Lets inline it because creating a MULTI128 and MULTI functions for all types will take quite some time
+          *numOverflows |= (FuncIsOverflow<half>()(half2_1.x) || FuncIsOverflow<half>()(half2_1.y) || 
+                            FuncIsOverflow<half>()(half2_2.x) || FuncIsOverflow<half>()(half2_2.y));
 
-          const size_t totalOffset = (mvStartOffset + elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T)));//%(totalSize/nranks);
+          const size_t totalOffset = (mvStartOffset + elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T2)));//%(totalSize/nranks);
           const size_t mOffset = partStartOffset + totalOffset%partSize;
-
+          const size_t floatWeightsOffset = (elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T2)));
+          Pack128* floatWeightsPacked = (Pack128*)(floatWeights + floatWeightsOffset);
           Pack128* firstMomentPacked = (Pack128*)(firstMoment + mOffset);
           Pack128* secondMomentPacked = (Pack128*)(secondMoment + mOffset);
           Pack128* rStoragePack = (Pack128*)(rStorage + mOffset);
 
+          Fetch128(wght, floatWeightsPacked);
+          // float4 wf4 = *(reinterpret_cast<float4*>(&wght));
+          // if (threadIdx.x == 0) {
+          //     printf("933: wf4.x %f\n", wf4.x);
+          // }
+          
           Fetch128(m, firstMomentPacked);
           Fetch128(v, secondMomentPacked);
+          // Pack128 readm = m;
           // float4 mf4 = *(reinterpret_cast<float4*>(&m));
           // if (mf4.x != 0.0) {
           //     printf("844: mf4.x %f totalOffset %ld mvStartOffset %ld threadIdx.x %d secondMoment %p firstMoment %p buffNumElements %ld\n", mf4.x, totalOffset, mvStartOffset, threadIdx.x, secondMoment, firstMoment, buffNumElements);
@@ -877,24 +961,29 @@ __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, 
           // if (buffNumElements == 2048 and totalOffset < 31260672) {
           //   printf("845: totalOffset %ld\n", totalOffset);
           // }
-          MULTI128<FuncFirstMomentUpdate<T>, T>()(m, _vals, beta1);
+          MULTI128TwoTypes<FuncFirstMomentUpdate<T>, T, T2>()(m, _vals, unscaleParameter, beta1);
           Store128(firstMomentPacked, m);
-          
-          MULTI128<FuncSecondMomentUpdate<T>, T>()(v, _vals, beta2);
+          // Pack128 pm = m;
+
+          MULTI128TwoTypes<FuncSecondMomentUpdate<T>, T, T2>()(v, _vals, unscaleParameter, beta2);
           Store128(secondMomentPacked, v);
 
-          MULTI128<FuncBiasCorrection<T>, T>()(m, beta1, epoch+1);
+          MULTI128<FuncBiasCorrection<T2>, T2>()(m, beta1, epoch+1);
 
-          MULTI128<FuncBiasCorrection<T>, T>()(v, beta2, epoch+1);
-          
+          MULTI128<FuncBiasCorrection<T2>, T2>()(v, beta2, epoch+1);
+          uint64_t wghtHalf = 0;
+
           if (LAMB) {
             float4 f4 = *(reinterpret_cast<float4*>(&wght));
             perThreadWeightNorm += ((double)(f4.x * f4.x))/buffNumElements + ((double)(f4.y * f4.y))/buffNumElements + 
                                    ((double)(f4.z * f4.z))/buffNumElements + ((double)(f4.w * f4.w))/buffNumElements;
             // perThreadWeightNorm += ((double)(f4.x * f4.x))/1 + ((double)(f4.y * f4.y))/1 + 
             //                        ((double)(f4.z * f4.z))/1 + ((double)(f4.w * f4.w))/1;
+            // if (threadIdx.x == 0) {
+            //   printf("f4.x %f\n", f4.x);
+            // }
             Pack128 r_;
-            MULTI128<r<T>, T>().r(wght, m, v, r_);
+            MULTI128<r<T2>, T2>().r(wght, m, v, r_);
             f4 = *(reinterpret_cast<float4*>(&r_));
             
             perThreadRNorm += ((double)(f4.x * f4.x))/buffNumElements + ((double)(f4.y * f4.y))/buffNumElements + 
@@ -906,19 +995,37 @@ __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, 
             // //     printf("862: rf4.x %f mf4.x %f\n", rf4.x, mf4.x);
             // // }
           } else {
-            MULTI128<FuncAdamWeightUpdate<T>, T>()(wght, m, v, alpha, 1e-6);
+            MULTI128<FuncAdamWeightUpdate<T2>, T2>()(wght, m, v, alpha, (T2)1e-6);
+            wghtHalf = float4ToHalf4(wght);
+            Store128(floatWeightsPacked, wght);
           }
 
+          // if(epoch == 1) {
+          // float4 wf4 = *(reinterpret_cast<float4*>(&wght));
+          // float4 vf4 = *(reinterpret_cast<float4*>(&v));
+          // float4 mf4 = *(reinterpret_cast<float4*>(&m));
+          // float4 pmf4 = *(reinterpret_cast<float4*>(&pm));
+          // float4 readmf4 = *(reinterpret_cast<float4*>(&readm));
+          // half* gh = (half*)(&_vals);
+          // if (threadIdx.x == 0) {
+          //     printf("844: mf4.x %f vf4.x %f wf4.x %f gh %f sizeof(T2) %ld beta1 %f pmf4.x %f readmf4 %f\n", mf4.x, vf4.x, wf4.x, (float)gh[0], sizeof(T2), (float)beta1, (float)pmf4.x, readmf4.x);
+          // }
+          // }
+          
+           
+          //In LAMB this ndsts is 0 (and so is MINDSTS)
           for (int i = 0; i < MINDSTS; i++) {
-            Store128(dsts[i]+u*WARP_SIZE, wght);
+            *(dsts[i]+u*WARP_SIZE) = wghtHalf;
           }
         #pragma unroll 1
           for (int i=MINDSTS; i<MAXDSTS && i<ndsts; i++) {
-            Store128(dsts[i]+u*WARP_SIZE, wght);
+            *(dsts[i]+u*WARP_SIZE) = wghtHalf;
           }
         }
       } else {
+        assert(false);
         //SGD
+        #if 0
         for (int u = 0; u < UNROLL; ++u) {
           Pack128 val2;
           Fetch128(val2, dsts[0]+u*WARP_SIZE);
@@ -934,17 +1041,25 @@ __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, 
             Store128(dsts[i]+u*WARP_SIZE, _vals);
           }
         }
+        #endif
       }
     } else if (LAMB_SEND_COMPUTE) {
         for (int u = 0; u < UNROLL; ++u) {
-          const size_t totalOffset = (mvStartOffset + elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T)));
+          const size_t totalOffset = (mvStartOffset + elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T2)));
           const size_t mOffset = partStartOffset + totalOffset%partSize;
+          const size_t floatWeightsOffset = (elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T2)));
+          Pack128* floatWeightsPacked = (Pack128*)(floatWeights + floatWeightsOffset);
           Pack128 rLambdaW;
           Fetch128(rLambdaW, (Pack128*)(rStorage+mOffset));
           double scale = ((*weightNorm > 0) ? (*rNorm > 0 ? *weightNorm/(*rNorm) : 1.0f) : 1.0f)/(*rNorm);
+          Pack128 wght;
+          Fetch128(wght, floatWeightsPacked);
           Pack128 finalVal;
-          MULTI128<LAMBWeightUpdate<T>, T>().LAMBWeightUpdate(vals[u], alpha*(T)scale, rLambdaW, finalVal);
-          float4 f4 = *(reinterpret_cast<float4*>(&finalVal));
+          MULTI128<LAMBWeightUpdate<T2>, T2>().LAMBWeightUpdate(wght, alpha*(T2)scale, rLambdaW, finalVal);
+          // float4 f4 = *(reinterpret_cast<float4*>(&finalVal));
+          // if (threadIdx.x == 0) {
+          //   printf("f4.x %f\n", f4.x);
+          // }
           // float4 rf4 = *(reinterpret_cast<float4*>(&rLambdaW));
           // if (buffNumElements == 31260672 && fabs(f4.x - 0.5)/0.5 > 1e-5) {
           //     printf("906: weightNorm %f rNorm %f scale %f alpha %f rLambdaW %f f4.x %f\n", (float)(*weightNorm), (float)(*rNorm), (float)scale, (float)alpha, (float)rf4.x, f4.x);
@@ -975,47 +1090,28 @@ __device__ __forceinline__ void ReduceCopy128bMulti( const int w, const int nw, 
           // if (buffNumElements == 31260672 && totalOffset >= 31260672) {
           //   printf("f4.x %f totalOffset %ld\n", f4.x, totalOffset);
           // }
-          Store128((Pack128*)srcs[0]+u*WARP_SIZE, finalVal);
+          uint64_t finalValHalf = float4ToHalf4(finalVal);
+          Store128(floatWeightsPacked, finalVal);
+          *((uint64_t*)srcs[0] + u*WARP_SIZE) = finalValHalf;
 
           for (int i = 0; i < MINDSTS; i++) {
-            Store128(dsts[i]+u*WARP_SIZE, finalVal);
+            *(dsts[i]+u*WARP_SIZE) = finalValHalf;
           }
-        #pragma unroll 1
+          #pragma unroll 1
           for (int i=MINDSTS; i<MAXDSTS && i<ndsts; i++) {
-            Store128(dsts[i]+u*WARP_SIZE, finalVal);
+            *(dsts[i]+u*WARP_SIZE) = finalValHalf;
           }
         }
-    } else if (DROPOUT_BIAS_LAYERNORM) {
-      for (int u = 0; u < UNROLL; ++u) {
-        Pack128 _vals = vals[u];
-        //firstMoment is addTensor, secondMoment is bias, and epoch is biasSize when DROPOUT_BIAS_LAYERNORM is enabled
-        const size_t totalOffset = (mvStartOffset + elemOffset + (offset + u*WARP_SIZE)*(sizeof(Pack128)/sizeof(T)));
-        const size_t biasOffset = totalOffset%epoch;
-        Pack128 addTensorVal;
-        Fetch128(addTensorVal, (Pack128*)(firstMoment+totalOffset));
-        Pack128 biasVal;
-        Fetch128(biasVal, (Pack128*)(secondMoment+biasOffset));
-        MULTI128<FuncDropout<T>, T>().dropout(_vals, addTensorVal, biasVal, randState, 0.1f, _vals);
-
-        for (int i = 0; i < MINDSTS; i++) {
-          Store128(dsts[i]+u*WARP_SIZE, _vals);
-        }
-
-      #pragma unroll 1
-        for (int i=MINDSTS; i<MAXDSTS && i<ndsts; i++) {
-          Store128(dsts[i]+u*WARP_SIZE, _vals);
-        }
-      }
     } else {
       for (int i = 0; i < MINDSTS; i++) {
         for (int u = 0; u < UNROLL; ++u) {
-          Store128(dsts[i]+u*WARP_SIZE, vals[u]);
+          *(dsts[i]+u*WARP_SIZE) = vals[u];
         }
       }
       #pragma unroll 1
       for (int i=MINDSTS; i<MAXDSTS && i<ndsts; i++) {
         for (int u = 0; u < UNROLL; ++u) {
-          Store128(dsts[i]+u*WARP_SIZE, vals[u]);
+          *(dsts[i]+u*WARP_SIZE) = vals[u];
         }
       }
     }
@@ -1039,12 +1135,12 @@ __device__ int ptrAlign128(T* ptr) { return (uint64_t)ptr % alignof(Pack128); }
 // Use UNROLL 8 when we have a single source and a single destination, 4 otherwise
 #define AUTOUNROLL (UNROLL*(4/(MINDSTS+MINSRCS)))
 
-template<int UNROLL, class FUNC, typename T, int MINSRCS, int MAXSRCS, int MINDSTS, int MAXDSTS, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE, int DROPOUT_BIAS_LAYERNORM>
+template<int UNROLL, class FUNC, typename T, typename T2, int MINSRCS, int MAXSRCS, int MINDSTS, int MAXDSTS, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE>
 __device__ __forceinline__ void ReduceOrCopyMulti(const int tid, const int nthreads,
     int nsrcs, const T* srcs[MAXSRCS], int ndsts, T* dsts[MAXDSTS],
-    T* firstMoment, T* secondMoment, T* rStorage,
-    int N, const T alpha, const T beta1, const T beta2, const int epoch, const size_t mvStartOffset, int partStartOffset, 
-    int partSize, double* weightNorm, double* rNorm, const size_t buffNumElements, curandState* randState) {
+    T2* firstMoment, T2* secondMoment, T2* rStorage, T2* floatWeights,
+    int N, const T2 alpha, const T2 beta1, const T2 beta2, const T2 unscaleParameter, const int epoch, const size_t mvStartOffset, int partStartOffset, 
+    int partSize, double* weightNorm, double* rNorm, const size_t buffNumElements, int* numOverflows) {
   int Nrem = N;
   if (Nrem <= 0) return;
 
@@ -1062,6 +1158,8 @@ __device__ __forceinline__ void ReduceOrCopyMulti(const int tid, const int nthre
     alignDiff |= (align ^ ptrAlign128(secondMoment));  
   if (rStorage)
     alignDiff |= (align ^ ptrAlign128(rStorage));
+  if (floatWeights)
+    alignDiff |= (align ^ ptrAlign128(floatWeights));
 
   int Npreamble = alignDiff ? Nrem :
     N < alignof(Pack128) ? N :
@@ -1071,9 +1169,7 @@ __device__ __forceinline__ void ReduceOrCopyMulti(const int tid, const int nthre
   // into alignment
 
   if (Npreamble) {
-    ReduceCopyMulti<FUNC, T, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>
-    (tid, nthreads, nsrcs, srcs, ndsts, dsts, 0, Npreamble, alpha, beta1, beta2, epoch, firstMoment, secondMoment, rStorage, mvStartOffset, 
-    partStartOffset, partSize, weightNorm, rNorm, buffNumElements);
+    ReduceCopyMulti<FUNC, T, T2, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(tid, nthreads, nsrcs, srcs, ndsts, dsts, 0, Npreamble, alpha, beta1, beta2, unscaleParameter,epoch, firstMoment, secondMoment, rStorage, floatWeights, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements, numOverflows);
     Nrem -= Npreamble;
     if (Nrem == 0) return;
   }
@@ -1091,7 +1187,7 @@ __device__ __forceinline__ void ReduceOrCopyMulti(const int tid, const int nthre
       * (AUTOUNROLL * WARP_SIZE); // round down
   int Nelem2a = Npack2a * packFactor;
  
-  ReduceCopy128bMulti<FUNC, T, AUTOUNROLL, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE, DROPOUT_BIAS_LAYERNORM>(w, nw, t, nsrcs, srcs, ndsts, dsts, firstMoment, secondMoment, rStorage, offset, Npack2a, alpha, beta1, beta2, epoch, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements, randState);
+  ReduceCopy128bMulti<FUNC, T, T2, AUTOUNROLL, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(w, nw, t, nsrcs, srcs, ndsts, dsts, firstMoment, secondMoment, rStorage, floatWeights, offset, Npack2a, alpha, beta1, beta2, unscaleParameter, epoch, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements, numOverflows);
 
   Nrem -= Nelem2a;
   if (Nrem == 0) return;
@@ -1103,14 +1199,14 @@ __device__ __forceinline__ void ReduceOrCopyMulti(const int tid, const int nthre
   int Npack2b = Nrem / packFactor;
   int Nelem2b = Npack2b * packFactor;
 
-  ReduceCopy128bMulti<FUNC, T, 1, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE, DROPOUT_BIAS_LAYERNORM>(w, nw, t, nsrcs, srcs, ndsts, dsts, firstMoment, secondMoment, rStorage, offset, Npack2b, alpha, beta1, beta2, epoch, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements, randState);
+  ReduceCopy128bMulti<FUNC, T, T2, 1, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(w, nw, t, nsrcs, srcs, ndsts, dsts, firstMoment, secondMoment, rStorage, floatWeights, offset, Npack2b, alpha, beta1, beta2, unscaleParameter, epoch, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements, numOverflows);
 
   Nrem -= Nelem2b;
   if (Nrem == 0) return;
   offset += Nelem2b;
 
   // stage 2c: tail
-  ReduceCopyMulti<FUNC, T, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(tid, nthreads, nsrcs, srcs, ndsts, dsts, offset, Nrem, alpha, beta1, beta2, epoch, firstMoment, secondMoment, rStorage, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements);
+  ReduceCopyMulti<FUNC, T, T2, MINSRCS, MAXSRCS, MINDSTS, MAXDSTS, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(tid, nthreads, nsrcs, srcs, ndsts, dsts, offset, Nrem, alpha, beta1, beta2, unscaleParameter, epoch, firstMoment, secondMoment, rStorage, floatWeights, mvStartOffset, partStartOffset, partSize, weightNorm, rNorm, buffNumElements, numOverflows);
 }
 
 #endif // COMMON_KERNEL_H_

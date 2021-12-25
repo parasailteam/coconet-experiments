@@ -70,7 +70,6 @@ static void* const ncclKerns[NCCL_NUM_FUNCTIONS*ncclNumOps*ncclNumTypes*NCCL_NUM
 ncclResult_t ncclLaunchCooperativeKernelMultiDevice(struct cudaLaunchParams *paramsList, int* cudaDevs, int numDevices, int cgMode) {
 #if CUDART_VERSION >= 9000
   if (cgMode & 0x01) {
-    printf("%s:%d LaunchCooperativeKernelMultiDevice\n", __FILE__, __LINE__);
     CUDACHECK(cudaLaunchCooperativeKernelMultiDevice(paramsList, numDevices,
             // These flags are to reduce the latency of using this API
             cudaCooperativeLaunchMultiDeviceNoPreSync|cudaCooperativeLaunchMultiDeviceNoPostSync));
@@ -80,7 +79,6 @@ ncclResult_t ncclLaunchCooperativeKernelMultiDevice(struct cudaLaunchParams *par
   int savedDev;
   CUDACHECK(cudaGetDevice(&savedDev));
   for (int i = 0; i < numDevices; i++) {
-    printf("%s:%d LaunchKernel\n");
     struct cudaLaunchParams* params = paramsList+i;
     CUDACHECK(cudaSetDevice(cudaDevs[i]));
     CUDACHECK(cudaLaunchKernel(params->func, params->gridDim, params->blockDim, params->args, params->sharedMem, params->stream));
@@ -197,12 +195,7 @@ ncclResult_t ncclBarrierEnqueueWait(ncclComm_t comm) {
 
   struct cudaLaunchParams *params = comm->myParams;
   if (comm->launchMode == ncclComm::PARALLEL) {
-    // if (comm->rank == 0)
-    //   printf("%s:%d Not using Cooperative Kernel. Use it if you need to run LAMB\n", __FILE__, __LINE__);
-    //CUDACHECK(cudaLaunchCooperativeKernel(params->func, params->gridDim, params->blockDim, params->args, params->sharedMem, params->stream));
-    // if (comm->rank == 0) printf("blockDim.x %d\n", params->blockDim.x);
-    // if (comm->rank == 0) printf("gridDim.x %d\n", params->gridDim.x);
-    CUDACHECK(cudaLaunchKernel(params->func, params->gridDim, params->blockDim, params->args, params->sharedMem, params->stream));
+    CUDACHECK(cudaLaunchCooperativeKernel(params->func, params->gridDim, params->blockDim, params->args, params->sharedMem, params->stream));
   }
   // Start the network proxies as soon as the kernel has been launched. We can't
   // perform any CUDA call between the two or having a cudaFree between the CUDA
@@ -314,7 +307,7 @@ static ncclResult_t getLoopInfo(struct ncclInfo* info) {
     case ncclPatternRing:
       info->nstepsPerLoop = info->comm->nRanks-1; info->nchunksPerLoop = info->comm->nRanks; break;
     case ncclPatternRingTwice:
-      info->nstepsPerLoop = 4*(info->comm->nRanks-1); info->nchunksPerLoop = info->comm->nRanks; break;
+      info->nstepsPerLoop = 3*2*(info->comm->nRanks-1); info->nchunksPerLoop = info->comm->nRanks; break;
     default:
       WARN("Unknown pattern %d\n", info->pattern);
       return ncclInternalError;
@@ -333,19 +326,22 @@ static ncclResult_t computeColl(struct ncclInfo* info /* input */, struct ncclCo
   coll->args.ThisInput = info->sendbuff;
   coll->args.ThisOutput = info->recvbuff;
   coll->args.ThisWeight = info->weightbuff;
-  coll->args.SyncGlobalMem = info->syncGlobalMem;
+  coll->args.ThisNewWeight = info->newweightbuff;
   coll->args.ThisAlpha = info->alpha;
   coll->args.ThisFirstMoment = info->firstMomentBuff;
   coll->args.ThisSecondMoment = info->secondMomentBuff;
   coll->args.ThisBeta1 = info->beta1Buff;
   coll->args.ThisBeta2 = info->beta2Buff;
+  coll->args.ThisUnscaleParameter = info->unscaleParameterBuff;
   coll->args.epoch = info->epoch;
   coll->args.ThisScatteredSendBuff = info->scatteredSendbuff;
   coll->args.ThisScatteredWeightBuff = info->scatteredWeightbuff;
+  coll->args.ThisScatteredFloatWeightBuff = info->scatteredFloatWeightBuff;
   coll->args.ThisScatteredFirstMoment = info->scatteredFirstMomentBuff;
   coll->args.ThisScatteredSecondMoment = info->scatteredSecondMomentBuff;
   coll->args.ThisScatteredSmallNBuff = info->scatteredSmallNBuff;
   coll->args.ThisScatteredBuffSizes = info->scatteredBuffSizes;
+  coll->args.ThisNumOverflows = info->numOverflows;
   coll->args.optimizerType = info->optimizerType;
   coll->args.weightNormBuff = info->weightNormBuff;
   coll->args.buffIdToParentBufferId = info->buffIdToParentBufferId;
@@ -356,9 +352,6 @@ static ncclResult_t computeColl(struct ncclInfo* info /* input */, struct ncclCo
   coll->args.opCount = info->comm->opCount;  
   coll->args.nChannels = info->nChannels;
   coll->args.nThreads = info->nThreads;
-  coll->args.MATMUL_N = info->matMulConfig.MATMUL_N;
-  coll->args.MATMUL_M = info->matMulConfig.MATMUL_M;
-  coll->args.MATMUL_K = info->matMulConfig.MATMUL_K;
 
   coll->funcIndex = FUNC_INDEX(info->coll, info->op, info->datatype, info->algorithm, info->protocol);
   

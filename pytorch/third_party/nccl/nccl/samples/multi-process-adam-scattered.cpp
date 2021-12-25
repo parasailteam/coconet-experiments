@@ -9,6 +9,7 @@
 #include <vector>
 #include <mpi.h>
 #include <algorithm>
+#include <cuda_fp16.h>
 
 #define DIVUP(x, y) \
     (((x)+(y)-1)/(y))
@@ -62,7 +63,7 @@ bool eq_float(T f1, T f2)
 {
   if (f1 == (T)0.0 && f2 == (T)0.0)
     return true;
-  return (fabs((f1-f2)/std::max(f1, f2)) <= 1e-5);
+  return (fabs((f1-f2)/std::max(f1, f2)) <= 1e-4);
 }
 
 template<class T>
@@ -82,7 +83,7 @@ template<class T>
 bool check_epoch_results_adam(int rank, int algo, int buffIndex, int epoch,
                         const uint64_t num_weight_elems,
                         T* h_minibatch_gradients, 
-                        T* h_weights, T* d_new_weights, 
+                        T* h_weights, T* h_new_weights, 
                         T* cpu_moment,
                         T* cpu_second_moment,
                         T beta1, T beta2, T stepsize, T epsilon)	
@@ -105,13 +106,11 @@ bool check_epoch_results_adam(int rank, int algo, int buffIndex, int epoch,
 
    //Check Weight Update
 
-  T *h_new_weights = (T*)malloc(grad_array_size);
-  CUDACHECK(cudaMemcpy(h_new_weights, d_new_weights, 
-                        grad_array_size, cudaMemcpyDeviceToHost));
 
   for (uint64_t i = 0; i < num_weight_elems; i++) {
     T m, v;
     T old_m = cpu_moment[i];
+
     m = beta1 * old_m + (1-beta1) * h_reduced_grad[i];
 
     T old_v = cpu_second_moment[i];
@@ -120,8 +119,10 @@ bool check_epoch_results_adam(int rank, int algo, int buffIndex, int epoch,
     T m_ = m/(1 - pow(beta1, epoch + 1));
     T v_ = v/(1 - pow(beta2, epoch + 1));
     T x = stepsize * m_ / (sqrt(v_) + epsilon);
-    T new_weight = h_weights[i] + x;
-
+    T new_weight = __half2float(__float2half(h_weights[i] + x));
+	if (epoch <= 1 and i == 0 and buffIndex == 0) {
+		printf("old_m %f storing m %f\n", old_m, m);
+	}
     if (!eq_float(new_weight, h_new_weights[i])) {
       //Lets take a look at the last device only.
       printf("rank %d BuffIndex %d Epoch %d Mismatch in h_new_weights at [%ld]: ref '%f' computed '%f'\n", rank, buffIndex, epoch, i, new_weight, h_new_weights[i]);
@@ -153,9 +154,27 @@ bool check_epoch_results_adam(int rank, int algo, int buffIndex, int epoch,
 }
 
 
-template<class T>
-float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataType_t datatype, bool check_results = true)
+void halfToFloatArray(float* f, half* h, size_t num) 
 {
+  for (size_t i = 0; i < num; i++) {
+    f[i] = __half2float(h[i]);
+  }
+}
+
+
+void cudaMemcpyHalfDevice2FloatHost(float* hostFloatArray, half* deviceHalfArray, size_t nelems)
+{
+  half* tmp = new half[nelems];
+  CUDACHECK(cudaMemcpy(tmp, deviceHalfArray, nelems*sizeof(half), cudaMemcpyDeviceToHost));
+
+  halfToFloatArray(hostFloatArray, tmp, nelems);
+
+  delete tmp;
+}
+
+float run_scattered_adam_mp(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataType_t datatype, bool check_results = true)
+{
+	typedef half T;
 	const int epochs = 20;
 	int comm_size, rank;
   	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
@@ -172,27 +191,32 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 
 	T** gradients;
 	T** weights;
-	T** firstMoment;
-	T** secondMoment;
-	T* alphas;
-	T* beta1s;
-	T* beta2s;
+	float** floatWeights;
+	float** firstMoment;
+	float** secondMoment;
+	float* alphas;
+	float* beta1s;
+	float* beta2s;
+	float* unscaleParameters;
+	int* numOverflows;
 
 	T* realGpuGrads;
 	T* realGpuWeights;
-	T* realGpuFirstMoment;
-	T* realGpuSecondMoment;
+	float* realFloatGpuWeights;
+	float* realGpuFirstMoment;
+	float* realGpuSecondMoment;
 
 
-	const T beta1 = (T)0.5f;
-	const T beta2 = (T)0.5f;
-	const T alpha = (T)1.0f;
+	const float beta1 = 0.5f;
+	const float beta2 = 0.5f;
+	const float alpha = 1.0f;
+	const float unscaleParameter = 1.0f;
 
 	cudaStream_t s;
 	CUDACHECK(cudaStreamCreate(&s));
 	size_t* buffSizes;
 
-
+MPI_Barrier(MPI_COMM_WORLD);
 	std::vector<size_t> buffSizesAndLayerId;
 	size_t totalSize = 0;
 	for (size_t i = 0; i < nbuffs; i++) {
@@ -202,27 +226,38 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		}
 		for (int j = 0; j < nSmallBuffersForThisBuffer; j++){
 			buffSizesAndLayerId.push_back((std::min((size_t) (h_buffSizes[i] - j*maxBuffSize), (size_t) maxBuffSize) % (1<<10)) + (j << 10) + ((size_t)nSmallBuffersForThisBuffer << 35));
+			// if (rank == 0) {
+      //   printf("i: %ld j: %ld smallBuffSize: %ld numSmallBufs: %ld\n", i, j, std::min((size_t) (h_buffSizes[i] - j*maxBuffSize), (size_t) maxBuffSize)  % (1 << 10), nSmallBuffersForThisBuffer);
+			// }
 		}
 		totalSize += nSmallBuffersForThisBuffer*maxBuffSize;
 		// buffSizesAndLayerId[i] = (h_buffSizes[i] % (1<<10)) + (i << 10) + (nbuffs << 20);
 	}
-
-	T** cpuMomentum = (T**)malloc(nbuffs * sizeof(T*));
-	T** cpuVelocity = (T**)malloc(nbuffs * sizeof(T*));
+	if (rank == 0)
+	printf("\n");
+	MPI_Barrier(MPI_COMM_WORLD);
+	std::cout << "totalSize " << totalSize << " buffSizesAndLayerId " << buffSizesAndLayerId.size() << std::endl;
+	float** cpuMomentum = (float**)malloc(nbuffs * sizeof(float*));
+	float** cpuVelocity = (float**)malloc(nbuffs * sizeof(float*));
 	T** cpuGrads = (T**)malloc(nbuffs * sizeof(T*));
 	T** cpuWeight = (T**)malloc(nbuffs * sizeof(T*));
+	float** cpuFloatWeight = (float**)malloc(nbuffs * sizeof(float*));
 
 
 	for (size_t i = 0; i < nbuffs; i++) {
-		cpuVelocity[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
-		cpuMomentum[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
+		//printf("h_buffSizes[%d] %ld sizeof(T) %ld\n", i, h_buffSizes[i], sizeof(T));
+		cpuVelocity[i] = (float*)malloc(h_buffSizes[i]*sizeof(float));
+		cpuMomentum[i] = (float*)malloc(h_buffSizes[i]*sizeof(float));
 		cpuGrads[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
 		cpuWeight[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
+		cpuFloatWeight[i] = (float*)malloc(h_buffSizes[i]*sizeof(float));
 		for (size_t index = 0; index < h_buffSizes[i]; index++){
 			cpuVelocity[i][index] = 0.f;
 			cpuMomentum[i][index] = 0.f;
-			cpuGrads[i][index] = (float)(i%2 + 1)*(index%20+1);
-			cpuWeight[i][index] = (float)(i%2 + 1)*(index%20+1);
+			float w = (float)(i%2 + 1)*(index%20+1);
+			cpuGrads[i][index] = __float2half(w);
+			cpuWeight[i][index] = __float2half(w);
+			cpuFloatWeight[i][index] = w;
 		}
 	}
 
@@ -231,21 +266,26 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 	CUDACHECK(cudaMemcpy(buffSizes, buffSizesAndLayerId.data(), smallNbuffer * sizeof(size_t), cudaMemcpyHostToDevice));
 	CUDACHECK(cudaMalloc(&weights, smallNbuffer * sizeof(T*)));
 	CUDACHECK(cudaMalloc(&gradients, smallNbuffer * sizeof(T*)));
+	CUDACHECK(cudaMalloc(&floatWeights, smallNbuffer * sizeof(float*)));
 
-	CUDACHECK(cudaMalloc(&alphas, sizeof(T)));
-	CUDACHECK(cudaMalloc(&beta1s, sizeof(T)));
-	CUDACHECK(cudaMalloc(&beta2s, sizeof(T)));
+	CUDACHECK(cudaMalloc(&alphas, sizeof(float)));
+	CUDACHECK(cudaMalloc(&beta1s, sizeof(float)));
+	CUDACHECK(cudaMalloc(&beta2s, sizeof(float)));
+	CUDACHECK(cudaMalloc(&unscaleParameters, sizeof(float)));
+	CUDACHECK(cudaMalloc(&numOverflows, sizeof(int)));
+
+	CUDACHECK(cudaMemcpy(alphas, &alpha, sizeof(float), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(beta1s, &beta1, sizeof(float), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(beta2s, &beta2, sizeof(float), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(unscaleParameters, &unscaleParameter, sizeof(float), cudaMemcpyHostToDevice));
 	
-	CUDACHECK(cudaMemcpy(alphas, &alpha, sizeof(T), cudaMemcpyHostToDevice));
-	CUDACHECK(cudaMemcpy(beta1s, &beta1, sizeof(T), cudaMemcpyHostToDevice));
-	CUDACHECK(cudaMemcpy(beta2s, &beta2, sizeof(T), cudaMemcpyHostToDevice));
-
 	T** tmpGrads = (T**)malloc(smallNbuffer * sizeof(T**));
 	T** tmpWeights = (T**)malloc(smallNbuffer * sizeof(T**));
-	T** tmpFirstMoment = (T**)malloc(smallNbuffer * sizeof(T**));
-	T** tmpSecondMoment = (T**)malloc(smallNbuffer * sizeof(T**));
-	T* singleBufferSecondMoment = nullptr;
-	T* singleBufferFirstMoment = nullptr;
+	float** tmpFloatWeights = (float**)malloc(smallNbuffer * sizeof(float**));
+	float** tmpFirstMoment = (float**)malloc(smallNbuffer * sizeof(float**));
+	float** tmpSecondMoment = (float**)malloc(smallNbuffer * sizeof(float**));
+	float* singleBufferSecondMoment = nullptr;
+	float* singleBufferFirstMoment = nullptr;
 	
 	size_t mSizeForSimple = 0;
 	{
@@ -253,22 +293,25 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		int nChannels = atoi(getenv ("NCCL_MIN_NCHANNELS"));
 		int nThreads = atoi(getenv("NCCL_NTHREADS"));
 		int channelBuffSize = atoi(getenv("NCCL_BUFFSIZE"));
-		const int stepSize = channelBuffSize / (sizeof(float)*NCCL_STEPS);
+		const int stepSize = channelBuffSize / (sizeof(T)*NCCL_STEPS);
 		const size_t chunkSize = stepSize * ALLREDUCE_CHUNKSTEPS;
 		size_t maxPartSizeForSimple = std::min(chunkSize, DIVUP(totalSize,comm_size*nChannels));
-		ALIGN_SIZE(maxPartSizeForSimple, nThreads*sizeof(uint64_t)/sizeof(float));
+		ALIGN_SIZE(maxPartSizeForSimple, nThreads*sizeof(uint64_t)/sizeof(T));
 		const ssize_t loopSize = nChannels*(ssize_t)chunkSize;
 		const ssize_t numParts = DIVUP(totalSize, comm_size*loopSize);
+		std::cout << "numParts " << numParts <<" maxPartSizeForSimple " << maxPartSizeForSimple << " chunkSize " << chunkSize << std::endl;
 		mSizeForSimple = maxPartSizeForSimple*nChannels*numParts;
-		CUDACHECK(cudaMalloc(&singleBufferSecondMoment, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMalloc(&singleBufferFirstMoment, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMemset(singleBufferSecondMoment, 0, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMemset(singleBufferFirstMoment, 0, mSizeForSimple * sizeof(T)));
+		std::cout << "mSizeForSimple " << mSizeForSimple << std::endl;
+		CUDACHECK(cudaMalloc(&singleBufferSecondMoment, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMalloc(&singleBufferFirstMoment, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMemset(singleBufferSecondMoment, 0, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMemset(singleBufferFirstMoment, 0, mSizeForSimple * sizeof(float)));
 	}
 
 	CUDACHECK(cudaMalloc(&realGpuGrads, totalSize * sizeof(T)));
 	CUDACHECK(cudaMalloc(&realGpuWeights, totalSize * sizeof(T)));
-
+	CUDACHECK(cudaMalloc(&realFloatGpuWeights, totalSize * sizeof(float)));
+	
 	int accSize = 0;
 	int curBuffIndex = 0;
 	for (size_t i = 0; i < nbuffs; i++){
@@ -278,12 +321,14 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		}
 		CUDACHECK(cudaMemcpy(&realGpuGrads[accSize], cpuGrads[i], h_buffSizes[i] * sizeof(T), cudaMemcpyHostToDevice));
 		CUDACHECK(cudaMemcpy(&realGpuWeights[accSize], cpuWeight[i], h_buffSizes[i] * sizeof(T), cudaMemcpyHostToDevice));
+		CUDACHECK(cudaMemcpy(&realFloatGpuWeights[accSize], cpuFloatWeight[i], h_buffSizes[i] * sizeof(float), cudaMemcpyHostToDevice));
 
 		// CUDACHECK(cudaMemcpy(&realGpuFirstMoment[accSize], cpuMomentum[i], h_buffSizes[i] * sizeof(T), cudaMemcpyHostToDevice));
 		// CUDACHECK(cudaMemcpy(&realGpuSecondMoment[accSize], cpuVelocity[i], h_buffSizes[i] * sizeof(T), cudaMemcpyHostToDevice));
 		for (int j = 0; j < nSmallBuffersForThisBuffer; j++){
 			tmpGrads[curBuffIndex] = &realGpuGrads[accSize + j*maxBuffSize];
 			tmpWeights[curBuffIndex] = &realGpuWeights[accSize + j*maxBuffSize];
+			tmpFloatWeights[curBuffIndex] = &realFloatGpuWeights[accSize + j*maxBuffSize];
 			//tmpFirstMoment[curBuffIndex] = &realGpuFirstMoment[accSize + j*maxBuffSize];
 			//tmpSecondMoment[curBuffIndex] = &realGpuSecondMoment[accSize + j*maxBuffSize];
 			curBuffIndex++;
@@ -291,26 +336,30 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		
 		accSize += nSmallBuffersForThisBuffer * maxBuffSize;
 	}
-
 	CUDACHECK(cudaMemcpy(gradients, tmpGrads, sizeof(T*) * smallNbuffer, cudaMemcpyHostToDevice));
 	CUDACHECK(cudaMemcpy(weights, tmpWeights, sizeof(T*) * smallNbuffer, cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(floatWeights, tmpFloatWeights, sizeof(float*) * smallNbuffer, cudaMemcpyHostToDevice));
 
-	T** tmpOldWeights = new T*[smallNbuffer];
-	T** tmpOldGrads = new T*[smallNbuffer];
-	T** tmpOldFirstMomentum = new T*[smallNbuffer];
-	T** tmpOldSecondMomentum = new T*[smallNbuffer];
+	float** tmpOldWeights = new float*[smallNbuffer];
+	float** tmpOldFloatWeights = new float*[smallNbuffer];
+	float** tmpOldGrads = new float*[smallNbuffer];
+	float** tmpOldFirstMomentum = new float*[smallNbuffer];
+	float** tmpOldSecondMomentum = new float*[smallNbuffer];
+	float** tmpNewWeights = new float*[smallNbuffer];
+
 	for (size_t buff = 0; buff < smallNbuffer; buff++) {
 		int thisBufferSize = ((buffSizesAndLayerId[buff] % maxBuffSize) == 0) ? maxBuffSize : (buffSizesAndLayerId[buff] % maxBuffSize);
 
-		tmpOldWeights[buff] = new T[thisBufferSize];
-		tmpOldGrads[buff] = new T[thisBufferSize];
-		tmpOldFirstMomentum[buff] = new T[thisBufferSize];
-		tmpOldSecondMomentum[buff] = new T[thisBufferSize];
+		tmpOldWeights[buff] = new float[thisBufferSize];
+		tmpOldFloatWeights[buff] = new float[thisBufferSize];
+		tmpOldGrads[buff] = new float[thisBufferSize];
+		tmpOldFirstMomentum[buff] = new float[thisBufferSize];
+		tmpOldSecondMomentum[buff] = new float[thisBufferSize];
+		tmpNewWeights[buff] = new float[thisBufferSize];
 		memset(tmpOldFirstMomentum[buff], 0, thisBufferSize*sizeof(float));
 		memset(tmpOldSecondMomentum[buff], 0, thisBufferSize*sizeof(float));
 	}
 
-	
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	float totalTime = 0.0;
@@ -320,21 +369,21 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		if (check_results and iter < 5) {
 			for (size_t buff = 0; buff < smallNbuffer; buff++) {
 				int thisBufferSize = ((buffSizesAndLayerId[buff] % maxBuffSize) == 0) ? maxBuffSize : (buffSizesAndLayerId[buff] % maxBuffSize);
-        		cudaMemcpy(tmpOldWeights[buff], tmpWeights[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
-        		cudaMemcpy(tmpOldGrads[buff], tmpGrads[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
+				cudaMemcpy(tmpOldFloatWeights[buff], tmpFloatWeights[buff], sizeof(float)*thisBufferSize, cudaMemcpyDeviceToHost);
+				cudaMemcpyHalfDevice2FloatHost(tmpOldGrads[buff], tmpGrads[buff], thisBufferSize);
+				cudaMemcpyHalfDevice2FloatHost(tmpOldWeights[buff], tmpWeights[buff], thisBufferSize);
         		//cudaMemcpy(tmpOldFirstMomentum[buff], tmpFirstMoment[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
         		//cudaMemcpy(tmpOldSecondMomentum[buff], tmpSecondMoment[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
 			}
 		}
-
 		cudaEvent_t start, stop;
 		CUDACHECK(cudaEventCreate(&start));
 		CUDACHECK(cudaEventCreate(&stop));
 		CUDACHECK(cudaEventRecord(start,0));
-		NCCLCHECK(ncclAllReduceScatteredAdam((const void**)gradients, (void**)weights, (void**)singleBufferFirstMoment, 
-																				 (void**)singleBufferSecondMoment, smallNbuffer, buffSizes,
-																					totalSize, (void*) alphas, (void*) beta1s, (void*)beta2s, iter, datatype, 
-																					ncclSum, comm, s));
+		NCCLCHECK(ncclAllReduceScatteredAdamMP((const void**)gradients, (void**)weights, floatWeights, (void**)singleBufferFirstMoment, 
+											   (void**)singleBufferSecondMoment, smallNbuffer, buffSizes,
+											   totalSize, (void*) alphas, (void*) beta1s, (void*)beta2s, (void*)unscaleParameters, numOverflows, iter, datatype, 
+											   ncclSum, comm, s));
 		CUDACHECK(cudaEventRecord(stop,0));
 		CUDACHECK(cudaEventSynchronize(stop));
 		float elapsedTime;
@@ -347,20 +396,21 @@ float run_scattered_adam(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 			bool passed = true;		
 			for (size_t buff = 0; buff < smallNbuffer; buff++) {
 				int thisBufferSize = ((buffSizesAndLayerId[buff] % maxBuffSize) == 0) ? maxBuffSize : (buffSizesAndLayerId[buff] % maxBuffSize);
-
-				passed = check_epoch_results_adam(rank, 2, buff, iter, thisBufferSize, tmpOldGrads[buff], tmpOldWeights[buff], tmpWeights[buff], tmpOldFirstMomentum[buff], tmpOldSecondMomentum[buff], beta1, beta2, alpha, (T)1e-6);
+				cudaMemcpyHalfDevice2FloatHost(tmpNewWeights[buff], tmpWeights[buff], thisBufferSize);	
+				passed = check_epoch_results_adam<float>(rank, 2, buff, iter, thisBufferSize, tmpOldGrads[buff], tmpOldWeights[buff], tmpNewWeights[buff], tmpOldFirstMomentum[buff], tmpOldSecondMomentum[buff], beta1, beta2, alpha, (float)1e-6);
 				if (!passed)
 					break;
 			}
 			if (passed)
 				printf("Results checks out!\n");
-			else
+			else {
 				printf("Correctness failed!\n");
+				abort();
+			}
 		}
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
-	
 	if (rank == 0) {
 		printf("{SZ: %ld, Epochs: %d, Time: %f}\n", totalSize, epochs, totalTime);
 	}
@@ -372,7 +422,7 @@ template<class T>
 bool check_epoch_results_lamb(int rank, int algo, int buffIndex, int epoch,
                         const uint64_t num_weight_elems,
                         T* h_minibatch_gradients, 
-                        T* h_weights, T* d_new_weights, 
+                        T* h_weights, T* h_new_weights, 
                         T* cpu_moment,
                         T* cpu_second_moment,
                         T beta1, T beta2, T stepsize, T epsilon)	
@@ -394,10 +444,6 @@ bool check_epoch_results_lamb(int rank, int algo, int buffIndex, int epoch,
   MPI_Allreduce(h_minibatch_gradients, h_reduced_grad, num_weight_elems, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
    //Check Weight Update
-
-  T *h_new_weights = (T*)malloc(grad_array_size);
-  CUDACHECK(cudaMemcpy(h_new_weights, d_new_weights, 
-                        grad_array_size, cudaMemcpyDeviceToHost));
 
 	double rNorm = 0.0f, wNorm = 0.0f;
   for (uint64_t i = 0; i < num_weight_elems; i++) {
@@ -461,9 +507,9 @@ bool check_epoch_results_lamb(int rank, int algo, int buffIndex, int epoch,
   return passed;
 }
 
-template<class T>
 float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataType_t datatype, bool check_results = true)
 {
+	typedef half T;
 	const int epochs = 20;
 	int comm_size, rank;
   	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
@@ -480,21 +526,26 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 
 	T** gradients;
 	T** weights;
-	T** firstMoment;
-	T** secondMoment;
-	T* alphas;
-	T* beta1s;
-	T* beta2s;
+	float** floatWeights;
+	float** firstMoment;
+	float** secondMoment;
+	float* alphas;
+	float* beta1s;
+	float* beta2s;
+	float* unscaleParameters;
+	int* numOverflows;
 
 	T* realGpuGrads;
 	T* realGpuWeights;
-	T* realGpuFirstMoment;
-	T* realGpuSecondMoment;
+	float* realFloatGpuWeights;
+	float* realGpuFirstMoment;
+	float* realGpuSecondMoment;
 
 
-	const T beta1 = (T)0.5f;
-	const T beta2 = (T)0.5f;
-	const T alpha = (T)1.0f;
+	const float beta1 = 0.5f;
+	const float beta2 = 0.5f;
+	const float alpha = 1.0f;
+	const float unscaleParameter = 1.0f;
 
 	cudaStream_t s;
 	CUDACHECK(cudaStreamCreate(&s));
@@ -526,22 +577,25 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		// }
 	}
 
-	T** cpuMomentum = (T**)malloc(nbuffs * sizeof(T*));
-	T** cpuVelocity = (T**)malloc(nbuffs * sizeof(T*));
+	float** cpuMomentum = (float**)malloc(nbuffs * sizeof(float*));
+	float** cpuVelocity = (float**)malloc(nbuffs * sizeof(float*));
 	T** cpuGrads = (T**)malloc(nbuffs * sizeof(T*));
 	T** cpuWeight = (T**)malloc(nbuffs * sizeof(T*));
-
+	float** cpuFloatWeight = (float**)malloc(nbuffs * sizeof(float*));
 
 	for (size_t i = 0; i < nbuffs; i++) {
-		cpuVelocity[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
-		cpuMomentum[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
+		cpuVelocity[i] = (float*)malloc(h_buffSizes[i]*sizeof(float));
+		cpuMomentum[i] = (float*)malloc(h_buffSizes[i]*sizeof(float));
 		cpuGrads[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
 		cpuWeight[i] = (T*)malloc(h_buffSizes[i]*sizeof(T));
+		cpuFloatWeight[i] = (float*)malloc(h_buffSizes[i]*sizeof(float));
 		for (size_t index = 0; index < h_buffSizes[i]; index++){
 			cpuVelocity[i][index] = 0.f;
 			cpuMomentum[i][index] = 0.f;
-			cpuGrads[i][index] = (float)(i%2 + 1)*(index%20+1);
-			cpuWeight[i][index] = (float)(i%2 + 1)*(index%20+1);
+			float w = 1.0f;//(float)(i%2 + 1)*(index%20+1);
+			cpuGrads[i][index] = __float2half(w);
+			cpuWeight[i][index] = __float2half(w);
+			cpuFloatWeight[i][index] = w;
 		}
 	}
 
@@ -555,23 +609,28 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 	CUDACHECK(cudaMemcpy(d_parentBuffSizes, h_buffSizes, nbuffs*sizeof(size_t), cudaMemcpyHostToDevice));
 	CUDACHECK(cudaMalloc(&weights, smallNbuffer * sizeof(T*)));
 	CUDACHECK(cudaMalloc(&gradients, smallNbuffer * sizeof(T*)));
-
-	CUDACHECK(cudaMalloc(&alphas, sizeof(T)));
-	CUDACHECK(cudaMalloc(&beta1s, sizeof(T)));
-	CUDACHECK(cudaMalloc(&beta2s, sizeof(T)));
+	CUDACHECK(cudaMalloc(&floatWeights, smallNbuffer * sizeof(float*)));
 	
-	CUDACHECK(cudaMemcpy(alphas, &alpha, sizeof(T), cudaMemcpyHostToDevice));
-	CUDACHECK(cudaMemcpy(beta1s, &beta1, sizeof(T), cudaMemcpyHostToDevice));
-	CUDACHECK(cudaMemcpy(beta2s, &beta2, sizeof(T), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMalloc(&alphas, sizeof(float)));
+	CUDACHECK(cudaMalloc(&beta1s, sizeof(float)));
+	CUDACHECK(cudaMalloc(&beta2s, sizeof(float)));
+	CUDACHECK(cudaMalloc(&unscaleParameters, sizeof(float)));
+	CUDACHECK(cudaMalloc(&numOverflows, sizeof(int)));
+
+	CUDACHECK(cudaMemcpy(alphas, &alpha, sizeof(float), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(beta1s, &beta1, sizeof(float), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(beta2s, &beta2, sizeof(float), cudaMemcpyHostToDevice));
+	CUDACHECK(cudaMemcpy(unscaleParameters, &unscaleParameter, sizeof(float), cudaMemcpyHostToDevice));
 
 	T** tmpGrads = (T**)malloc(smallNbuffer * sizeof(T**));
 	T** tmpWeights = (T**)malloc(smallNbuffer * sizeof(T**));
-	T** tmpFirstMoment = (T**)malloc(smallNbuffer * sizeof(T**));
-	T** tmpSecondMoment = (T**)malloc(smallNbuffer * sizeof(T**));
-	T* singleBufferSecondMoment = nullptr;
-	T* singleBufferFirstMoment = nullptr;
-	T* weightNorm;
-	T* rStorageBuff;
+	float** tmpFloatWeights = (float**)malloc(smallNbuffer * sizeof(float**));
+	float** tmpFirstMoment = (float**)malloc(smallNbuffer * sizeof(float**));
+	float** tmpSecondMoment = (float**)malloc(smallNbuffer * sizeof(float**));
+	float* singleBufferSecondMoment = nullptr;
+	float* singleBufferFirstMoment = nullptr;
+	double* weightNorm;
+	float* rStorageBuff;
 
 	CUDACHECK(cudaMalloc(&weightNorm, nbuffs * 2 * sizeof(double)));
 	CUDACHECK(cudaMemset(weightNorm, 0, nbuffs * 2 * sizeof(double)));
@@ -583,22 +642,23 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		int nChannels = atoi(getenv ("NCCL_MIN_NCHANNELS"));
 		int nThreads = atoi(getenv("NCCL_NTHREADS"));
 		int channelBuffSize = atoi(getenv("NCCL_BUFFSIZE"));
-		const int stepSize = channelBuffSize / (sizeof(float)*NCCL_STEPS);
+		const int stepSize = channelBuffSize / (sizeof(T)*NCCL_STEPS);
 		const size_t chunkSize = stepSize * ALLREDUCE_CHUNKSTEPS;
 		size_t maxPartSizeForSimple = std::min(chunkSize, DIVUP(totalSize,comm_size*nChannels));
-		ALIGN_SIZE(maxPartSizeForSimple, nThreads*sizeof(uint64_t)/sizeof(float));
+		ALIGN_SIZE(maxPartSizeForSimple, nThreads*sizeof(uint64_t)/sizeof(T));
 		const ssize_t loopSize = nChannels*(ssize_t)chunkSize;
 		const ssize_t numParts = DIVUP(totalSize, comm_size*loopSize);
 		mSizeForSimple = maxPartSizeForSimple*nChannels*numParts;
-		CUDACHECK(cudaMalloc(&singleBufferSecondMoment, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMalloc(&singleBufferFirstMoment, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMemset(singleBufferSecondMoment, 0, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMemset(singleBufferFirstMoment, 0, mSizeForSimple * sizeof(T)));
-		CUDACHECK(cudaMalloc(&rStorageBuff, mSizeForSimple * sizeof(T)));
+		CUDACHECK(cudaMalloc(&singleBufferSecondMoment, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMalloc(&singleBufferFirstMoment, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMemset(singleBufferSecondMoment, 0, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMemset(singleBufferFirstMoment, 0, mSizeForSimple * sizeof(float)));
+		CUDACHECK(cudaMalloc(&rStorageBuff, mSizeForSimple * sizeof(float)));
 	}
 
 	CUDACHECK(cudaMalloc(&realGpuGrads, totalSize * sizeof(T)));
 	CUDACHECK(cudaMalloc(&realGpuWeights, totalSize * sizeof(T)));
+ 	CUDACHECK(cudaMalloc(&realFloatGpuWeights, totalSize * sizeof(float)));
 
 	int accSize = 0;
 	int curBuffIndex = 0;
@@ -612,6 +672,8 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		}
 		CUDACHECK(cudaMemcpy(&realGpuGrads[accSize], cpuGrads[i], h_buffSizes[i] * sizeof(T), cudaMemcpyHostToDevice));
 		CUDACHECK(cudaMemcpy(&realGpuWeights[accSize], cpuWeight[i], h_buffSizes[i] * sizeof(T), cudaMemcpyHostToDevice));
+		CUDACHECK(cudaMemcpy(&realFloatGpuWeights[accSize], cpuFloatWeight[i], h_buffSizes[i] * sizeof(float), cudaMemcpyHostToDevice));
+
 		d_tmpParentBuffWeights[i] = &realGpuWeights[accSize];
 		d_tmpParentBuffGrads[i] = &realGpuGrads[accSize];
 
@@ -620,6 +682,7 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		for (int j = 0; j < nSmallBuffersForThisBuffer; j++){
 			tmpGrads[curBuffIndex] = &realGpuGrads[accSize + j*maxBuffSize];
 			tmpWeights[curBuffIndex] = &realGpuWeights[accSize + j*maxBuffSize];
+			tmpFloatWeights[curBuffIndex] = &realFloatGpuWeights[accSize + j*maxBuffSize];
 			//tmpFirstMoment[curBuffIndex] = &realGpuFirstMoment[accSize + j*maxBuffSize];
 			//tmpSecondMoment[curBuffIndex] = &realGpuSecondMoment[accSize + j*maxBuffSize];
 			curBuffIndex++;
@@ -630,19 +693,21 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 
 	CUDACHECK(cudaMemcpy(gradients, tmpGrads, sizeof(T*) * smallNbuffer, cudaMemcpyHostToDevice));
 	CUDACHECK(cudaMemcpy(weights, tmpWeights, sizeof(T*) * smallNbuffer, cudaMemcpyHostToDevice));
-	
+	CUDACHECK(cudaMemcpy(floatWeights, tmpFloatWeights, sizeof(float*) * smallNbuffer, cudaMemcpyHostToDevice));
 
-	T** tmpOldWeights = new T*[nbuffs];
-	T** tmpOldGrads = new T*[nbuffs];
-	T** tmpOldFirstMomentum = new T*[nbuffs];
-	T** tmpOldSecondMomentum = new T*[nbuffs];
+	float** tmpOldWeights = new float*[nbuffs];
+	float** tmpNewWeights = new float*[nbuffs];
+	float** tmpOldGrads = new float*[nbuffs];
+    float** tmpOldFirstMomentum = new float*[nbuffs];
+	float** tmpOldSecondMomentum = new float*[nbuffs];
+	float** tmpOldFloatWeights = new float*[nbuffs];
+
 	for (size_t buff = 0; buff < nbuffs; buff++) {
-		int thisBufferSize = ((buffSizesAndLayerId[buff] % maxBuffSize) == 0) ? maxBuffSize : (buffSizesAndLayerId[buff] % maxBuffSize);
-
-		tmpOldWeights[buff] = new T[h_buffSizes[buff]];
-		tmpOldGrads[buff] = new T[h_buffSizes[buff]];
-		tmpOldFirstMomentum[buff] = new T[h_buffSizes[buff]];
-		tmpOldSecondMomentum[buff] = new T[h_buffSizes[buff]];
+		tmpOldWeights[buff] = new float[h_buffSizes[buff]];
+		tmpNewWeights[buff] = new float[h_buffSizes[buff]];
+		tmpOldGrads[buff] = new float[h_buffSizes[buff]];
+		tmpOldFirstMomentum[buff] = new float[h_buffSizes[buff]];
+		tmpOldSecondMomentum[buff] = new float[h_buffSizes[buff]];
 		memset(tmpOldFirstMomentum[buff], 0, h_buffSizes[buff]*sizeof(float));
 		memset(tmpOldSecondMomentum[buff], 0, h_buffSizes[buff]*sizeof(float));
 	}
@@ -653,12 +718,12 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 	float totalTime = 0.0;
 
 	for (int iter = 0; iter < epochs + 5; iter++) {
-    	//  printf("iter %d\n", iter);
-		if (check_results and iter < 5) {
+    	// printf("iter %d\n", iter);
+		if (check_results and iter < 1) {
 			for (size_t buff = 0; buff < nbuffs; buff++) {
 				int thisBufferSize = h_buffSizes[buff];
-        		cudaMemcpy(tmpOldWeights[buff], d_tmpParentBuffWeights[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
-        		cudaMemcpy(tmpOldGrads[buff], d_tmpParentBuffGrads[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
+        		cudaMemcpyHalfDevice2FloatHost(tmpOldWeights[buff], d_tmpParentBuffWeights[buff], thisBufferSize);
+        		cudaMemcpyHalfDevice2FloatHost(tmpOldGrads[buff], d_tmpParentBuffGrads[buff], thisBufferSize);
         		//cudaMemcpy(tmpOldFirstMomentum[buff], tmpFirstMoment[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
         		//cudaMemcpy(tmpOldSecondMomentum[buff], tmpSecondMoment[buff], sizeof(T)*thisBufferSize, cudaMemcpyDeviceToHost);
 			}
@@ -668,9 +733,10 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		CUDACHECK(cudaEventCreate(&start));
 		CUDACHECK(cudaEventCreate(&stop));
 		CUDACHECK(cudaEventRecord(start,0));
-		NCCLCHECK(ncclAllReduceScatteredLAMB((const void**)gradients, (void**)weights, (void**)singleBufferFirstMoment, 
+		NCCLCHECK(ncclAllReduceScatteredLAMB((const void**)gradients, (void**)weights, floatWeights, (void**)singleBufferFirstMoment, 
 											 (void**)singleBufferSecondMoment, smallNbuffer, buffSizes,
-											 totalSize,d_parentBuffSizes, (void*) alphas, (void*) beta1s, (void*)beta2s, weightNorm, rStorageBuff, nbuffs, buffIdToParentBufferId,
+											 totalSize,d_parentBuffSizes, (void*) alphas, (void*) beta1s, (void*)beta2s,(void*)unscaleParameters, numOverflows,
+											 weightNorm, rStorageBuff, nbuffs, buffIdToParentBufferId,
 											 iter, datatype, ncclSum, comm, s));
 		CUDACHECK(cudaEventRecord(stop,0));
 		CUDACHECK(cudaEventSynchronize(stop));
@@ -679,11 +745,13 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 		if (iter >= 5) 
 			totalTime += elapsedTime;
 
-		if (check_results and iter < 5) {
+		if (check_results and iter < 1) {
 			printf("checking results\n");
 			bool passed = true;		
 			for (size_t buff = 0; buff < nbuffs; buff++) {
-				passed = check_epoch_results_lamb(rank, 2, buff, iter, h_buffSizes[buff], tmpOldGrads[buff], tmpOldWeights[buff], d_tmpParentBuffWeights[buff], tmpOldFirstMomentum[buff], tmpOldSecondMomentum[buff], beta1, beta2, alpha, (T)1e-6);
+				int thisBufferSize = h_buffSizes[buff];
+				cudaMemcpyHalfDevice2FloatHost(tmpNewWeights[buff], d_tmpParentBuffWeights[buff], thisBufferSize);
+				passed = check_epoch_results_lamb<float>(rank, 2, buff, iter, h_buffSizes[buff], tmpOldGrads[buff], tmpOldWeights[buff], tmpNewWeights[buff], tmpOldFirstMomentum[buff], tmpOldSecondMomentum[buff], beta1, beta2, alpha, (T)1e-6);
 				if (!passed)
 					break;
 			}
@@ -697,17 +765,18 @@ float run_scattered_lamb(uint64_t nbuffs, const size_t* h_buffSizes, ncclDataTyp
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
+	
 	if (rank == 0) {
 		printf("{SZ: %ld, Epochs: %d, Time: %f}\n", totalSize, epochs, totalTime);
 	}
-
 	return totalTime/epochs;
 }
 
 int main(int argc, char* argv[])
 {
-	MPI_Init(&argc, &argv);
+	  MPI_Init(&argc, &argv);
 
+	
 	if (argc < 2) {
 		printf("provide optimizer type: adam or lamb\n");
 		return 0;
@@ -733,26 +802,29 @@ int main(int argc, char* argv[])
 		// 	curSize += buffSizes[i];
 		// }
 		// const size_t nbuffs = 396;
-	  const size_t buffSizes[] = {31260672, 2048, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 30528, 1024, 1024, 1024 };
+	  // const size_t buffSizes[] = { 31260672, 2048, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 1048576, 1048576, 4194304, 4194304, 1048576, 1048576, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 4096, 1024, 1024, 1024, 1024, 30528, 1024, 1024, 1024 };
+		const size_t buffSizes[] = {78151680, 1310720, 5120, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 
+																10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 6553600, 2560, 2560, 2560, 10485760, 4096, 10485760, 2560, 2560, 2560, 6553600, 2560, 30528, 6553600, 2560, 2560, 2560, 5120, 2};
 		//const size_t buffSizes[] = { 31260672, 2048, 1048576};
     const size_t nbuffs = sizeof(buffSizes)/sizeof(buffSizes[0]);
 		size = 0;
 		for (size_t i = 0; i < nbuffs;i++) {
 			size += buffSizes[i];
-		}		
-		if (strcmp(opt_type, "adam") == 0) {
-			elapsedTime = run_scattered_adam<float>(nbuffs, buffSizes, ncclFloat, false);
-		} else {
-			elapsedTime = run_scattered_lamb<float>(nbuffs, buffSizes, ncclFloat, false);
 		}
+		if (strcmp(opt_type, "adam") == 0) {
+			elapsedTime = run_scattered_adam_mp(nbuffs, buffSizes, ncclHalf, false);
+		} else {
+			elapsedTime = run_scattered_lamb(nbuffs, buffSizes, ncclHalf, true);
+		}
+		//elapsedTime = run_scattered_adam_mp(nbuffs, buffSizes, ncclHalf, true);
+		// elapsedTime = run_scattered_lamb(nbuffs, buffSizes, ncclHalf, false);
 		// delete[] buffSizes;
 	} else {
 		// elapsedTime = run_adam<float>(algo, (bool)check_results, size, (float)gradient_factor, ncclFloat, weight_update_time, reduce_time);
 	}
-	int comm_size;
-  	MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-	//printf ("Elapsed Time: %f BW %f\n", elapsedTime, (size*sizeof(float)*2.*(comm_size-1))/comm_size/(elapsedTime/1000.)/1e9);
-	
-
+	// int comm_size;
+  	// MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+	// printf ("Elapsed Time: %f BW %f\n", elapsedTime, (size*sizeof(float)*2.*(comm_size-1))/comm_size/(elapsedTime/1000.)/1e9);
+MPI_Finalize();
 	return 0;
 }

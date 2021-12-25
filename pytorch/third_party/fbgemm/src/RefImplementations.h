@@ -11,6 +11,7 @@
 
 #include "fbgemm/ConvUtils.h"
 #include "fbgemm/FbgemmI8Spmdm.h"
+#include "fbgemm/Types.h"
 
 namespace fbgemm {
 
@@ -108,8 +109,7 @@ FBGEMM_API void cblas_sgemm_ref(
     int ldb,
     float beta,
     float* Cfp32,
-    int ldc
-    );
+    int ldc);
 
 FBGEMM_API void cblas_gemm_i64_i64acc_ref(
     matrix_op_t transa,
@@ -214,21 +214,27 @@ FBGEMM_API void im2col_ref(
     std::int32_t A_zero_point,
     std::uint8_t* Ao);
 
-template <typename inType = std::uint8_t, typename IndexType = std::int64_t>
+template <
+    typename InType = std::uint8_t,
+    typename IndexType = std::int64_t,
+    typename OffsetType = std::int32_t>
 FBGEMM_API bool EmbeddingSpMDM_ref(
     const std::int64_t block_size,
     const std::int64_t output_size,
     const std::int64_t index_size,
     const std::int64_t data_size,
-    const inType* input,
+    const InType* input,
     const IndexType* indices,
-    const int* lengths,
+    const OffsetType* offsets_or_lengths,
     const float* weights, // optional, can be null for non-weighted sum
     bool normalize_by_lengths,
     float* out,
-    bool is_weight_positional = false);
+    bool is_weight_positional = false,
+    bool use_offsets = true,
+    std::int64_t output_stride = -1,
+    std::int64_t input_stride = -1);
 
-template <typename IndexType = std::int64_t>
+template <typename IndexType = std::int64_t, typename OffsetType = std::int32_t>
 FBGEMM_API bool EmbeddingSpMDMNBit_ref(
     int bit_rate,
     const std::int64_t block_size,
@@ -237,29 +243,34 @@ FBGEMM_API bool EmbeddingSpMDMNBit_ref(
     const std::int64_t data_size,
     const std::uint8_t* input,
     const IndexType* indices,
-    const int* lengths,
+    const OffsetType* offsets_or_lengths,
     const float* weights, // optional, can be null for non-weighted sum
     bool normalize_by_lengths,
     float* out,
-    bool is_weight_positional = false);
+    bool is_weight_positional = false,
+    bool use_offsets = true);
 
-template <typename inType = std::uint8_t, typename IndexType = std::int64_t>
+template <
+    typename InType = std::uint8_t,
+    typename IndexType = std::int64_t,
+    typename OffsetType = std::int32_t>
 FBGEMM_API bool EmbeddingSpMDMRowWiseSparse_ref(
     const std::int64_t block_size,
     const std::int64_t output_size,
     const std::int64_t index_size,
     const std::int64_t uncompressed_data_size,
     // const std::int64_t compressed_data_size,
-    const inType* input,
+    const InType* input,
     const IndexType* indices,
     const std::int32_t* compressed_indices_table,
-    const int* lengths,
+    const OffsetType* offsets_or_lengths,
     const float* weights, // optional, can be null for non-weighted sum
     bool normalize_by_lengths,
     float* out,
-    bool is_weight_positional = false);
+    bool is_weight_positional = false,
+    bool use_offsets = true);
 
-template <typename IndexType = std::int64_t>
+template <typename IndexType = std::int64_t, typename OffsetType = std::int32_t>
 FBGEMM_API bool EmbeddingSpMDMNBitRowWiseSparse_ref(
     int bit_rate,
     const std::int64_t block_size,
@@ -270,48 +281,98 @@ FBGEMM_API bool EmbeddingSpMDMNBitRowWiseSparse_ref(
     const std::uint8_t* input,
     const IndexType* indices,
     const std::int32_t* compressed_indices_table,
-    const int* lengths,
+    const OffsetType* offsets_or_lengths,
     const float* weights, // optional, can be null for non-weighted sum
     bool normalize_by_lengths,
     float* out,
-    bool is_weight_positional = false);
+    bool is_weight_positional = false,
+    bool use_offsets = true);
 
+/**
+ * @param num_rows number of rows reading
+ * @param block_size number of parameters per rows
+ * @param param_size total number of parameters
+ * @param w input parameters
+ * @param g input gradients
+ * @param h input momentum
+ * @param indices indices of each row
+ * @param counter used for weight_decay adjusted for frequency. nullptr when
+ *                frequency adjustment is not used. Ignored when weight_decay
+ *                == 0
+ * @param counter_halflife weight_decay is adjusted only after this number of
+ *                         iterations
+ */
 template <typename IndexType>
 FBGEMM_API int sparse_adagrad_ref(
-    int num_rows, // number of rows reading
-    int block_size, // number of parameters per rows
-    std::uint64_t param_size, // total number of parameters
-    float* w, // input parameters
-    const float* g, // input gradients
-    float* h, // input momentums
-    const IndexType* indices, // indices of each row
+    int num_rows,
+    int block_size,
+    std::uint64_t param_size,
+    float* w,
+    const float* g,
+    float* h,
+    const IndexType* indices,
     float epsilon,
-    float lr);
+    float lr,
+    float weight_decay = 0.f,
+    const double* counter = nullptr,
+    const int64_t counter_halflife = 0);
 
+/**
+ * @param num_rows number of rows reading
+ * @param block_size number of parameters per rows
+ * @param param_size total number of parameters
+ * @param w input parameters
+ * @param g input gradients
+ * @param h input momentum
+ * @param indices indices of each row
+ * @param counter used for weight_decay adjusted for frequency. nullptr when
+ *                frequency adjustment is not used. Ignored when weight_decay
+ *                == 0
+ * @param counter_halflife weight_decay is adjusted only after this number of
+ *                         iterations
+ */
 template <typename IndexType>
 FBGEMM_API int rowwise_sparse_adagrad_ref(
-    int num_rows, // number of rows reading
-    int block_size, // number of parameters per rows
-    std::uint64_t param_size, // total number of parameters
-    float* w, // input parameters
-    const float* g, // input gradients
-    float* h, // input momentums
-    const IndexType* indices, // indices of each row
+    int num_rows,
+    int block_size,
+    std::uint64_t param_size,
+    float* w,
+    const float* g,
+    float* h,
+    const IndexType* indices,
     float epsilon,
-    float lr);
+    float lr,
+    float weight_decay = 0.f,
+    const double* counter = nullptr,
+    const int64_t counter_halflife = 0);
 
-template <typename IndexType>
+template <typename DataType, typename IndexType, typename OffsetType>
 FBGEMM_API int rowwise_sparse_adagrad_fused_ref(
     std::int64_t block_size,
     std::int64_t output_size,
     std::int64_t index_size,
     std::int64_t data_size,
-    float* w, // input/output parameters
+    DataType* w, // input/output parameters
     const float* g, // inupt gradients
     float* h, // input/output momentums
     const IndexType* indices,
-    const int* lengths,
+    const OffsetType* offsets_or_lengths,
     float epsilon,
-    float lr);
+    float lr,
+    bool use_offsets = true,
+    bool use_stochastic_rounding = true, // For DataType=float16
+    int emu_vector_size = 8,
+    std::int64_t grad_stride = -1);
+
+template <typename IndexType>
+FBGEMM_API void compressed_indices_remap_ref(
+    std::int32_t offsets_len,
+    const IndexType* indices,
+    const int32_t* compressed_indices_mapping,
+    const IndexType* offsets,
+    const float* weights, // optional, can be null,
+    IndexType* out_indices,
+    IndexType* out_offsets,
+    float* out_weights);
 
 } // namespace fbgemm

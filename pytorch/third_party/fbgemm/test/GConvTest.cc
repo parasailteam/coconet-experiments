@@ -25,8 +25,9 @@
 using namespace std;
 using namespace fbgemm;
 
-vector<matrix_op_t> transposeVals{matrix_op_t::NoTranspose,
-                                  matrix_op_t::Transpose};
+vector<matrix_op_t> transposeVals{
+    matrix_op_t::NoTranspose,
+    matrix_op_t::Transpose};
 
 vector<QuantizationGranularity> qGranularityVals{
     QuantizationGranularity::TENSOR,
@@ -34,8 +35,8 @@ vector<QuantizationGranularity> qGranularityVals{
     QuantizationGranularity::OUT_CHANNEL};
 
 namespace {
-class fbgemmGConvAcc32Test
-    : public testing::TestWithParam<tuple<matrix_op_t, matrix_op_t>> {};
+// class fbgemmGConvAcc32Test
+//     : public testing::TestWithParam<tuple<matrix_op_t, matrix_op_t>> {};
 class fbgemmGConvAcc32WithQuantGranularityTest
     : public testing::TestWithParam<tuple<
           matrix_op_t,
@@ -46,12 +47,12 @@ class fbgemmGConvAcc32WithQuantGranularityTest
 class fbgemmGConvPackTest : public testing::TestWithParam<matrix_op_t> {};
 }; // namespace
 
-INSTANTIATE_TEST_CASE_P(
-    InstantiationName,
-    fbgemmGConvAcc32Test,
-    ::testing::Combine(
-        ::testing::Values(matrix_op_t::NoTranspose),
-        ::testing::ValuesIn(transposeVals)));
+// INSTANTIATE_TEST_CASE_P(
+//     InstantiationName,
+//     fbgemmGConvAcc32Test,
+//     ::testing::Combine(
+//         ::testing::Values(matrix_op_t::NoTranspose),
+//         ::testing::ValuesIn(transposeVals)));
 
 INSTANTIATE_TEST_CASE_P(
     InstantiationName,
@@ -202,7 +203,8 @@ GetShapes_() {
         conv_param_t<>(1, 32, 32, {4, 4}, 8, {3, 3}, {1, 1}, {1, 1, 1, 1}),
         conv_param_t<>(1, 32, 32, {3, 5}, 8, {3, 3}, {1, 1}, {1, 1, 1, 1}),
         conv_param_t<>(1, 32, 32, {5, 3}, 8, {3, 3}, {1, 1}, {1, 1, 1, 1}),
-        conv_param_t<>(1, 8, 8, {5, 5}, 2, {3, 3}, {1, 1}, {1, 1, 1, 1}),
+        // fix from 8 to 16 to address G_together > G for avx512
+        conv_param_t<>(1, 16, 16, {5, 5}, 2, {3, 3}, {1, 1}, {1, 1, 1, 1}),
         conv_param_t<>(1, 128, 128, {56, 48}, 32, {3, 3}, {1, 1}, {1, 1, 1, 1}),
         conv_param_t<>(1, 128, 128, {48, 56}, 32, {3, 3}, {1, 1}, {1, 1, 1, 1}),
         // the line below is from resnext101-32x4d
@@ -271,16 +273,16 @@ void runRequantizeTest(matrix_op_t /* unused */,
     bool a_symmetric, bool b_symmetric) {
   vector<conv_param_t<SPATIAL_DIM>> shapes(GetShapes_<SPATIAL_DIM>());
   for (auto conv_p : shapes) {
-    int T = SPATIAL_DIM == 2 ? 1 : conv_p.K[SPATIAL_DIM - 3];
-    int R = conv_p.K[SPATIAL_DIM - 2];
+    int T = SPATIAL_DIM <= 2 ? 1 : conv_p.K[SPATIAL_DIM - 3];
+    int R = SPATIAL_DIM == 1 ? 1 : conv_p.K[SPATIAL_DIM - 2];
     int S = conv_p.K[SPATIAL_DIM - 1];
     int G = conv_p.G;
     int OC = conv_p.OC;
-    int IT = SPATIAL_DIM == 2 ? 1 : conv_p.IN_DIM[SPATIAL_DIM - 3];
-    int IH = conv_p.IN_DIM[SPATIAL_DIM - 2];
+    int IT = SPATIAL_DIM <= 2 ? 1 : conv_p.IN_DIM[SPATIAL_DIM - 3];
+    int IH = SPATIAL_DIM == 1 ? 1 : conv_p.IN_DIM[SPATIAL_DIM - 2];
     int IW = conv_p.IN_DIM[SPATIAL_DIM - 1];
-    int OT = SPATIAL_DIM == 2 ? 1 : conv_p.OUT_DIM[SPATIAL_DIM - 3];
-    int OH = conv_p.OUT_DIM[SPATIAL_DIM - 2];
+    int OT = SPATIAL_DIM <= 2 ? 1 : conv_p.OUT_DIM[SPATIAL_DIM - 3];
+    int OH = SPATIAL_DIM == 1 ? 1 : conv_p.OUT_DIM[SPATIAL_DIM - 2];
     int OW = conv_p.OUT_DIM[SPATIAL_DIM - 1];
     int IC_per_G = conv_p.IC / conv_p.G;
     int OC_per_G = conv_p.OC / conv_p.G;
@@ -292,8 +294,8 @@ void runRequantizeTest(matrix_op_t /* unused */,
     // weights
     // when btrans == Transpose, the weight matrix is
     // in layout G K/G (T R S C/G) instead of G (T R S C/G) K/G
-    aligned_vector<int8_t> Bint8(T * R * S * conv_p.G * IC_per_G * OC_per_G, 0);
-    aligned_vector<int8_t> Bint8_tr(T * R * S * G * IC_per_G * OC_per_G, 0);
+    aligned_vector<int8_t> Bint8(T * R * S * G * IC_per_G * OC_per_G, 0);
+    aligned_vector<int8_t> Bint8_tr(Bint8.size(), 0);
 
     aligned_vector<int32_t> Cint32_ref(conv_p.MB *OT *OH * OW * OC, 0);
     aligned_vector<int32_t> Cint32_fb(Cint32_ref.size(), 0);
@@ -318,9 +320,9 @@ void runRequantizeTest(matrix_op_t /* unused */,
     aligned_vector<int32_t> Bint8_zero_point(
         G * OC_per_G / ncols_per_quant_group);
     if (b_symmetric) {
-      randFill(Bint8_zero_point, -3, -1);
-    } else {
       randFill(Bint8_zero_point, 0, 0);
+    } else {
+      randFill(Bint8_zero_point, -3, -1);
     }
 
     // matrix dimensions after im2col for each GEMM.
@@ -591,8 +593,8 @@ void runPackUnpackTest(matrix_op_t btrans) {
   vector<conv_param_t<SPATIAL_DIM>> shapes(GetShapes_<SPATIAL_DIM>());
 
   for (auto conv_p : shapes) {
-    int T = SPATIAL_DIM == 2 ? 1 : conv_p.K[SPATIAL_DIM - 3];
-    int R = conv_p.K[SPATIAL_DIM - 2];
+    int T = SPATIAL_DIM <= 2 ? 1 : conv_p.K[SPATIAL_DIM - 3];
+    int R = SPATIAL_DIM == 1 ? 1 : conv_p.K[SPATIAL_DIM - 2];
     int S = conv_p.K[SPATIAL_DIM - 1];
     int IC_per_G = conv_p.IC / conv_p.G;
     int OC_per_G = conv_p.OC / conv_p.G;
@@ -623,7 +625,7 @@ void runPackUnpackTest(matrix_op_t btrans) {
 
     // Sanity check
     for (int i = 0; i < weight_len; ++i) {
-      EXPECT_EQ(Bint8.data()[i], unpack_buf.data()[i])
+      EXPECT_EQ(unpack_buf.data()[i], Bint8.data()[i])
         << "Pack/Unpack results differ at index " << i
         << ", Reference: " << static_cast<int>(Bint8.data()[i])
         << ", Pack-Unpacked: " << static_cast<int>(unpack_buf.data()[i]);

@@ -22,12 +22,6 @@ typedef enum {
   ncclPatternCollTreeDown
 } ncclPattern_t;
 
-struct MatMulConfig {
-  int MATMUL_M;
-  int MATMUL_N;
-  int MATMUL_K;
-};
-
 // Used to pass NCCL call information between functions
 struct ncclInfo {
   ncclFunc_t coll;
@@ -36,17 +30,19 @@ struct ncclInfo {
   const void* sendbuff;
   void* recvbuff;
   void* weightbuff;
-  void* syncGlobalMem;
+  void* newweightbuff;
   void* alpha;
   //Adam Parameters
   void* firstMomentBuff; 
   void* secondMomentBuff;
   void* beta1Buff;
   void* beta2Buff;
+  void *unscaleParameterBuff;
   int epoch;
   //Scattered Pointer Params
   const void** scatteredSendbuff;
   void** scatteredWeightbuff;
+  float** scatteredFloatWeightBuff;
   void* scatteredFirstMomentBuff;
   void* scatteredSecondMomentBuff;
   size_t scatteredSmallNBuff;
@@ -68,7 +64,7 @@ struct ncclInfo {
   size_t* buffIdToParentBufferId;
   void* rStorageBuff;
   const size_t* parentBuffSizes;
-  
+  int* numOverflows;
 
   // Computed later
   int algorithm;
@@ -79,9 +75,6 @@ struct ncclInfo {
   size_t nBytes;
   int nstepsPerLoop;
   int nchunksPerLoop;
-
-
-  MatMulConfig matMulConfig;
 
 };
 

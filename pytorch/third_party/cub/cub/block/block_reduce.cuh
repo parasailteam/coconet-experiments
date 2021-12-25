@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,10 +36,10 @@
 #include "specializations/block_reduce_raking.cuh"
 #include "specializations/block_reduce_raking_commutative_only.cuh"
 #include "specializations/block_reduce_warp_reductions.cuh"
+#include "../config.cuh"
 #include "../util_ptx.cuh"
 #include "../util_type.cuh"
 #include "../thread/thread_operators.cuh"
-#include "../util_namespace.cuh"
 
 /// Optional outer namespace(s)
 CUB_NS_PREFIX

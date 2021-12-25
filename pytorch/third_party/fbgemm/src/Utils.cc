@@ -18,7 +18,6 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
-#include "./TransposeUtils.h"
 
 namespace fbgemm {
 
@@ -44,7 +43,7 @@ int compare_buffers(
     int m,
     int n,
     int ld,
-    int max_mismatches_to_report,
+    size_t max_mismatches_to_report,
     float atol /*=1e-3*/) {
   size_t mismatches = 0;
   for (int i = 0; i < m; ++i) {
@@ -92,8 +91,8 @@ void printMatrix(
   std::cout << name << ":"
             << "[" << R << ", " << C << "]" << std::endl;
   bool tr = (op == matrix_op_t::Transpose);
-  for (auto r = 0; r < R; ++r) {
-    for (auto c = 0; c < C; ++c) {
+  for (size_t r = 0; r < R; ++r) {
+    for (size_t c = 0; c < C; ++c) {
       T res = tr ? inp[c * ld + r] : inp[r * ld + c];
       if (std::is_integral<T>::value) {
         std::cout << std::setw(5) << static_cast<int64_t>(res) << " ";
@@ -111,7 +110,7 @@ template int compare_buffers<float>(
     int m,
     int n,
     int ld,
-    int max_mismatches_to_report,
+    size_t max_mismatches_to_report,
     float atol);
 
 template int compare_buffers<int32_t>(
@@ -120,7 +119,7 @@ template int compare_buffers<int32_t>(
     int m,
     int n,
     int ld,
-    int max_mismatches_to_report,
+    size_t max_mismatches_to_report,
     float atol);
 
 template int compare_buffers<uint8_t>(
@@ -129,7 +128,7 @@ template int compare_buffers<uint8_t>(
     int m,
     int n,
     int ld,
-    int max_mismatches_to_report,
+    size_t max_mismatches_to_report,
     float atol);
 
 template int compare_buffers<int64_t>(
@@ -138,7 +137,7 @@ template int compare_buffers<int64_t>(
     int m,
     int n,
     int ld,
-    int max_mismatches_to_report,
+    size_t max_mismatches_to_report,
     float atol);
 
 template void printMatrix<float>(
@@ -170,44 +169,6 @@ template void printMatrix<int32_t>(
     size_t ld,
     std::string name);
 
-void transpose_ref(
-    int M,
-    int N,
-    const float* src,
-    int ld_src,
-    float* dst,
-    int ld_dst) {
-  for (int j = 0; j < N; j++) {
-    for (int i = 0; i < M; i++) {
-      dst[i + j * ld_dst] = src[i * ld_src + j];
-    }
-  } // for each output row
-}
-
-void transpose_simd(
-    int M,
-    int N,
-    const float* src,
-    int ld_src,
-    float* dst,
-    int ld_dst) {
-  if ((M == 1 && ld_dst == 1) || (N == 1 && ld_src == 1)) {
-    if (dst != src) {
-      memcpy(dst, src, M * N * sizeof(float));
-    }
-    return;
-  }
-  static const auto iset = fbgemmInstructionSet();
-  // Run time CPU detection
-  if (isZmm(iset)) {
-    internal::transpose_avx512(M, N, src, ld_src, dst, ld_dst);
-  } else if (isYmm(iset)) {
-    internal::transpose_avx2(M, N, src, ld_src, dst, ld_dst);
-  } else {
-    transpose_ref(M, N, src, ld_src, dst, ld_dst);
-  }
-}
-
 namespace {
 inst_set_t g_forced_isa = inst_set_t::anyarch;
 bool g_Avx512_Ymm_enabled = false;
@@ -219,6 +180,7 @@ inst_set_t fbgemmEnvGetIsa() {
       {"AVX512", inst_set_t::avx512},
       {"AVX512_E1", inst_set_t::avx512_vnni},
       {"AVX512_256", inst_set_t::avx512_ymm},
+      {"AVX512_E1_256", inst_set_t::avx512_vnni_ymm},
   };
   const char* env = std::getenv(isa_env);
   if (env == nullptr) {
@@ -263,6 +225,13 @@ std::unordered_map<
          {inst_set_t::avx512, inst_set_t::avx512_ymm, inst_set_t::avx2}},
         {inst_set_t::avx512_vnni,
          {inst_set_t::avx512_vnni,
+          inst_set_t::avx512_vnni_ymm,
+          inst_set_t::avx512,
+          inst_set_t::avx512_ymm,
+          inst_set_t::avx2}},
+        {inst_set_t::avx512_vnni_ymm,
+         {inst_set_t::avx512_vnni,
+          inst_set_t::avx512_vnni_ymm,
           inst_set_t::avx512,
           inst_set_t::avx512_ymm,
           inst_set_t::avx2}},
@@ -274,14 +243,15 @@ std::unordered_map<
  * @brief Force specific architecure to for GEMM kernel execution
  *        overides FBGEMM_ENABLE_AVX512_256 env. variable
  * @param isa the ISA to enforce, supported optionsi
- *          "AVX2",       inst_set_t::avx2
- *          "AVX512"      inst_set_t::avx512
- *          "AVX512_E1"   inst_set_t::avx512_vnni},
- *          "AVX512_256"  inst_set_t::avx512_ymm},
+ *     AVX2          inst_set_t::avx2
+ *     AVX512        inst_set_t::avx512
+ *     AVX512_E1     inst_set_t::avx512_vnni
+ *     AVX512_256    inst_set_t::avx512_ymm
+ *     AVX512_E1_256 inst_set_t::avx512_vnni_ymm
  */
 void fbgemmForceIsa(inst_set_t isa) {
   g_forced_isa = isa;
-};
+}
 
 /**
  * @brief Enables AVX512-256 if appriate. Inteded for Skylake based Xeon-D
@@ -291,7 +261,7 @@ void fbgemmForceIsa(inst_set_t isa) {
  */
 void fbgemmEnableAvx512Ymm(bool flag) {
   g_Avx512_Ymm_enabled = flag;
-};
+}
 
 /**
  * @brief Determine the best available x86 machine ISA to be used for
@@ -308,25 +278,30 @@ inst_set_t fbgemmInstructionSet() {
 
   inst_set_t forced_isa =
       g_forced_isa != inst_set_t::anyarch ? g_forced_isa : env_forced_isa;
-  inst_set_t detected_isa = inst_set_t::anyarch;
-  // Check environment
-  if (cpuinfo_initialize()) {
-    auto const isXeonD =
+  static const inst_set_t detected_isa = ([]() {
+    inst_set_t isa = inst_set_t::anyarch;
+    // Check environment
+    if (cpuinfo_initialize()) {
+      const bool isXeonD =
         fbgemmIsIntelXeonD() && (g_Avx512_Ymm_enabled || isAvx512_Ymm_enabled);
-    if (fbgemmHasAvx512VnniSupport()) {
-      // TODO: Should VNNI also support YMM registers?
-      detected_isa = inst_set_t::avx512_vnni;
-    } else if (auto const hasAVX512 = fbgemmHasAvx512Support()) {
-      if (hasAVX512 && !isXeonD) {
-        detected_isa = inst_set_t::avx512;
+      if (fbgemmHasAvx512VnniSupport()) {
+        if (isXeonD) {
+          isa = inst_set_t::avx512_vnni_ymm;
+        } else {
+          isa = inst_set_t::avx512_vnni;
+        }
+      } else if (auto const hasAVX512 = fbgemmHasAvx512Support()) {
+        if (isXeonD) {
+          isa = inst_set_t::avx512_ymm;
+        } else {
+          isa = inst_set_t::avx512;
+        }
+      } else if (fbgemmHasAvx2Support()) {
+        isa = inst_set_t::avx2;
       }
-      if (hasAVX512 && isXeonD) {
-        detected_isa = inst_set_t::avx512_ymm;
-      }
-    } else if (fbgemmHasAvx2Support()) {
-      detected_isa = inst_set_t::avx2;
     }
-  }
+    return isa;
+  })();
 
   if (forced_isa == inst_set_t::anyarch) {
     return detected_isa;
@@ -346,7 +321,9 @@ bool isZmm(inst_set_t isa) {
 }
 
 bool isYmm(inst_set_t isa) {
-  return isa == inst_set_t::avx512_ymm || isa == inst_set_t::avx2;
+  return isa == inst_set_t::avx512_ymm ||
+      isa == inst_set_t::avx512_vnni_ymm ||
+      isa == inst_set_t::avx2;
 }
 
 bool fbgemmIsIntelXeonD() {
@@ -378,6 +355,12 @@ void fbgemmPartition1D(
     int total_work,
     int& start,
     int& end) {
+  // if num_threads == 0,
+  // this threads should not perform any work
+  if (num_threads == 0) {
+    start = end = 0;
+    return;
+  }
   int work_per_thread = (total_work + num_threads - 1) / num_threads;
   start = std::min(thread_id * work_per_thread, total_work);
   end = std::min((thread_id + 1) * work_per_thread, total_work);
@@ -442,13 +425,23 @@ int fbgemmGet2DPartition(
   // bm: number of rows assigned per thread block (bm = ceil(m/mb)).
   // bn: number of cols assigned per thread block (bn = ceil(n/nb)).
   // find mb and nb such that bm / bn is as close as possible to aspect_ratio.
+
+  // for large thread numbers, we would like to reduce the aspect_ratio ---
+  // if the matrix is short-and-fat
+  // this allows us to assign more parallelism to i-dimension
+  if (nthreads > 16 && m/n < 0.2) {
+    aspect_ratio = 0.2;
+  }
+
   int mb = 1;
   int nb = nthreads / mb;
   int bm = (m + mb - 1) / mb;
   int bn = ((n + n_align - 1) / n_align + nb - 1) / nb * n_align;
   double best_delta = std::abs(static_cast<double>(bm) / bn - aspect_ratio);
   for (int mb_candidate = 2; mb_candidate <= nthreads; mb_candidate++) {
-    if (nthreads % mb_candidate != 0) {
+    // mb does not need to divide nthreads
+    // here nthreads % mb_candidate!=0 constraint is removed for nthreads>16
+    if (nthreads % mb_candidate != 0 && nthreads <= 16) {
       continue;
     }
     int nb_candidate = nthreads / mb_candidate;
@@ -492,7 +485,7 @@ thread_type_t fbgemmGetThreadPartition(
     // only one thread will get 2 groups.
     th_info.g_num_threads = num_threads;
   } else {
-    if (num_threads % g == 0) {
+    if (g != 0 && num_threads % g == 0) {
       th_info.g_num_threads = g;
     } else {
       th_info.g_num_threads = 1;
@@ -504,7 +497,10 @@ thread_type_t fbgemmGetThreadPartition(
   // dimension, so we set aspect_ratio to 0.5 here.
   th_info.m_num_threads = fbgemmGet2DPartition(m, n, num_threads, n_align, 0.5);
 
-  assert(num_threads % (th_info.m_num_threads) == 0);
+  //when num_threads >16, m_num_threads may not divide num_threads
+  if (num_threads <= 16) {
+    assert(num_threads % (th_info.m_num_threads) == 0);
+  }
   th_info.n_num_threads = num_threads / th_info.m_num_threads;
 
   // When there are 12 threads (num_threads = 12) and g_nthreads = 2, m_nthreads
@@ -520,6 +516,18 @@ thread_type_t fbgemmGetThreadPartition(
   //
   // (0, 0, 0), (0, 0, 1), (0, 0, 2)            (1, 0, 0), (1, 0, 1), (1, 0, 2)
   // (0, 1, 0), (0, 1, 1), (0, 1, 2)            (1, 1, 0), (1, 1, 1), (1, 1, 2)
+
+  // thread can be inactive,
+  // meaning they are launched, but will not be assigned any work
+  if (thread_id >= th_info.g_num_threads*th_info.m_num_threads*th_info.n_num_threads) {
+    th_info.m_thread_id = 0;
+    th_info.n_thread_id = 0;
+    th_info.g_thread_id = 0;
+    th_info.m_num_threads = 0;
+    th_info.n_num_threads = 0;
+    th_info.g_num_threads = 0;
+    return th_info;
+  }
 
   // We can view the thread as the ternary with 3-dim base: {g,m,n}_num_threads.
   th_info.n_thread_id = thread_id % th_info.n_num_threads;

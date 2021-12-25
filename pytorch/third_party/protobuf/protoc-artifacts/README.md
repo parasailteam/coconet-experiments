@@ -90,7 +90,7 @@ To checkout protobuf (run within the container):
 
 ```
 $ # Replace v3.5.1 with the version you want
-$ wget -O - https://github.com/google/protobuf/archive/v3.5.1.tar.gz | tar xvzp
+$ wget -O - https://github.com/protocolbuffers/protobuf/archive/v3.5.1.tar.gz | tar xvzp
 ```
 
 ### Windows build
@@ -119,7 +119,13 @@ target directory layout:
           protoc.exe
         + x86_32
           protoc.exe
-      + macos
+        + aarch_64
+          protoc.exe
+        + ppcle_64
+          protoc.exe
+        + s390x
+          protoc.exe
+      + osx
         + x86_64
           protoc.exe
         + x86_32
@@ -137,7 +143,7 @@ Use the following command to deploy artifacts for the host platform to a
 staging repository.
 
 ```
-$ mvn clean deploy -P release
+$ mvn deploy -P release
 ```
 
 It creates a new staging repository. Go to
@@ -145,29 +151,6 @@ https://oss.sonatype.org/#stagingRepositories and find the repository, usually
 in the name like ``comgoogle-123``. Verify that the staging repository has all
 the binaries, close and release this repository.
 
-## Upload zip packages to github release page.
-After uploading protoc artifacts to Maven Central repository, run the
-build-zip.sh script to bulid zip packages for these protoc binaries
-and upload these zip packages to the download section of the github
-release. For example:
-
-```
-$ ./build-zip.sh 3.6.0
-```
-
-The above command will create 5 zip files:
-
-```
-dist/protoc-3.6.0-win32.zip
-dist/protoc-3.6.0-osx-x86_32.zip
-dist/protoc-3.6.0-osx-x86_64.zip
-dist/protoc-3.6.0-linux-x86_32.zip
-dist/protoc-3.6.0-linux-x86_64.zip
-dist/protoc-3.6.0-linux-ppcle_64.zip
-```
-
-Before running the script, make sure the artifacts are accessible from:
-http://repo1.maven.org/maven2/com/google/protobuf/protoc/
 
 ## Tested build environments
 We have successfully built artifacts on the following environments:

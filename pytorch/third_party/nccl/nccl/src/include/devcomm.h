@@ -139,17 +139,20 @@ struct CollectiveArgs {
   const void * ThisInput;
   void * ThisWeight;
   void * ThisOutput;
-  void * SyncGlobalMem;
+  void * ThisNewWeight;
   void * ThisAlpha;
   //Adam Parameters
   void* ThisFirstMoment;
   void* ThisSecondMoment;
   void* ThisBeta1;
   void* ThisBeta2;
+  void* ThisUnscaleParameter;
+  int* ThisNumOverflows;
   int epoch;
   //Scattered Parameters
   const void** ThisScatteredSendBuff;
   void** ThisScatteredWeightBuff;
+  float** ThisScatteredFloatWeightBuff;
   void* ThisScatteredFirstMoment;
   void* ThisScatteredSecondMoment;
   size_t ThisScatteredSmallNBuff;
@@ -160,12 +163,6 @@ struct CollectiveArgs {
   size_t* buffIdToParentBufferId;
   void* rStorageBuff;
   const size_t* parentBuffSizes;
-
-  // Matmul Parameters
-  int MATMUL_M;
-  int MATMUL_N;
-  int MATMUL_K;
-
   // general parameters
   size_t N;
   uint32_t root;

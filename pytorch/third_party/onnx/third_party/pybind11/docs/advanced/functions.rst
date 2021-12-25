@@ -17,7 +17,7 @@ bindings for functions that return a non-trivial type. Just by looking at the
 type information, it is not clear whether Python should take charge of the
 returned value and eventually free its resources, or if this is handled on the
 C++ side. For this reason, pybind11 provides a several *return value policy*
-annotations that can be passed to the :func:`module::def` and
+annotations that can be passed to the :func:`module_::def` and
 :func:`class_::def` functions. The default policy is
 :enum:`return_value_policy::automatic`.
 
@@ -126,7 +126,7 @@ targeted arguments can be passed through the :class:`cpp_function` constructor:
 
 .. warning::
 
-    Code with invalid return value policies might access unitialized memory or
+    Code with invalid return value policies might access uninitialized memory or
     free data structures multiple times, which can lead to hard-to-debug
     non-determinism and segmentation faults, hence it is worth spending the
     time to understand all the different options in the table above.
@@ -177,9 +177,10 @@ indices start at one, while zero refers to the return value. For methods, index
 index ``2``. Arbitrarily many call policies can be specified. When a ``Nurse``
 with value ``None`` is detected at runtime, the call policy does nothing.
 
-This feature internally relies on the ability to create a *weak reference* to
-the nurse object, which is permitted by all classes exposed via pybind11. When
-the nurse object does not support weak references, an exception will be thrown.
+When the nurse is not a pybind11-registered type, the implementation internally
+relies on the ability to create a *weak reference* to the nurse object. When
+the nurse object is not a pybind11-registered type and does not support weak
+references, an exception will be thrown.
 
 Consider the following example: here, the binding code for a list append
 operation ties the lifetime of the newly added element to the underlying
@@ -189,6 +190,17 @@ container:
 
     py::class_<List>(m, "List")
         .def("append", &List::append, py::keep_alive<1, 2>());
+
+For consistency, the argument indexing is identical for constructors. Index
+``1`` still refers to the implicit ``this`` pointer, i.e. the object which is
+being constructed. Index ``0`` refers to the return type which is presumed to
+be ``void`` when a constructor is viewed like a function. The following example
+ties the lifetime of the constructor element to the constructed object:
+
+.. code-block:: cpp
+
+    py::class_<Nurse>(m, "Nurse")
+        .def(py::init<Patient &>(), py::keep_alive<1, 2>());
 
 .. note::
 
@@ -348,7 +360,55 @@ like so:
 .. code-block:: cpp
 
     py::class_<MyClass>("MyClass")
-        .def("myFunction", py::arg("arg") = (SomeType *) nullptr);
+        .def("myFunction", py::arg("arg") = static_cast<SomeType *>(nullptr));
+
+Keyword-only arguments
+======================
+
+Python 3 introduced keyword-only arguments by specifying an unnamed ``*``
+argument in a function definition:
+
+.. code-block:: python
+
+    def f(a, *, b):  # a can be positional or via keyword; b must be via keyword
+        pass
+
+    f(a=1, b=2)  # good
+    f(b=2, a=1)  # good
+    f(1, b=2)    # good
+    f(1, 2)      # TypeError: f() takes 1 positional argument but 2 were given
+
+Pybind11 provides a ``py::kw_only`` object that allows you to implement
+the same behaviour by specifying the object between positional and keyword-only
+argument annotations when registering the function:
+
+.. code-block:: cpp
+
+    m.def("f", [](int a, int b) { /* ... */ },
+          py::arg("a"), py::kw_only(), py::arg("b"));
+
+Note that you currently cannot combine this with a ``py::args`` argument.  This
+feature does *not* require Python 3 to work.
+
+.. versionadded:: 2.6
+
+Positional-only arguments
+=========================
+
+Python 3.8 introduced a new positional-only argument syntax, using ``/`` in the
+function definition (note that this has been a convention for CPython
+positional arguments, such as in ``pow()``, since Python 2). You can
+do the same thing in any version of Python using ``py::pos_only()``:
+
+.. code-block:: cpp
+
+   m.def("f", [](int a, int b) { /* ... */ },
+          py::arg("a"), py::pos_only(), py::arg("b"));
+
+You now cannot give argument ``a`` by keyword. This can be combined with
+keyword-only arguments, as well.
+
+.. versionadded:: 2.6
 
 .. _nonconverting_arguments:
 
@@ -426,7 +486,7 @@ To explicitly enable or disable this behaviour, using the
     py::class_<Cat>(m, "Cat").def(py::init<>());
     m.def("bark", [](Dog *dog) -> std::string {
         if (dog) return "woof!"; /* Called with a Dog instance */
-        else return "(no dog)"; /* Called with None, d == nullptr */
+        else return "(no dog)"; /* Called with None, dog == nullptr */
     }, py::arg("dog").none(true));
     m.def("meow", [](Cat *cat) -> std::string {
         // Can't be called with None argument
@@ -455,13 +515,22 @@ dog)"``, while attempting to call ``meow(None)`` will raise a ``TypeError``:
 
 The default behaviour when the tag is unspecified is to allow ``None``.
 
+.. note::
+
+    Even when ``.none(true)`` is specified for an argument, ``None`` will be converted to a
+    ``nullptr`` *only* for custom and :ref:`opaque <opaque>` types. Pointers to built-in types
+    (``double *``, ``int *``, ...) and STL types (``std::vector<T> *``, ...; if ``pybind11/stl.h``
+    is included) are copied when converted to C++ (see :doc:`/advanced/cast/overview`) and will
+    not allow ``None`` as argument.  To pass optional argument of these copied types consider
+    using ``std::optional<T>``
+
 Overload resolution order
 =========================
 
 When a function or method with multiple overloads is called from Python,
 pybind11 determines which overload to call in two passes.  The first pass
 attempts to call each overload without allowing argument conversion (as if
-every argument had been specified as ``py::arg().noconvert()`` as decribed
+every argument had been specified as ``py::arg().noconvert()`` as described
 above).
 
 If no overload succeeds in the no-conversion first pass, a second pass is
@@ -471,11 +540,13 @@ an explicit ``py::arg().noconvert()`` attribute in the function definition).
 If the second pass also fails a ``TypeError`` is raised.
 
 Within each pass, overloads are tried in the order they were registered with
-pybind11.
+pybind11. If the ``py::prepend()`` tag is added to the definition, a function
+can be placed at the beginning of the overload sequence instead, allowing user
+overloads to proceed built in functions.
 
 What this means in practice is that pybind11 will prefer any overload that does
-not require conversion of arguments to an overload that does, but otherwise prefers
-earlier-defined overloads to later-defined ones.
+not require conversion of arguments to an overload that does, but otherwise
+prefers earlier-defined overloads to later-defined ones.
 
 .. note::
 
@@ -484,3 +555,7 @@ earlier-defined overloads to later-defined ones.
     requiring one conversion over one requiring three, but only prioritizes
     overloads requiring no conversion at all to overloads that require
     conversion of at least one argument.
+
+.. versionadded:: 2.6
+
+    The ``py::prepend()`` tag.

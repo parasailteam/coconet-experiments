@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,11 +49,14 @@
 #include <limits>
 
 #include "mersenne.h"
+#include "half.h"
 
 #include "cub/util_debug.cuh"
 #include "cub/util_device.cuh"
 #include "cub/util_type.cuh"
 #include "cub/util_macro.cuh"
+#include "cub/iterator/discard_output_iterator.cuh"
+
 
 /******************************************************************************
  * Assertion macros
@@ -383,6 +386,17 @@ __noinline__ bool IsNaN<double4>(double4 val)
 }
 
 
+template<>
+__noinline__ bool IsNaN<half_t>(half_t val)
+{
+    volatile unsigned short bits = reinterpret_cast<unsigned short &>(val);
+
+    return (((bits >= 0x7C01) && (bits <= 0x7FFF)) ||
+        ((bits >= 0xFC01) && (bits <= 0xFFFFFFFF)));
+}
+
+
+
 /**
  * Generates random keys.
  *
@@ -500,6 +514,7 @@ enum GenMode
     UNIFORM,            // Assign to '2', regardless of integer seed
     INTEGER_SEED,       // Assign to integer seed
     RANDOM,             // Assign to random, regardless of integer seed
+    RANDOM_BIT,         // Assign to randomly chosen 0 or 1, regardless of integer seed
 };
 
 /**
@@ -512,8 +527,13 @@ __host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, T &value, i
     {
 #if (CUB_PTX_ARCH == 0)
     case RANDOM:
-         RandomBits(value);
-         break;
+        RandomBits(value);
+        break;
+    case RANDOM_BIT:
+        char c;
+        RandomBits(c, 0, 0, 1);
+        value = (c > 0) ? (T) 1 : (T) -1;
+        break;
 #endif
      case UNIFORM:
         value = 2;
@@ -535,6 +555,7 @@ __host__ __device__ __forceinline__ void InitValue(GenMode gen_mode, bool &value
     {
 #if (CUB_PTX_ARCH == 0)
     case RANDOM:
+    case RANDOM_BIT:
         char c;
         RandomBits(c, 0, 0, 1);
         value = (c > 0);
@@ -1327,6 +1348,20 @@ int CompareDeviceResults(
     return 0;
 }
 
+/**
+ * Verify the contents of a device array match those
+ * of a host array
+ */
+template <typename S, typename OffsetT>
+int CompareDeviceResults(
+    S *h_reference,
+    cub::DiscardOutputIterator<OffsetT> d_data,
+    size_t num_items,
+    bool verbose = true,
+    bool display_data = false)
+{
+    return 0;
+}
 
 /**
  * Verify the contents of a device array match those

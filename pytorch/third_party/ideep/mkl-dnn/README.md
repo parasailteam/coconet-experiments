@@ -1,423 +1,418 @@
-Intel(R) Math Kernel Library for Deep Neural Networks (Intel(R) MKL-DNN)
-========================================================================
+oneAPI Deep Neural Network Library (oneDNN)
+===========================================
 
-Intel(R) Math Kernel Library for Deep Neural Networks (Intel(R) MKL-DNN) is
-an open-source performance library for deep-learning applications. The library
-accelerates deep-learning applications and frameworks on Intel architecture.
-Intel MKL-DNN contains vectorized and threaded building blocks that you can
-use to implement deep neural networks (DNN) with C and C++ interfaces.
+> This software was previously known as
+> **Intel(R) Math Kernel Library for Deep Neural Networks (Intel(R) MKL-DNN)**
+> and **Deep Neural Network Library (DNNL)**.
 
-DNN functionality optimized for Intel architecture is also included in
-[Intel Math Kernel Library (Intel MKL)](https://software.intel.com/en-us/mkl/features/deep-neural-networks).
-The API in that implementation is not compatible with Intel MKL-DNN and does not
-include certain new and experimental features.
+> With the launch of [oneAPI](https://www.oneapi.com/) we changed the project
+> name and repository location to be consistent with the rest of oneAPI
+> libraries:
+> * Short library name changed to **oneDNN**.
+> * Repository moved from `intel/mkl-dnn` to `oneapi-src/oneDNN`. Existing
+> links to the code and documentation will continue to work.
+>
+> There are no changes to the API, environment variables, or build options
+> planned at this point.
 
-This release contains performance-critical functions that improve performance of
-the following deep learning topologies and variations of these:
+oneAPI Deep Neural Network Library (oneDNN) is an open-source cross-platform
+performance library of basic building blocks for deep learning applications.
+The library is optimized for Intel Architecture Processors, Intel Processor
+Graphics and Xe architecture-based Graphics. oneDNN has experimental support
+for the following architectures:
+* Arm\* 64-bit Architecture (AArch64)
+* NVIDIA\* GPU
+* OpenPOWER\* Power ISA (PPC64)
+* IBMz\* (s390x)
 
-| Application                               | Example topology
-|:---                                       |:---
-| Image recognition                         | AlexNet, VGG, GoogleNet, ResNet, MobileNet
-| Image segmentation                        | FCN, SegNet, MaskRCNN, U-Net
-| Volumetric segmentation                   | 3D-Unet
-| Object detection                          | SSD, Faster R-CNN, Yolo
-| Neural machine translation                | GNMT
-| Speech recognition                        | DeepSpeech
-| Adversarial networks                      | DCGAN, 3DGAN
-| Reinforcement learning                    | A3C
-| Text-to-speech                            | WaveNet
+oneDNN is intended for deep learning applications and framework
+developers interested in improving application performance
+on Intel CPUs and GPUs. Deep learning practitioners should use one of the
+[applications enabled with oneDNN](#applications-enabled-with-onednn).
 
-Intel MKL-DNN is used in the following software products:
-* [Caffe\* Optimized for Intel Architecture](https://github.com/intel/caffe)
-* [Chainer\*](https://chainer.org)
-* [DeepBench](https://github.com/baidu-research/DeepBench)
-* [PaddlePaddle\*](http://www.paddlepaddle.org)
-* [PyTorch\*](https://pytorch.org/)
-* [Tensorflow\*](https://www.tensorflow.org)
-* [Microsoft\* Cognitive Toolkit (CNTK)](https://docs.microsoft.com/en-us/cognitive-toolkit)
-* [Apache\* MXNet](https://mxnet.apache.org)
-* [OpenVINO(TM) toolkit](https://01.org/openvinotoolkit)
-* [Intel Nervana Graph](https://github.com/NervanaSystems/ngraph)
-* [Menoh\*](https://github.com/pfnet-research/menoh)
-* [DeepLearning4J\*](https://deeplearning4j.org)
-* [BigDL](https://github.com/intel-analytics/BigDL)
+# Table of Contents
 
-## License
-Intel MKL-DNN is licensed under
-[Apache License Version 2.0](http://www.apache.org/licenses/LICENSE-2.0). This
-software includes the following third-party components:
-* [Xbyak](https://github.com/herumi/xbyak) distributed under [3-clause BSD licence](src/cpu/xbyak/COPYRIGHT)
-* [gtest](https://github.com/google/googletest) distributed under [3-clause BSD license](tests/gtests/gtest/LICENSE)
+- [Documentation](#documentation)
+- [Installation](#installation)
+- [System Requirements](#system-requirements)
+- [Applications Enabled with oneDNN](#applications-enabled-with-onednn)
+- [Support](#support)
+- [Contributing](#contributing)
+- [License](#license)
+- [Security](#security)
+- [Trademark Information](#trademark-information)
 
-## Documentation
-* [Introduction](https://intel.github.io/mkl-dnn) explains the programming model
-and basic concepts
-* [Reference manual](https://intel.github.io/mkl-dnn/modules.html) provides
-detailed functionality description
-* [Examples](https://github.com/intel/mkl-dnn/tree/master/examples)
-demonstrates use of C and C++ APIs in simple topologies
-* [Tutorial](https://software.intel.com/en-us/articles/intel-mkl-dnn-part-1-library-overview-and-installation)
-provides step-by-step installation instructions and an example walkthrough
+# Documentation
 
-## Support
-Please submit your questions, feature requests, and bug reports on the
-[GitHub issues](https://github.com/intel/mkl-dnn/issues) page.
+* [Developer guide](https://oneapi-src.github.io/oneDNN) explains programming
+  model, supported functionality, and implementation details, and
+  includes annotated examples.
+* [API reference](https://oneapi-src.github.io/oneDNN/modules.html) provides
+  a comprehensive reference of the library API.
 
-**WARNING** The following functionality has preview status and might change
-without prior notification in future releases:
-* Convolutions with `s16` data type in source, weights or destination
-* Threading Building Blocks (TBB) support
+# Installation
 
-## How to Contribute
-We welcome community contributions to Intel MKL-DNN. If you have an idea on how to improve the library:
+Binary distribution of this software is available as
+[Intel oneAPI Deep Neural Network Library](https://software.intel.com/en-us/oneapi/onednn)
+in [Intel oneAPI]( https://software.intel.com/en-us/oneapi).
 
-* Share your proposal via
- [GitHub issues](https://github.com/intel/mkl-dnn/issues).
-* Ensure you can build the product and run all the examples with your patch.
-* In the case of a larger feature, create a test.
-* Submit a [pull request](https://github.com/intel/mkl-dnn/pulls).
+Pre-built binaries for Linux\*, Windows\*, and macOS\* are available
+for download in the
+[releases section](https://github.com/oneapi-src/oneDNN/releases). Package
+names use the following convention:
 
-We will review your contribution and, if any additional fixes or modifications
-are necessary, may provide feedback to guide you. When accepted, your pull
-request will be merged to the repository.
+| OS      | Package name
+| :------ | :-----------
+| Linux   | `dnnl_lnx_<version>_cpu_<cpu runtime>[_gpu_<gpu runtime>].tgz`
+| Windows | `dnnl_win_<version>_cpu_<cpu runtime>[_gpu_<gpu runtime>].zip`
+| macOS   | `dnnl_mac_<version>_cpu_<cpu runtime>.tgz`
 
-## System Requirements
-Intel MKL-DNN supports Intel 64 architecture and compatible architectures.
-The library is optimized for the systems based on
-* Intel Atom(R) processor with Intel SSE4.1 support
+Several packages are available for each operating system to ensure
+interoperability with CPU or GPU runtime libraries used by the application.
+
+| Configuration         | Dependency
+| :---------------------| :---------
+| `cpu_iomp`            | Intel OpenMP runtime
+| `cpu_gomp`            | GNU\* OpenMP runtime
+| `cpu_vcomp`           | Microsoft Visual C OpenMP runtime
+| `cpu_tbb`             | Threading Building Blocks (TBB)
+| `cpu_dpcpp_gpu_dpcpp` | [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler), TBB, OpenCL runtime, oneAPI Level Zero runtime
+
+The packages do not include library dependencies and these need to be resolved
+in the application at build time. See the
+[System Requirements](#system-requirements) section below and the
+[Build Options](https://oneapi-src.github.io/oneDNN/dev_guide_build_options.html)
+section in the [developer guide](https://oneapi-src.github.io/oneDNN) for more
+details on CPU and GPU runtimes.
+
+If the configuration you need is not available, you can
+[build the library from source](https://oneapi-src.github.io/oneDNN/dev_guide_build.html).
+
+# System Requirements
+
+oneDNN supports platforms based on the following architectures:
+- [Intel 64 or AMD64](https://en.wikipedia.org/wiki/X86-64),
+- [Arm 64-bit Architecture (AArch64)](https://developer.arm.com/architectures/cpu-architecture/a-profile).
+- [OpenPOWER](https://openpowerfoundation.org/) / [IBM Power ISA](https://en.wikipedia.org/wiki/Power_ISA).
+- [IBMz z/Architecture (s390x)](https://en.wikipedia.org/wiki/Z/Architecture).
+
+> **WARNING**
+>
+> Arm 64-bit Architecture (AArch64), Power ISA (PPC64) and IBMz (s390x) support
+> is **experimental** with limited testing validation.
+
+The library is optimized for the following CPUs:
+* Intel Atom processor with Intel SSE4.1 support
 * 4th, 5th, 6th, 7th, and 8th generation Intel(R) Core(TM) processor
 * Intel(R) Xeon(R) processor E3, E5, and E7 family (formerly Sandy Bridge,
-Ivy Bridge, Haswell, and Broadwell)
-* Intel(R) Xeon(R) Scalable processors (formerly Skylake and Cascade Lake)
-* Intel(R) Xeon Phi(TM) processors (formerly Knights Landing and Knights Mill)
+  Ivy Bridge, Haswell, and Broadwell)
+* Intel(R) Xeon Phi(TM) processor (formerly Knights Landing and Knights Mill)
+* Intel Xeon Scalable processor (formerly Skylake, Cascade Lake, and Cooper
+  Lake)
+* future Intel Xeon Scalable processor (code name Sapphire Rapids)
 
-and compatible processors.
+On a CPU based on Intel 64 or on AMD64 architecture, oneDNN detects
+the instruction set architecture (ISA) at runtime and uses just-in-time (JIT)
+code generation to deploy the code optimized for the latest supported ISA.
+Future ISAs may have initial support in the library disabled by default and
+require the use of run-time controls to enable them. See
+[CPU dispatcher control](https://oneapi-src.github.io/oneDNN/dev_guide_cpu_dispatcher_control.html)
+for more details.
 
-The software dependencies are:
-* [Cmake](https://cmake.org/download/) 2.8.0 or later
-* [Doxygen](http://www.stack.nl/~dimitri/doxygen/download.html#srcbin) 1.8.5 or later
+On a CPU based on Arm AArch64 architecture, oneDNN can be built with Arm Compute Library
+integration. Compute Library is an open-source library for machine learning applications
+and provides AArch64 optimized implementations of core functions. This functionality currently
+requires that Compute Library is downloaded and built separately, see
+[Build from Source](https://oneapi-src.github.io/oneDNN/dev_guide_build.html). oneDNN is only
+compatible with Compute Library versions 21.02 or later.
+
+> **WARNING**
+>
+> On macOS, applications that use oneDNN may need to request special
+> entitlements if they use the hardened runtime. See the
+> [linking guide](https://oneapi-src.github.io/oneDNN/dev_guide_link.html)
+> for more details.
+
+The library is optimized for the following GPUs:
+* Intel HD Graphics
+* Intel UHD Graphics
+* Intel Iris Plus Graphics
+* Xe architecture-based Graphics (code named DG1 and Tiger Lake)
+
+## Requirements for Building from Source
+
+oneDNN supports systems meeting the following requirements:
+* Operating system with Intel 64 / Arm 64 / Power / IBMz architecture support
 * C++ compiler with C++11 standard support
-* Optional dependencies:
-  * GNU\* OpenMP\*, LLVM OpenMP, or Intel OpenMP
-  * Threading Building Blocks (TBB) 2017 or later
-  * Intel MKL 2017 Update 1 or Intel MKL small libraries
+* [CMake](https://cmake.org/download/) 2.8.11 or later
+* [Doxygen](http://www.doxygen.nl/download.html#srcbin) 1.8.5 or later
+  to build the documentation
+* [Arm Compute Library](https://github.com/arm-software/ComputeLibrary)
+  for builds using Compute Library on AArch64.
 
-> **Note**
-> Building Intel MKL-DNN with optional dependencies may introduce additional
-> runtime dependencies for the library. For details, refer to the corresponding
-> software system requirements.
+Configurations of CPU and GPU engines may introduce additional build time
+dependencies.
 
-The software was validated on RedHat\* Enterprise Linux 7 with
+### CPU Engine
+
+oneDNN CPU engine is used to execute primitives on Intel Architecture
+Processors, 64-bit Arm Architecture (AArch64) processors,
+64-bit Power ISA (PPC64) processors, IBMz (s390x), and compatible devices.
+
+The CPU engine is built by default and cannot be disabled at build time. The
+engine can be configured to use the OpenMP, TBB or DPCPP runtime. The
+following additional requirements apply:
+* OpenMP runtime requires C++ compiler with OpenMP 2.0 or later
+  standard support
+* TBB runtime requires
+[Threading Building Blocks (TBB)](https://www.threadingbuildingblocks.org/)
+2017 or later.
+* DPCPP runtime requires
+  * [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler)
+  Beta
+  * [Threading Building Blocks (TBB)](https://www.threadingbuildingblocks.org/)
+
+Some implementations rely on OpenMP 4.0 SIMD extensions. For the best
+performance results on Intel Architecture Processors we recommend using the
+Intel C++ Compiler.
+
+### GPU Engine
+
+Intel Processor Graphics and Xe architecture-based Graphics are supported by
+the oneDNN GPU engine. The GPU engine is disabled in the default build
+configuration. The following additional requirements apply when GPU engine
+is enabled:
+* OpenCL runtime requires
+    * OpenCL\* runtime library (OpenCL version 1.2 or later)
+    * OpenCL driver (with kernel language support for OpenCL C 2.0 or later)
+      with Intel subgroups extension support
+* DPCPP runtime requires
+    * [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler) Beta
+    * OpenCL runtime library (OpenCL version 1.2 or later)
+    * [oneAPI Level Zero](https://github.com/oneapi-src/level-zero)
+* DPCPP runtime with NVIDIA GPU support requires
+    * [oneAPI DPC++ Compiler](https://github.com/intel/llvm)
+    * OpenCL runtime library (OpenCL version 1.2 or later)
+    * NVIDIA CUDA\* driver
+    * cuBLAS 10.1 or later
+    * cuDNN 7.6 or later
+
+> **WARNING**
+>
+> NVIDIA GPU support is experimental. General information, build instructions
+> and implementation limitations is available in
+> [NVIDIA backend readme](https://github.com/oneapi-src/oneDNN/blob/master/src/gpu/nvidia/README.md).
+
+### Runtime Dependencies
+
+When oneDNN is built from source, the library runtime dependencies
+and specific versions are defined by the build environment.
+
+#### Linux
+
+Common dependencies:
+* GNU C Library (`libc.so`)
+* GNU Standard C++ Library v3 (`libstdc++.so`)
+* Dynamic Linking Library (`libdl.so`)
+* C Math Library (`libm.so`)
+* POSIX Threads Library (`libpthread.so`)
+
+Runtime-specific dependencies:
+
+| Runtime configuration    | Compiler                      | Dependency
+| :----------------------- | :---------------------------- | :---------
+| `DNNL_CPU_RUNTIME=OMP`   | GCC                           | GNU OpenMP runtime (`libgomp.so`)
+| `DNNL_CPU_RUNTIME=OMP`   | Intel C/C++ Compiler          | Intel OpenMP runtime (`libiomp5.so`)
+| `DNNL_CPU_RUNTIME=OMP`   | Clang                         | Intel OpenMP runtime (`libiomp5.so`)
+| `DNNL_CPU_RUNTIME=TBB`   | any                           | TBB (`libtbb.so`)
+| `DNNL_CPU_RUNTIME=DPCPP` | Intel oneAPI DPC++ Compiler   | Intel oneAPI DPC++ Compiler runtime (`libsycl.so`), TBB (`libtbb.so`), OpenCL loader (`libOpenCL.so`)
+| `DNNL_GPU_RUNTIME=OCL`   | any                           | OpenCL loader (`libOpenCL.so`)
+| `DNNL_GPU_RUNTIME=DPCPP` | Intel oneAPI DPC++ Compiler   | Intel oneAPI DPC++ Compiler runtime (`libsycl.so`), OpenCL loader (`libOpenCL.so`), oneAPI Level Zero loader (`libze_loader.so`)
+
+#### Windows
+
+Common dependencies:
+* Microsoft Visual C++ Redistributable (`msvcrt.dll`)
+
+Runtime-specific dependencies:
+
+| Runtime configuration    | Compiler                      | Dependency
+| :----------------------- | :---------------------------- | :---------
+| `DNNL_CPU_RUNTIME=OMP`   | Microsoft Visual C++ Compiler | No additional requirements
+| `DNNL_CPU_RUNTIME=OMP`   | Intel C/C++ Compiler          | Intel OpenMP runtime (`iomp5.dll`)
+| `DNNL_CPU_RUNTIME=TBB`   | any                           | TBB (`tbb.dll`)
+| `DNNL_CPU_RUNTIME=DPCPP` | Intel oneAPI DPC++ Compiler   | Intel oneAPI DPC++ Compiler runtime (`sycl.dll`), TBB (`tbb.dll`), OpenCL loader (`OpenCL.dll`)
+| `DNNL_GPU_RUNTIME=OCL`   | any                           | OpenCL loader (`OpenCL.dll`)
+| `DNNL_GPU_RUNTIME=DPCPP` | Intel oneAPI DPC++ Compiler   | Intel oneAPI DPC++ Compiler runtime (`sycl.dll`), OpenCL loader (`OpenCL.dll`), oneAPI Level Zero loader (`ze_loader.dll`)
+
+#### macOS
+
+Common dependencies:
+* System C/C++ runtime (`libc++.dylib`, `libSystem.dylib`)
+
+Runtime-specific dependencies:
+
+| Runtime configuration  | Compiler                      | Dependency
+| :--------------------- | :---------------------------- | :---------
+| `DNNL_CPU_RUNTIME=OMP` | Intel C/C++ Compiler          | Intel OpenMP runtime (`libiomp5.dylib`)
+| `DNNL_CPU_RUNTIME=TBB` | any                           | TBB (`libtbb.dylib`)
+
+### Validated Configurations
+
+CPU engine was validated on RedHat\* Enterprise Linux 7 with
 * GNU Compiler Collection 4.8, 5.4, 6.1, 7.2, and 8.1
 * Clang\* 3.8.0
-* [Intel C/C++ Compiler](https://software.intel.com/en-us/intel-parallel-studio-xe)
+* [Intel C/C++ Compiler](https://software.intel.com/content/www/us/en/develop/tools/parallel-studio-xe.html)
   17.0, 18.0, and 19.0
+* [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler) Beta
+
 
 on Windows Server\* 2012 R2 with
 * Microsoft Visual C++ 14.0 (Visual Studio 2015 Update 3)
-* [Intel C/C++ Compiler](https://software.intel.com/en-us/intel-parallel-studio-xe)
+* [Intel C/C++ Compiler](https://software.intel.com/content/www/us/en/develop/tools/parallel-studio-xe.html)
   17.0 and 19.0
+* [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler) Beta
 
-on macOS\* 10.13 (High Sierra) with
+on macOS 10.13 (High Sierra) with
 * Apple LLVM version 9.2 (XCode 9.2)
-* [Intel C/C++ Compiler](https://software.intel.com/en-us/intel-parallel-studio-xe)
+* [Intel C/C++ Compiler](https://software.intel.com/content/www/us/en/develop/tools/parallel-studio-xe.html)
   18.0 and 19.0
 
-The implementation uses OpenMP 4.0 SIMD extensions. We recommend using the
-Intel C++ Compiler for the best performance results.
+GPU engine was validated on Ubuntu\* 18.04 with
+* GNU Compiler Collection 6.1 and 8.1
+* Clang 3.8.1
+* [Intel C/C++ Compiler](https://software.intel.com/content/www/us/en/develop/tools/parallel-studio-xe.html)
+  19.0
+* [Intel SDK for OpenCL applications](https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html)
+  2019 Update 3
+* [Intel Graphics Compute Runtime for OpenCL](https://github.com/intel/compute-runtime/releases)
+  19.37.14191
+* [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler)
+  Beta
 
-## Installation
+on Windows Server 2019 with
+* Microsoft Visual C++ 14.0 (Visual Studio 2015 Update 3)
+* [Intel C/C++ Compiler](https://software.intel.com/content/www/us/en/develop/tools/parallel-studio-xe.html)
+  19.0
+* [Intel SDK for OpenCL applications](https://software.intel.com/content/www/us/en/develop/tools/opencl-sdk.html) 2019 Update 3
+* [Intel Graphics - Windows 10 DCH Drivers](https://downloadcenter.intel.com/download/28783/Intel-Graphics-Windows-10-DCH-Drivers) 26.20.100.6709
+* [Intel oneAPI DPC++ Compiler](https://software.intel.com/en-us/oneapi/dpc-compiler) Beta
 
-### Build from source
+## Requirements for Pre-built Binaries
 
-#### Download source code
-Download [Intel MKL-DNN source code](https://github.com/intel/mkl-dnn/archive/master.zip)
-or clone [the repository](https://github.com/intel/mkl-dnn.git) to your system.
+See the README included in the corresponding binary package.
 
-```
-git clone https://github.com/intel/mkl-dnn.git
-```
+# Applications Enabled with oneDNN
 
-#### Configure build
-Intel MKL-DNN uses a CMake-based build system. You can use CMake options to control the build.
-Along with the standard CMake options such as `CMAKE_INSTALL_PREFIX` and `CMAKE_BUILD_TYPE`,
-you can pass Intel MKL-DNN specific options:
+* [Apache\* MXNet](https://mxnet.apache.org)
+* [Apache\* SINGA](https://singa.apache.org)
+* [BigDL](https://github.com/intel-analytics/BigDL)
+* [Caffe\* Optimized for Intel Architecture](https://github.com/intel/caffe)
+* [Chainer\*](https://chainer.org)
+* [DeepLearning4J\*](https://deeplearning4j.org)
+* [Flashlight\*](https://github.com/facebookresearch/flashlight)
+* [Korali](https://github.com/cselab/korali)
+* [MATLAB\* Deep Learning Toolbox](https://www.mathworks.com/help/deeplearning/)
+* [Menoh\*](https://github.com/pfnet-research/menoh)
+* [Microsoft\* Cognitive Toolkit (CNTK)](https://docs.microsoft.com/en-us/cognitive-toolkit)
+* [nGraph](https://ngraph.ai)
+* [ONNX Runtime](https://github.com/microsoft/onnxruntime)
+* [OpenVINO(TM) toolkit](https://01.org/openvinotoolkit)
+* [PaddlePaddle\*](http://www.paddlepaddle.org)
+* [PyTorch\*](https://pytorch.org/)
+* [Tensorflow\*](https://www.tensorflow.org)
 
-|Option                 | Possible Values (defaults in bold)   | Description
-|:---                   |:---                                  | :---
-|MKLDNN_LIBRARY_TYPE    | **SHARED**, STATIC                   | Defines the resulting library type
-|MKLDNN_THREADING       | **OMP**, OMP:INTEL, OMP:COMP, TBB    | Defines the threading type
-|WITH_EXAMPLE           | **ON**, OFF                          | Controls building the examples
-|WITH_TEST              | **ON**, OFF                          | Controls building the tests
-|ARCH_OPT_FLAGS         | *compiler flags*                     | Specifies compiler optimization flags (see warning note below)
-|VTUNEROOT              | *path*                               | Enables integration with Intel(R) VTune(TM) Amplifier
+# Support
 
-> **WARNING**
->
-> By default, Intel MKL-DNN is built specifically for the processor type of the
-> compiling machine (for example, `-march=native` in the case of GCC). While this option
-> gives better performance, the resulting library can be run only on systems
-> that are instruction-set compatible with the compiling machine.
->
-> Therefore, if Intel MKL-DNN is to be shipped to other platforms (for example, built by
-> Linux distribution maintainers), consider setting `ARCH_OPT_FLAGS` to `""`.
+Please submit your questions, feature requests, and bug reports on the
+[GitHub issues](https://github.com/oneapi-src/oneDNN/issues) page.
 
-For more options and details, check [cmake/options.cmake](cmake/options.cmake).
-
-##### Using Intel MKL (optional)
-Intel MKL-DNN includes an optimized matrix-matrix multiplication (GEMM) implementation for modern platforms.
-The library can also take advantage of GEMM functions from Intel MKL to improve performance with older
-versions of compilers or on older platforms. This behavior is controlled by the `MKLDNN_USE_MKL` option.
-
-|Option                 | Possible Values (defaults in bold)   | Description
-|:---                   |:---                                  | :---
-|MKLDNN_USE_MKL         | **DEF**, NONE, ML, FULL, FULL:STATIC | Defines the binary dependency on Intel MKL
-
-The dynamic library with this functionality is included in the repository.
-If you choose to build Intel MKL-DNN with the binary dependency, download the Intel MKL small
-libraries using the provided script:
-
-*Linux/macOS*
-```
-cd scripts && ./prepare_mkl.sh && cd ..
-```
-
-*Windows\**
-```
-cd scripts && call prepare_mkl.bat && cd ..
-```
-
-or manually from [GitHub release section](https://github.com/intel/mkl-dnn/releases),
-and unpack it to the `external` directory in the repository root. Intel MKL-DNN
-can also be built with full Intel MKL if the latter is installed on the system.
-You might need to set the `MKLROOT` environment variable to the path where the full
-Intel MKL is installed to help `cmake` locate the library.
-
-> **Note**
->
-> Using Intel MKL small libraries currently works only for Intel MKL-DNN built with
-> OpenMP. Building with Intel TBB requires either the full Intel MKL library
-> or a standalone build.
->
-> Using Intel MKL or Intel MKL small libraries will introduce additional
-> runtime dependencies. For additional information, refer to Intel MKL
-> [system requirements](https://software.intel.com/en-us/articles/intel-math-kernel-library-intel-mkl-2019-system-requirements).
-
-##### Threading
-Intel MKL-DNN is parallelized and can use the OpenMP or TBB threading runtime. OpenMP threading is the default build mode
-and is recommended for the best performance. TBB support is experimental. This behavior is controlled by the `MKLDNN_THREADING` option.
-
-|Option                 | Possible Values (defaults in bold)   | Description
-|:---                   |:---                                  | :---
-|MKLDNN_THREADING       | **OMP**, OMP:INTEL, OMP:COMP, TBB    | Defines the threading type
-
-##### OpenMP
-Intel MKL-DNN can use Intel, GNU or CLANG OpenMP runtime. Because different OpenMP runtimes may not be binary compatible,
-it's important to ensure that only one OpenMP runtime is used throughout the
-application. Having more than one OpenMP runtime initialized may lead to
-undefined behavior including incorrect results or crashes.
-
-Intel MKL-DNN library built with the binary dependency will link against the Intel OpenMP
-runtime included with the Intel MKL small libraries package. The Intel OpenMP runtime
-is binary compatible with the GNU OpenMP and Clang OpenMP runtimes and is
-recommended for the best performance results.
-
-Intel MKL-DNN library built standalone will use the OpenMP runtime supplied by
-the compiler, so as long as both the library and the application use the
-same compiler, the correct OpenMP runtime will be used.
-
-##### TBB
-TBB support is experimental. Intel MKL-DNN has limited optimizations done for Intel TBB and has some functional
-limitations if built with Intel TBB.
-
-Functional limitations:
-* Convolution with Winograd algorithm is not supported
-
-Performance limitations (mostly less parallelism than in case of OpenMP):
-* Batch normalization
-* Convolution backward by weights
-* mkldnn_sgemm
+You may reach out to project maintainers privately
+at dnnl.maintainers@intel.com.
 
 > **WARNING**
 >
-> If the library is built with the full Intel MKL, the user is expected to set
-> the `MKL_THREADING_LAYER` environment variable to either `tbb` or `sequential` in order
-> to force Intel MKL to use Intel TBB for parallelization or to be sequential,
-> respectively. Without this setting, Intel MKL (RT library) tries
-> to use OpenMP for parallelization by default.
+> This is pre-production software and functionality may change without prior
+> notice.
 
-#### Build on Linux/macOS
-Ensure that all software dependencies are in place and have at least the minimal
-supported version.
+# Contributing
 
-Configure CMake and create a makefile:
+We welcome community contributions to oneDNN. If you have an idea on how
+to improve the library:
 
-```
-mkdir -p build && cd build && cmake $CMAKE_OPTIONS ..
-```
+* For changes impacting the public API or library overall, such as adding new
+  primitives or changes to the architecture, submit an
+  [RFC pull request](https://github.com/oneapi-src/oneDNN/tree/rfcs).
+* Ensure that the changes are consistent with the
+  [code contribution guidelines](CONTRIBUTING.md#code_contribution_guidelines)
+  and [coding style](CONTRIBUTING.md#coding_style).
+* Ensure that you can build the product and run all the examples with your
+  patch.
+* Submit a [pull request](https://github.com/oneapi-src/oneDNN/pulls).
 
-Build the application:
+For additional details, see [contribution guidelines](CONTRIBUTING.md).
 
-```
-make
-```
+This project is intended to be a safe, welcoming space for collaboration, and
+contributors are expected to adhere to the
+[Contributor Covenant](CODE_OF_CONDUCT.md) code of conduct.
 
-The build can be validated with the unit-test suite:
+# License
 
-```
-ctest
-```
+oneDNN is licensed under [Apache License Version 2.0](LICENSE). Refer to the
+"[LICENSE](LICENSE)" file for the full license text and copyright notice.
 
-The reference manual is provided inline and can also be generated in HTML format with Doxygen:
+This distribution includes third party software governed by separate license
+terms.
 
-```
-make doc
-```
+3-clause BSD license:
+* [Xbyak](https://github.com/herumi/xbyak)
+* [gtest](https://github.com/google/googletest)
+* [Instrumentation and Tracing Technology API (ITT API)](https://github.com/intel/IntelSEAPI/tree/master/ittnotify)
+* [CMake](https://github.com/Kitware/CMake)
 
-Documentation will reside in the `build/reference/html` folder.
+Apache License Version 2.0:
+* [Font Roboto](https://fonts.google.com/specimen/Roboto)
+* [MathJax](https://github.com/mathjax/MathJax)
+* [Xbyak_aarch64](https://github.com/fujitsu/xbyak_aarch64)
 
-Finally:
+Boost Software License, Version 1.0:
+* [Boost C++ Libraries](https://www.boost.org/)
 
-```
-make install
-```
+MIT License:
+* [Intel Graphics Compute Runtime for oneAPI Level Zero and OpenCL Driver](https://github.com/intel/compute-runtime)
+* [Intel Graphics Compiler](https://github.com/intel/intel-graphics-compiler)
 
-will place the header files, libraries, and documentation in `/usr/local`. To change
-the installation path, use the option `-DCMAKE_INSTALL_PREFIX=<prefix>` when invoking CMake.
+SIL Open Font License (OFL):
+* [Font Awesome](https://github.com/FortAwesome/Font-Awesome)
+* [Font Lato](https://fonts.google.com/specimen/Lato)
 
-#### Build on Windows
-Ensure that all software dependencies are in place and have at least the minimal
-supported version.
+This third party software, even if included with the distribution of
+the Intel software, may be governed by separate license terms, including
+without limitation, third party license terms, other Intel software license
+terms, and open source software license terms. These separate license terms
+govern your use of the third party programs as set forth in the
+"[THIRD-PARTY-PROGRAMS](THIRD-PARTY-PROGRAMS)" file.
 
-> **NOTE**
->
-> Building Intel MKL-DNN from a terminal requires using either the Intel Parallel Studio command prompt
-> or the Microsoft\* Visual Studio\* developer command prompt instead of the default Windows command prompt.
->
-> The Intel(R) Parallel Studio command prompt is an item in the **Start** menu in the **Intel Parallel Studio
-> \<version\>** folder that has a Windows Command Prompt icon and a name like **Compiler 18.0 Update 5…**.
->
-> The default for building the project for the Intel C++ Compiler is to use the Intel
-> Parallel Studio developer command prompt.
+# Security
 
-Configure CMake and create a Microsoft Visual Studio solution:
+See Intel's [Security Center](https://www.intel.com/content/www/us/en/security-center/default.html)
+for information on how to report a potential security issue or vulnerability.
 
-```
-mkdir build & cd build && cmake -G "Visual Studio 15 2017 Win64" ..
-```
+See also: [Security Policy](SECURITY.md)
 
-For the solution to use Intel C++ Compiler:
+# Trademark Information
 
-```
-cmake -G "Visual Studio 15 2017 Win64" -T "Intel C++ Compiler 18.0" ..
-```
+Intel, the Intel logo, Intel Atom, Intel Core, Intel Xeon Phi, Iris, OpenVINO,
+the OpenVINO logo, Pentium, VTune, and Xeon are trademarks
+of Intel Corporation or its subsidiaries.
 
-After you have built the initial project using CMake, you can then open the project with
-Microsoft Visual Studio and build from there. You can also use msbuild command-line tool
-to build from the command line:
+\* Other names and brands may be claimed as the property of others.
 
-```
-msbuild "Intel(R) MKL-DNN.sln" /p:Configuration=Release [/t:rebuild] /m
-```
-where the optional argument `/t:rebuild` rebuilds the project.
+Microsoft, Windows, and the Windows logo are trademarks, or registered
+trademarks of Microsoft Corporation in the United States and/or other
+countries.
 
-The build can be validated with the unit-test suite:
+OpenCL and the OpenCL logo are trademarks of Apple Inc. used by permission
+by Khronos.
 
-```
-ctest
-```
-
-## Linking Your Application
-
-### Linux/macOS
-Intel MKL-DNN includes several header files providing C and C++ APIs for
-the functionality and one or several dynamic libraries depending on how
-Intel MKL-DNN was built.
-
-**Linux**
-
-|File                   | Description
-|:---                   |:---
-|include/mkldnn.h       | C header
-|include/mkldnn.hpp     | C++ header
-|include/mkldnn_types.h | Auxiliary C header
-|lib/libmkldnn.so       | Intel MKL-DNN dynamic library
-|lib/libmkldnn.a        | Intel MKL-DNN static library (if built with `MKLDNN_LIBRARY_TYPE=STATIC`)
-|lib/libiomp5.so        | Intel OpenMP\* runtime library (if built with `MKLDNN_USE_MKL=ML`)
-|lib/libmklml_gnu.so    | Intel MKL small library for GNU OpenMP runtime (if built with `MKLDNN_USE_MKL=ML`)
-|lib/libmklml_intel.so  | Intel MKL small library for Intel OpenMP runtime (if built with `MKLDNN_USE_MKL=ML`)
-
-**macOS**
-
-|File                     | Description
-|:---                     |:---
-|include/mkldnn.h         | C header
-|include/mkldnn.hpp       | C++ header
-|include/mkldnn_types.h   | Auxiliary C header
-|lib/libmkldnn.dylib      | Intel MKL-DNN dynamic library
-|lib/libmkldnn.a          | Intel MKL-DNN static library (if built with `MKLDNN_LIBRARY_TYPE=STATIC`)
-|lib/libiomp5.dylib       | Intel OpenMP\* runtime library (if built with `MKLDNN_USE_MKL=ML`)
-|lib/libmklml_gnu.dylib   | Intel MKL small library for GNU OpenMP runtime (if built with `MKLDNN_USE_MKL=ML`)
-|lib/libmklml_intel.dylib | Intel MKL small library for Intel OpenMP runtime (if built with `MKLDNN_USE_MKL=ML`)
-
-Linkline examples below assume that Intel MKL-DNN is installed in the directory
-defined in the MKLDNNROOT environment variable.
-
-```
-g++ -std=c++11 -I${MKLDNNROOT}/include -L${MKLDNNROOT}/lib simple_net.cpp -lmkldnn
-clang -std=c++11 -I${MKLDNNROOT}/include -L${MKLDNNROOT}/lib simple_net.cpp -lmkldnn
-icpc -std=c++11 -I${MKLDNNROOT}/include -L${MKLDNNROOT}/lib simple_net.cpp -lmkldnn
-```
-
-> **WARNING**
->
-> Using the GNU compiler with the `-fopenmp` and `-liomp5` options will link the
-> application with both the Intel and GNU OpenMP runtime libraries. This will lead
-> to undefined behavior in the application.
-
-> **NOTE**
->
-> Applications linked dynamically will resolve the dependencies at runtime. 
-> Make sure that the dependencies are available in the standard locations
-> defined by the operating system, in the locatons listed in `LD_LIBRARY_PATH` (Linux),
-> `DYLD_LIBRARY_PATH` (macOS) environment variables, or `rpath` mechanism.
-
-### Windows
-Intel MKL-DNN includes several header files providing C and C++ APIs for
-the functionality and one or several dynamic libraries depending on how
-Intel MKL-DNN was built.
-
-|File                   | Description
-|:---                   |:---
-|bin\libmkldnn.dll      | Intel MKL-DNN dynamic library
-|bin\libiomp5.dll       | Intel OpenMP\* runtime library (if built with `MKLDNN_USE_MKL=ML`)
-|bin\libmklml.dll       | Intel MKL small library (if built with `MKLDNN_USE_MKL=ML`)
-|include\mkldnn.h       | C header
-|include\mkldnn.hpp     | C++ header
-|include\mkldnn_types.h | Auxiliary C header
-|lib\libmkldnn.lib      | Intel MKL-DNN import library
-|lib\libiomp5.lib       | Intel OpenMP\* runtime import library (if built with `MKLDNN_USE_MKL=ML`)
-|lib\libmklml.lib       | Intel MKL small library import library (if built with `MKLDNN_USE_MKL=ML`)
-
-To link the application from the command line, set up the `LIB` and `INCLUDE` environment variables to point to the locations of 
-the Intel MKL-DNN headers and libraries. The Linkline examples below assume that Intel MKL-DNN is installed in the directory
-defined in the MKLDNNROOT environment variable. 
-
-```
-set INCLUDE=%MKLDNNROOT%\include;%INCLUDE%
-set LIB=%MKLDNNROOT%\lib;%LIB%
-icl /Qstd=c++11 /qopenmp simple_net.cpp mkldnn.lib
-cl simple_net.cpp mkldnn.lib
-```
-
-Refer to [Microsoft Visual Studio documentation](https://docs.microsoft.com/en-us/cpp/build/walkthrough-creating-and-using-a-dynamic-link-library-cpp?view=vs-2017)
-on linking the application using MSVS solutions.
-
-> **NOTE**
-> Applications linked dynamically will resolve the dependencies at runtime.
-> Make sure that the dependencies are available in the standard locations
-> defined by the operating system or in the locatons listed in the `PATH` environment variable.
-
---------
-
-[Legal Information](doc/legal_information.md)
+(C) Intel Corporation

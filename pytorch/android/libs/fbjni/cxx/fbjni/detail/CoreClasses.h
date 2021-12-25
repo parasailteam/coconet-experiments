@@ -30,6 +30,8 @@
 
 #include <jni.h>
 
+#include <fbjni/detail/SimpleFixedString.h>
+
 namespace facebook {
 namespace jni {
 
@@ -113,8 +115,8 @@ class JObject : detail::JObjectBase {
 public:
   static constexpr auto kJavaDescriptor = "Ljava/lang/Object;";
 
-  static constexpr const char* get_instantiated_java_descriptor() { return nullptr; }
-  static constexpr const char* get_instantiated_base_name() { return nullptr; }
+  static constexpr detail::SimpleFixedString<0> get_instantiated_java_descriptor() { return ""; }
+  static constexpr detail::SimpleFixedString<0> get_instantiated_base_name() { return ""; }
 
   /// Get a @ref local_ref of the object's class
   local_ref<JClass> getClass() const noexcept;
@@ -154,18 +156,7 @@ private:
   friend struct detail::ReprAccess;
   template<typename, typename, typename>
   friend class JavaClass;
-
-  template <typename, typename>
-  friend class JObjectWrapper;
 };
-
-// This is only to maintain backwards compatibility with things that are
-// already providing a specialization of JObjectWrapper. Any such instances
-// should be updated to use a JavaClass.
-template<>
-class JObjectWrapper<jobject> : public JObject {
-};
-
 
 namespace detail {
 template <typename, typename Base, typename JType>
@@ -233,8 +224,6 @@ protected:
 };
 
 /// Wrapper to provide functionality to jclass references
-struct NativeMethod;
-
 class JClass : public JavaClass<JClass, JObject, jclass> {
  public:
   /// Java type descriptor
@@ -263,7 +252,7 @@ class JClass : public JavaClass<JClass, JObject, jclass> {
   /// exception is crashing out of the JNI method, declare the method noexcept.
   /// This does NOT apply to critical native methods, where exceptions causes
   /// a crash.
-  void registerNatives(std::initializer_list<NativeMethod> methods);
+  void registerNatives(std::initializer_list<JNINativeMethod> methods);
 
   /// Check to see if the class is assignable from another class
   /// @pre cls != nullptr
@@ -346,7 +335,7 @@ private:
 
 // Convenience method to register methods on a class without holding
 // onto the class object.
-void registerNatives(const char* name, std::initializer_list<NativeMethod> methods);
+void registerNatives(const char* name, std::initializer_list<JNINativeMethod> methods);
 
 /// Wrapper to provide functionality to jstring references
 class JString : public JavaClass<JString, JObject, jstring> {
@@ -377,6 +366,8 @@ class ElementProxy {
  public:
   using T = typename Target::javaentry;
   ElementProxy(Target* target, size_t idx);
+
+  ElementProxy(const ElementProxy&) noexcept = default;
 
   ElementProxy& operator=(const T& o);
 
@@ -423,8 +414,13 @@ class JArrayClass : public JavaClass<JArrayClass<T>, detail::JTypeArray> {
   // javaobject is the jni type of the array.
   using javaobject = typename JavaClass<JArrayClass<T>, detail::JTypeArray>::javaobject;
   static constexpr const char* kJavaDescriptor = nullptr;
-  static std::string get_instantiated_java_descriptor();
-  static std::string get_instantiated_base_name();
+  static constexpr auto /* detail::SimpleFixedString<_> */ get_instantiated_java_descriptor() {
+    return "[" + jtype_traits<T>::kDescriptor;
+  }
+
+  static constexpr auto /* detail::SimpleFixedString<_> */ get_instantiated_base_name() {
+    return get_instantiated_java_descriptor();
+  }
 
   /// Allocate a new array from Java heap, for passing as a JNI parameter or return value.
   /// NOTE: if using as a return value, you want to call release() instead of get() on the
@@ -480,8 +476,12 @@ class JPrimitiveArray :
   static_assert(is_jni_primitive_array<JArrayType>(), "");
  public:
   static constexpr const char* kJavaDescriptor = nullptr;
-  static std::string get_instantiated_java_descriptor();
-  static std::string get_instantiated_base_name();
+  static constexpr auto /* detail::SimpleFixedString<_> */ get_instantiated_java_descriptor() {
+    return jtype_traits<JArrayType>::kDescriptor;
+  }
+  static constexpr auto /* detail::SimpleFixedString<_> */ get_instantiated_base_name() {
+    return JPrimitiveArray::get_instantiated_java_descriptor();
+  }
 
   using T = typename jtype_traits<JArrayType>::entry_type;
 

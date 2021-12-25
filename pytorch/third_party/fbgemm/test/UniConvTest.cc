@@ -26,7 +26,46 @@ vector<QuantizationGranularity> qGranularityVals{
     QuantizationGranularity::OUT_CHANNEL};
 
 // clang-format off
-static vector<conv_param_t<>> GetShapes_() {
+template <int SPATIAL_DIM = 1>
+static typename std::enable_if<SPATIAL_DIM == 1, vector<conv_param_t<1>>>::type
+GetShapes_() {
+  vector<conv_param_t<1>> shapes = {
+    // MB, IC, OC, {IW}, G, {KW}, {stride_w}, {pad_l,pad_r}, {dilation_w}
+    // Regular
+    conv_param_t<1>(1, 16, 16, {30}, 1, {3}, {1}, {1, 1}),
+    conv_param_t<1>(1, 32, 32, {30}, 1, {3}, {1}, {1, 1}),
+    conv_param_t<1>(1, 32, 16, {30}, 1, {3}, {1}, {0, 0}, {2}),
+    // deconv shapes
+    // MB, IC, OC, {IW}, G, {KW}, {stride_w}, {pad_l,pad_r}, {dilation_w}, {output_padding}, transposed
+    // Regular
+    conv_param_t<1>(1, 16, 16, {30}, 1, {3}, {1}, {1, 1}, {1}, {0}, true),
+    conv_param_t<1>(1, 32, 32, {30}, 1, {3}, {1}, {1, 1}, {1}, {0}, true),
+    conv_param_t<1>(1, 32, 16, {30}, 1, {3}, {1}, {0, 0}, {1}, {0}, true),
+    conv_param_t<1>(1, 16, 16, {30}, 1, {3}, {1}, {1, 1}, {2}, {0}, true),
+    conv_param_t<1>(1, 32, 32, {30}, 1, {3}, {1}, {1, 1}, {2}, {0}, true),
+    conv_param_t<1>(1, 32, 16, {30}, 1, {3}, {1}, {0, 0}, {2}, {0}, true),
+    conv_param_t<1>(1, 16, 16, {30}, 1, {3}, {1}, {1, 1}, {1}, {1}, true),
+    conv_param_t<1>(1, 32, 32, {30}, 1, {3}, {1}, {1, 1}, {1}, {1}, true),
+    conv_param_t<1>(1, 32, 16, {30}, 1, {3}, {1}, {0, 0}, {1}, {1}, true),
+    conv_param_t<1>(1, 32, 32, {30}, 1, {3}, {2}, {1, 1}, {2}, {0}, true),
+
+    // some example deconv shapes
+    conv_param_t<1>(1, 96, 48, {30}, 1, {16}, {8}, {4, 4}, {1}, {0}, true),
+    conv_param_t<1>(1, 48, 24, {30}, 1, {8}, {4}, {2, 2}, {1}, {0}, true),
+    conv_param_t<1>(1, 24, 12, {30}, 1, {4}, {2}, {1, 1}, {1}, {0}, true),
+
+    // groupwise
+    conv_param_t<1>(1, 32, 16, {30}, 8, {3}, {1}, {0, 0}, {1}, {1}, true),
+    conv_param_t<1>(1, 32, 32, {30}, 8, {3}, {2}, {1, 1}, {2}, {0}, true),
+  };
+  return shapes;
+}
+// clang-format on
+
+// clang-format off
+template <int SPATIAL_DIM = 2>
+static typename std::enable_if<SPATIAL_DIM == 2, vector<conv_param_t<2>>>::type
+GetShapes_() {
   vector<conv_param_t<>> shapes = {
     // MB, IC, OC, {IH, IW}, G, {KH, KW}, {stride_h, stride_w}, {pad_t, pad_l,
     // pad_b, pad_r}, {dilation_h, dilation_w}
@@ -70,6 +109,7 @@ static vector<conv_param_t<>> GetShapes_() {
     conv_param_t<>(1, 32, 32, {10, 30}, 32, {5, 3}, {1, 1}, {1, 1, 1, 1}),
     conv_param_t<>(1, 32, 32, {10, 30}, 32, {5, 5}, {1, 1}, {1, 1, 1, 1}),
     conv_param_t<>(1, 32, 32, {10, 30}, 32, {5, 3}, {1, 1}, {1, 1, 1, 1}, {2, 2}),
+    conv_param_t<>(1, 128, 256, {32, 100}, 128, {3, 3}, {1, 1}, {1, 1, 1, 1}),
     // Pointwise
     conv_param_t<>(1, 32, 32, {10, 30}, 1, {1, 1}, {1, 1}, {0, 0, 0, 0}),
     conv_param_t<>(1, 16, 32, {10, 30}, 1, {1, 1}, {1, 1}, {0, 0, 0, 0}),
@@ -77,6 +117,24 @@ static vector<conv_param_t<>> GetShapes_() {
     conv_param_t<>(1, 32, 16, {10, 30}, 1, {1, 1}, {2, 2}, {0, 0, 0, 0}),
     conv_param_t<>(1, 32, 16, {10, 30}, 1, {1, 1}, {1, 2}, {0, 0, 0, 0}),
     conv_param_t<>(1, 32, 16, {10, 30}, 1, {1, 1}, {2, 1}, {0, 0, 0, 0}),
+
+    // deconv shapes
+    // MB, IC, OC, {IH, IW}, G, {KH, KW}, {stride_h, stride_w}, {pad_t, pad_l,
+    // pad_b, pad_r}, {dilation_h, dilation_w}, {output_padding_h, output_padding_w}, transposed
+    // Regular
+    conv_param_t<>(1, 32, 16, {10, 30}, 1, {3, 3}, {1, 1}, {0, 0, 0, 0}, {1, 1}, {0, 0}, true),
+    conv_param_t<>(1, 32, 16, {10, 30}, 1, {3, 3}, {1, 1}, {0, 0, 0, 0}, {2, 2}, {0, 0}, true),
+    conv_param_t<>(1, 32, 16, {10, 30}, 1, {3, 3}, {1, 1}, {1, 1, 1, 1}, {2, 2}, {0, 0}, true),
+    // groupwise
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {3, 3}, {1, 1}, {1, 1, 1, 1}, {1, 1}, {0, 0}, true),
+    conv_param_t<>(1, 32, 16, {10, 30}, 8, {3, 3}, {1, 1}, {1, 1, 1, 1}, {1, 1}, {1, 0}, true),
+    conv_param_t<>(1, 16, 32, {10, 30}, 8, {3, 3}, {2, 2}, {1, 1, 1, 1}, {1, 1}, {0, 1}, true),
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {3, 3}, {2, 2}, {2, 1, 2, 1}, {1, 1}, {1, 1}, true),
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {3, 3}, {1, 2}, {2, 1, 2, 1}, {1, 1}, {0, 0}, true),
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {3, 3}, {2, 1}, {2, 1, 2, 1}, {1, 1}, {0, 0}, true),
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {3, 5}, {1, 1}, {1, 1, 1, 1}, {1, 1}, {0, 0}, true),
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {5, 3}, {1, 1}, {1, 1, 1, 1}, {1, 1}, {0, 0}, true),
+    conv_param_t<>(1, 32, 32, {10, 30}, 8, {5, 3}, {1, 1}, {1, 1, 1, 1}, {2, 2}, {0, 0}, true),
   };
   return shapes;
 }
@@ -129,6 +187,64 @@ TEST_P(uniConvTest, packingTest) {
   int MB, IC, OC, IT, IH, IW, G, kernel, stride, pad;
   tie(MB, IC, OC, IT, IH, IW, G, kernel, stride, pad) = GetParam();
 
+  conv_param_t<1> conv_p_1d(
+      MB, IC, OC, {IW}, G, {kernel}, {stride}, {pad, pad});
+
+  int kernel_dim_1d = kernel;
+  aligned_vector<int8_t> Bint8_1d(
+      kernel_dim_1d * conv_p_1d.IC * (conv_p_1d.OC / conv_p_1d.G));
+  PackWeightsForConv<1> packedB_1D(conv_p_1d, Bint8_1d.data());
+
+  switch (ConvFastPath<1, int32_t>(conv_p_1d)) {
+    case optimized_conv_t::depthwise: {
+      ASSERT_EQ(packedB_1D.getPackedWForIm2col(), nullptr)
+          << "im2col packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForGroupwise(), nullptr)
+          << "groupwise packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForPointwise(), nullptr)
+          << "pointwise packed matrix should be null";
+      ASSERT_NE(packedB_1D.getPackedWForDepthwise(), nullptr)
+          << "depthwise packed matrix is null";
+      break;
+    }
+    case optimized_conv_t::groupwise: {
+      ASSERT_EQ(packedB_1D.getPackedWForIm2col(), nullptr)
+          << "im2col packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForDepthwise(), nullptr)
+          << "depthwise packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForPointwise(), nullptr)
+          << "pointwise packed matrix should be null";
+      ASSERT_NE(packedB_1D.getPackedWForGroupwise(), nullptr)
+          << "Groupwise packed matrix is null";
+      break;
+    }
+    case optimized_conv_t::pointwise: {
+      ASSERT_EQ(packedB_1D.getPackedWForIm2col(), nullptr)
+          << "im2col packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForDepthwise(), nullptr)
+          << "depthwise packed matrix should null";
+      ASSERT_EQ(packedB_1D.getPackedWForGroupwise(), nullptr)
+          << "Groupwise packed matrix should be null";
+      ASSERT_NE(packedB_1D.getPackedWForPointwise(), nullptr)
+          << "pointwise packed matrix is null";
+      break;
+    }
+    case optimized_conv_t::fastpath1d: {
+      break;
+    }
+    case optimized_conv_t::im2col: {
+      ASSERT_EQ(packedB_1D.getPackedWForDepthwise(), nullptr)
+          << "depthwise packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForGroupwise(), nullptr)
+          << "groupwise packed matrix should be null";
+      ASSERT_EQ(packedB_1D.getPackedWForPointwise(), nullptr)
+          << "pointwise packed matrix should be null";
+      ASSERT_NE(packedB_1D.getPackedWForIm2col(), nullptr)
+          << "im2col packed matrix is null";
+      break;
+    }
+  }
+
   conv_param_t<2> conv_p_2d(
       MB,
       IC,
@@ -176,6 +292,9 @@ TEST_P(uniConvTest, packingTest) {
           << "Groupwise packed matrix should be null";
       ASSERT_NE(packedB_2D.getPackedWForPointwise(), nullptr)
           << "pointwise packed matrix is null";
+      break;
+    }
+    case optimized_conv_t::fastpath1d: {
       break;
     }
     case optimized_conv_t::im2col: {
@@ -240,6 +359,9 @@ TEST_P(uniConvTest, packingTest) {
           << "pointwise packed matrix is null";
       break;
     }
+    case optimized_conv_t::fastpath1d: {
+      break;
+    }
     case optimized_conv_t::im2col: {
       ASSERT_EQ(packedB_3D.getPackedWForDepthwise(), nullptr)
           << "depthwise packed matrix should be null";
@@ -260,6 +382,23 @@ TEST_P(uniConvTest, packingTest) {
 TEST_P(uniConvTest, packUnpackTest) {
   int MB, IC, OC, IT, IH, IW, G, kernel, stride, pad;
   tie(MB, IC, OC, IT, IH, IW, G, kernel, stride, pad) = GetParam();
+
+  conv_param_t<1> conv_p_1d(
+      MB, IC, OC, {IW}, G, {kernel}, {stride}, {pad, pad});
+
+  int kernel_dim_1d = kernel;
+
+  aligned_vector<int8_t> Bint8_1d(
+      kernel_dim_1d * conv_p_1d.IC * (conv_p_1d.OC / conv_p_1d.G));
+  aligned_vector<int8_t> Bint8_1d_unpacked(
+      kernel_dim_1d * conv_p_1d.IC * (conv_p_1d.OC / conv_p_1d.G));
+
+  PackWeightsForConv<1> packedB_1D(conv_p_1d, Bint8_1d.data());
+
+  packedB_1D.unpack(Bint8_1d_unpacked.data());
+
+  ASSERT_EQ(Bint8_1d, Bint8_1d_unpacked)
+      << "Original and unpacked data elements are not the same [1D]";
 
   conv_param_t<2> conv_p_2d(
       MB,
@@ -282,7 +421,7 @@ TEST_P(uniConvTest, packUnpackTest) {
 
   packedB_2D.unpack(Bint8_2d_unpacked.data());
 
-  ASSERT_EQ(Bint8_2d, Bint8_2d_unpacked)
+  ASSERT_EQ(Bint8_2d_unpacked, Bint8_2d)
       << "Original and unpacked data elements are not the same [2D]";
 
   conv_param_t<3> conv_p_3d(
@@ -307,7 +446,7 @@ TEST_P(uniConvTest, packUnpackTest) {
 
   packedB_3D.unpack(Bint8_3d_unpacked.data());
 
-  ASSERT_EQ(Bint8_3d, Bint8_3d_unpacked)
+  ASSERT_EQ(Bint8_3d_unpacked, Bint8_3d)
       << "Original and unpacked data elements are not the same [3D]";
 }
 
@@ -398,32 +537,35 @@ TEST(uniConvTest, cornerCases) {
  * @brief Unit test for uint8 activations, int8 weights, and 32-bit
  * accumulation. Output processing: requantization -> nothing
  */
-TEST_P(UniConvQGranTest, requantizeTest) {
-  vector<conv_param_t<>> shapes(GetShapes_());
-  QuantizationGranularity q_granularity;
-  bool a_symmetric, b_symmetric;
-  bool test_bias, test_float_bias;
-  tie(q_granularity, a_symmetric, b_symmetric, test_bias, test_float_bias) =
-      GetParam();
+
+template <int SPATIAL_DIM = 2>
+void runRequantizeTest(
+    QuantizationGranularity q_granularity,
+    bool a_symmetric,
+    bool b_symmetric,
+    bool test_bias,
+    bool test_float_bias) {
+  vector<conv_param_t<SPATIAL_DIM>> shapes(GetShapes_<SPATIAL_DIM>());
 
   for (auto conv_p : shapes) {
-    int R = conv_p.K[0];
-    int S = conv_p.K[1];
+    int R = SPATIAL_DIM == 1 ? 1 : conv_p.K[SPATIAL_DIM - 2];
+    int S = conv_p.K[SPATIAL_DIM - 1];
     int G = conv_p.G;
     int OC = conv_p.OC;
-    int OH = conv_p.OUT_DIM[0];
-    int OW = conv_p.OUT_DIM[1];
+    int OH = SPATIAL_DIM == 1 ? 1 : conv_p.OUT_DIM[SPATIAL_DIM - 2];
+    int OW = conv_p.OUT_DIM[SPATIAL_DIM - 1];
     int IC_per_G = conv_p.IC / conv_p.G;
     int OC_per_G = conv_p.OC / conv_p.G;
+    int IH = SPATIAL_DIM == 1 ? 1 : conv_p.IN_DIM[SPATIAL_DIM - 2];
+    int IW = conv_p.IN_DIM[SPATIAL_DIM - 1];
 
     // activations
-    aligned_vector<uint8_t> Aint8(
-        conv_p.MB * conv_p.IN_DIM[0] * conv_p.IN_DIM[1] * conv_p.IC, 0);
+    aligned_vector<uint8_t> Aint8(conv_p.MB * IH * IW * conv_p.IC, 0);
 
     // weights
     // The weight matrix is in layout G K/G (R S C/G)
-    aligned_vector<int8_t> Bint8(R * S * conv_p.G * IC_per_G * OC_per_G, 0);
-    aligned_vector<int8_t> Bint8_tr(R * S * G * IC_per_G * OC_per_G, 0);
+    aligned_vector<int8_t> Bint8(R * S * G * IC_per_G * OC_per_G, 0);
+    aligned_vector<int8_t> Bint8_tr(Bint8.size(), 0);
 
     aligned_vector<int32_t> Cint32_ref(conv_p.MB * OH * OW * OC, 0);
     aligned_vector<int32_t> Cint32_fb(Cint32_ref.size(), 0);
@@ -436,21 +578,20 @@ TEST_P(UniConvQGranTest, requantizeTest) {
     randFill<int8_t>(Bint8, -4, 4);
 
     // computing column offset
-    vector<int32_t> col_offsets(G * OC_per_G);
+    vector<int32_t> col_offsets(OC);
 
-    int ncols_per_quant_group = G * OC_per_G;
+    int ncols_per_quant_group = OC;
     if (q_granularity == QuantizationGranularity::GROUP) {
       ncols_per_quant_group = OC_per_G;
     } else if (q_granularity == QuantizationGranularity::OUT_CHANNEL) {
       ncols_per_quant_group = 1;
     }
 
-    aligned_vector<int32_t> Bint8_zero_point(
-        G * OC_per_G / ncols_per_quant_group);
+    aligned_vector<int32_t> Bint8_zero_point(OC / ncols_per_quant_group);
     if (b_symmetric) {
-      randFill(Bint8_zero_point, -3, 3);
-    } else {
       randFill(Bint8_zero_point, 0, 0);
+    } else {
+      randFill(Bint8_zero_point, -3, 3);
     }
 
     // matrix dimensions after im2col for each GEMM.
@@ -511,9 +652,8 @@ TEST_P(UniConvQGranTest, requantizeTest) {
     }
     // reference implementation
     // conv_ref expects weights to be in G (R S C/G) K/G
-    int8_t* rightBData = Bint8.data();
     transposeConvWeights(conv_p, Bint8.data(), Bint8_tr.data());
-    rightBData = Bint8_tr.data();
+    int8_t* rightBData = Bint8_tr.data();
     for (int g = 0; g < G; ++g) {
       col_offsets_with_zero_pt_s8acc32_ref(
           R * S * IC_per_G,
@@ -551,7 +691,7 @@ TEST_P(UniConvQGranTest, requantizeTest) {
           ncols_per_quant_group);
     }
 
-    PackWeightsForConv<2> packedWeights(conv_p, Bint8.data());
+    PackWeightsForConv<SPATIAL_DIM> packedWeights(conv_p, Bint8.data());
 
     // TODO: Uncomment once we support multiple threads in fbgemmGroupwiseConv
     // #ifdef _OPENMP
@@ -724,4 +864,17 @@ TEST_P(UniConvQGranTest, requantizeTest) {
         NDim * G,
         static_cast<uint8_t>(0));
   } // for each shape
+}
+
+TEST_P(UniConvQGranTest, requantizeTest) {
+  QuantizationGranularity q_granularity;
+  bool a_symmetric, b_symmetric;
+  bool test_bias, test_float_bias;
+  tie(q_granularity, a_symmetric, b_symmetric, test_bias, test_float_bias) =
+      GetParam();
+
+  runRequantizeTest<1>(
+      q_granularity, a_symmetric, b_symmetric, test_bias, test_float_bias);
+  runRequantizeTest<2>(
+      q_granularity, a_symmetric, b_symmetric, test_bias, test_float_bias);
 }

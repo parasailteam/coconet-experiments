@@ -32,34 +32,10 @@ using namespace std;
 
 namespace fbgemm {
 
-void FloatToFloat16_ref(
-    const float* src,
-    float16* dst,
-    int size,
-    bool do_clip) {
-  constexpr float FP16_MAX = 65504.f;
-  if (do_clip) {
-    for (int i = 0; i < size; i++) {
-      float cur_src = std::max(-FP16_MAX, std::min(src[i], FP16_MAX));
-      dst[i] = cpu_float2half_rn(cur_src);
-    }
-  } else {
-    for (int i = 0; i < size; i++) {
-      dst[i] = cpu_float2half_rn(src[i]);
-    }
-  }
-}
-
-void Float16ToFloat_ref(const float16* src, float* dst, int size) {
-  for (int i = 0; i < size; i++) {
-    dst[i] = cpu_half2float(src[i]);
-  }
-}
-
 void FloatToFloat16_simd(
     const float* src,
     float16* dst,
-    int size,
+    size_t size,
     bool do_clip) {
   // Run time CPU detection
   if (cpuinfo_initialize()) {
@@ -76,7 +52,7 @@ void FloatToFloat16_simd(
   }
 }
 
-void Float16ToFloat_simd(const float16* src, float* dst, int size) {
+void Float16ToFloat_simd(const float16* src, float* dst, size_t size) {
   // Run time CPU detection
   if (cpuinfo_initialize()) {
     if (fbgemmHasAvx512Support()) {
@@ -90,6 +66,19 @@ void Float16ToFloat_simd(const float16* src, float* dst, int size) {
   } else {
     throw std::runtime_error("Failed to initialize cpuinfo!");
   }
+}
+
+void RoundToFloat16(
+    const float* input,
+    float* output,
+    size_t size,
+    bool clamp,
+    bool clamp_denorms) {
+  std::vector<fbgemm::float16> data_fp16(size);
+  // clamp_denorms is always true, since we use FloatToFloat16_simd function
+  // with _mm256_cvtps_ph.
+  FloatToFloat16_simd(input, &(data_fp16[0]), size, /*do_clip=*/clamp);
+  Float16ToFloat_simd(&(data_fp16[0]), output, size);
 }
 
 } // namespace fbgemm

@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <iostream>
 #include <unordered_map>
+#include <algorithm>
 
 #include "gloo/algorithm.h"
 #include "gloo/common/error.h"
@@ -269,7 +270,7 @@ class AllreduceBcube : public Algorithm {
         steps_(computeSteps(nodes_, base_)),
         fn_(fn),
         recvBufs_(steps_ * base_) {
-    if (nodes_ == 1) {
+    if (totalNumElems_ == 0 || nodes_ == 1) {
       return;
     }
     setupNodes();
@@ -335,6 +336,9 @@ class AllreduceBcube : public Algorithm {
 #endif
 
   void run() {
+    if (totalNumElems_ == 0) {
+      return;
+    }
     // Local reduce operation
     for (int i = 1; i < ptrs_.size(); i++) {
       fn_->call(ptrs_[0], ptrs_[i], totalNumElems_);

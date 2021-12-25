@@ -1048,15 +1048,3 @@ ncclResult_t ncclCommUserRank(const ncclComm_t comm, int* rank) {
   *rank = comm->rank;
   return ncclSuccess;
 }
-
-NCCL_API(void, getNCCLRing, ncclComm_t* comm, int* rings, int& ringLength, int& nChannels);
-void getNCCLRing(ncclComm_t* comm, int* rings, int& ringLength, int& nChannels) {
-  ringLength = (*comm)->nRanks;
-  nChannels = (*comm)->nChannels;
-
-  for (int c = 0; c < nChannels; c++) {
-    for (int r = 0; r < (*comm)->nRanks; r++) {
-      rings[c*(*comm)->nRanks + r] = (*comm)->channels[c].ring.userRanks[r];
-    }
-  }
-}

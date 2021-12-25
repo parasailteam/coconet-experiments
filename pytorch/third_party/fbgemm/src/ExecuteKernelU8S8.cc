@@ -47,8 +47,7 @@ ExecuteKernel<
     throw std::runtime_error("Failed to initialize cpuinfo!");
   }
   if (params) {
-    if (fbgemmHasAvx512VnniSupport() || fbgemmHasAvx512Support() ||
-        fbgemmHasAvx2Support()) {
+    if (fbgemmHasAvx2Support()) {
       mbSize_ = params->MCB;
       nbSize_ = params->NCB;
       nrMinSize_ = params->NR_MIN;
@@ -56,52 +55,51 @@ ExecuteKernel<
     } else {
       // TODO: Have default slower path
       assert(0 && "unsupported architecure");
+      throw std::runtime_error("unsupported architecure");
     }
   } else {
-    if (fbgemmHasAvx512VnniSupport()) {
-      mbSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512_vnni>::MCB;
-      nbSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512_vnni>::NCB;
-      nrMinSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512_vnni>::NR_MIN;
-    } else if (fbgemmHasAvx512Support()) {
-      mbSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512>::MCB;
-      nbSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512>::NCB;
-      nrMinSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512>::NR_MIN;
-    } else if (fbgemmHasAvx2Support()) {
-      mbSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx2>::MCB;
-      nbSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx2>::NCB;
-      nrMinSize_ = PackingTraits<
-          int8_t,
-          typename packingAMatrix::accType,
-          inst_set_t::avx2>::NR_MIN;
-    } else {
-      assert(0 && "unsupported architecure");
+    const inst_set_t isa = fbgemmInstructionSet();
+    switch (isa) {
+      case inst_set_t::avx512_vnni:
+        std::tie(mbSize_, nbSize_, nrMinSize_, nrSize_) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512_vnni>::getKernelParams();
+        break;
+
+      case inst_set_t::avx512_vnni_ymm:
+        std::tie(mbSize_, nbSize_, nrMinSize_, nrSize_) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512_vnni_ymm>::getKernelParams();
+        break;
+
+      case inst_set_t::avx512:
+        std::tie(mbSize_, nbSize_, nrMinSize_, nrSize_) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512>::getKernelParams();
+        break;
+
+      case inst_set_t::avx512_ymm:
+        std::tie(mbSize_, nbSize_, nrMinSize_, nrSize_) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512_ymm>::getKernelParams();
+        break;
+
+      case inst_set_t::avx2:
+        std::tie(mbSize_, nbSize_, nrMinSize_, nrSize_) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx2>::getKernelParams();
+        break;
+
+      default:
+        assert(0 && "unknown architecure");
+        throw std::runtime_error("unknown architecure");
     }
   }
-  C_tile_ = new int32_t[mbSize_ * nbSize_];
 }
 
 template <typename packingAMatrix, typename cT, typename processOutputType>
@@ -128,40 +126,85 @@ void ExecuteKernel<
   bool lastKBlock = packedB_.isThisLastKBlock(kBlock % packedB_.blockRows());
   bool accum = (kBlock % packedB_.blockRows()) > 0;
 
+  int jb_begin, jb_end;
+  fbgemmPartition1D(
+      th_info_.n_thread_id,
+      th_info_.n_num_threads,
+      bColBlocks,
+      jb_begin,
+      jb_end);
+  if (jb_end == jb_begin) {
+    return;
+  }
+
   typename BaseType::jit_micro_kernel_fp fn;
 
-  if (fbgemmHasAvx512VnniSupport()) {
-    if (std::is_same<typename packingAMatrix::accType, std::int16_t>::value) {
-      // For AVX512VNNI, we redirect int16_t to int32_t accumulation.
-      CodeGenBase<uint8_t, int8_t, int32_t, int32_t> codeObj;
-      fn = codeObj.getOrCreate<inst_set_t::avx512_vnni>(
+  const inst_set_t isa = fbgemmInstructionSet();
+  switch (isa) {
+    case inst_set_t::avx512_vnni:
+      if (std::is_same<typename packingAMatrix::accType, std::int16_t>::value) {
+        // For AVX512VNNI, we redirect int16_t to int32_t accumulation.
+        CodeGenBase<uint8_t, int8_t, int32_t, int32_t> codeObj;
+        fn = codeObj.getOrCreate<inst_set_t::avx512_vnni>(
+            accum,
+            packed_rows_A,
+            packedB_.blockColSize(),
+            packedA_.numPackedCols());
+      } else {
+        fn = BaseType::template getOrCreate<inst_set_t::avx512_vnni>(
+            accum,
+            packed_rows_A,
+            packedB_.blockColSize(),
+            packedA_.numPackedCols());
+      }
+      break;
+
+    case inst_set_t::avx512_vnni_ymm:
+      if (std::is_same<typename packingAMatrix::accType, std::int16_t>::value) {
+        // For AVX512VNNI, we redirect int16_t to int32_t accumulation.
+        CodeGenBase<uint8_t, int8_t, int32_t, int32_t> codeObj;
+        fn = codeObj.getOrCreate<inst_set_t::avx512_vnni_ymm>(
+            accum,
+            packed_rows_A,
+            packedB_.blockColSize(),
+            packedA_.numPackedCols());
+      } else {
+        fn = BaseType::template getOrCreate<inst_set_t::avx512_vnni_ymm>(
+            accum,
+            packed_rows_A,
+            packedB_.blockColSize(),
+            packedA_.numPackedCols());
+      }
+      break;
+
+    case inst_set_t::avx512:
+      fn = BaseType::template getOrCreate<inst_set_t::avx512>(
           accum,
           packed_rows_A,
           packedB_.blockColSize(),
           packedA_.numPackedCols());
-    } else {
-      fn = BaseType::template getOrCreate<inst_set_t::avx512_vnni>(
+      break;
+
+    case inst_set_t::avx512_ymm:
+      fn = BaseType::template getOrCreate<inst_set_t::avx512_ymm>(
           accum,
           packed_rows_A,
           packedB_.blockColSize(),
           packedA_.numPackedCols());
-    }
-  } else if (fbgemmHasAvx512Support()) {
-    fn = BaseType::template getOrCreate<inst_set_t::avx512>(
-        accum,
-        packed_rows_A,
-        packedB_.blockColSize(),
-        packedA_.numPackedCols());
-  } else if (fbgemmHasAvx2Support()) {
-    fn = BaseType::template getOrCreate<inst_set_t::avx2>(
-        accum,
-        packed_rows_A,
-        packedB_.blockColSize(),
-        packedA_.numPackedCols());
-  } else {
-    // TODO: Have default slower path
-    assert(0 && "unsupported architecture");
-    return;
+      break;
+
+    case inst_set_t::avx2:
+      fn = BaseType::template getOrCreate<inst_set_t::avx2>(
+          accum,
+          packed_rows_A,
+          packedB_.blockColSize(),
+          packedA_.numPackedCols());
+      break;
+
+    default:
+      // TODO: Have default slower path
+      assert(0 && "unsupported architecture");
+      throw std::runtime_error("unsupported architecure");
   }
 
 #ifdef FBGEMM_MEASURE_TIME_BREAKDOWN
@@ -170,38 +213,56 @@ void ExecuteKernel<
   t_start = std::chrono::high_resolution_clock::now();
 #endif
 
-  int jb_begin, jb_end;
-  fbgemmPartition1D(
-      th_info_.n_thread_id,
-      th_info_.n_num_threads,
-      bColBlocks,
-      jb_begin,
-      jb_end);
   for (int jb = jb_begin; jb < jb_end; ++jb) {
     if (jb == bColBlocks - 1) {
       int nc = ((packedB_.lastBcol() - 1) / nrMinSize_ + 1) * nrMinSize_;
       if (nc != nbSize_) {
-        if (fbgemmHasAvx512VnniSupport()) {
-          if (std::is_same<typename packingAMatrix::accType, std::int16_t>::
-                  value) {
-            // For AVX512VNNI, we redirect int16_t to int32_t accumulation.
-            CodeGenBase<uint8_t, int8_t, int32_t, int32_t> codeObj;
-            fn = codeObj.getOrCreate<inst_set_t::avx512_vnni>(
+        switch (isa) {
+          case inst_set_t::avx512_vnni:
+            if (std::is_same<typename packingAMatrix::accType, std::int16_t>::
+                    value) {
+              // For AVX512VNNI, we redirect int16_t to int32_t accumulation.
+              CodeGenBase<uint8_t, int8_t, int32_t, int32_t> codeObj;
+              fn = codeObj.getOrCreate<inst_set_t::avx512_vnni>(
+                  accum, packed_rows_A, nc, packedA_.numPackedCols());
+            } else {
+              fn = BaseType::template getOrCreate<inst_set_t::avx512_vnni>(
+                  accum, packed_rows_A, nc, packedA_.numPackedCols());
+            }
+            break;
+
+          case inst_set_t::avx512_vnni_ymm:
+            if (std::is_same<typename packingAMatrix::accType, std::int16_t>::
+                    value) {
+              // For AVX512VNNI, we redirect int16_t to int32_t accumulation.
+              CodeGenBase<uint8_t, int8_t, int32_t, int32_t> codeObj;
+              fn = codeObj.getOrCreate<inst_set_t::avx512_vnni_ymm>(
+                  accum, packed_rows_A, nc, packedA_.numPackedCols());
+            } else {
+              fn = BaseType::template getOrCreate<inst_set_t::avx512_vnni_ymm>(
+                  accum, packed_rows_A, nc, packedA_.numPackedCols());
+            }
+            break;
+
+          case inst_set_t::avx512:
+            fn = BaseType::template getOrCreate<inst_set_t::avx512>(
                 accum, packed_rows_A, nc, packedA_.numPackedCols());
-          } else {
-            fn = BaseType::template getOrCreate<inst_set_t::avx512_vnni>(
+            break;
+
+          case inst_set_t::avx512_ymm:
+            fn = BaseType::template getOrCreate<inst_set_t::avx512_ymm>(
                 accum, packed_rows_A, nc, packedA_.numPackedCols());
-          }
-        } else if (fbgemmHasAvx512Support()) {
-          fn = BaseType::template getOrCreate<inst_set_t::avx512>(
-              accum, packed_rows_A, nc, packedA_.numPackedCols());
-        } else if (fbgemmHasAvx2Support()) {
-          fn = BaseType::template getOrCreate<inst_set_t::avx2>(
-              accum, packed_rows_A, nc, packedA_.numPackedCols());
-        } else {
-          // TODO: Have default slower path
-          assert(0 && "unsupported architecture");
-          return;
+            break;
+
+          case inst_set_t::avx2:
+            fn = BaseType::template getOrCreate<inst_set_t::avx2>(
+                accum, packed_rows_A, nc, packedA_.numPackedCols());
+            break;
+
+          default:
+            // TODO: Have default slower path
+            assert(0 && "unsupported architecture");
+            throw std::runtime_error("unsupported architecure");
         }
       }
     }
@@ -227,10 +288,12 @@ void ExecuteKernel<
 
     int32_t* C_buffer_start = C_buffer_row_start + jb * nbSize_;
     int32_t leadingDim = ldc_;
+    static thread_local std::vector<int32_t> C_tile_;
     if (packedB_.isThereColRemainder() && (jb == bColBlocks - 1)) {
       // In case we will access memory past C_buffer_, we use C_tile_ scratchpad
       // instead.
-      C_buffer_start = C_tile_;
+      C_tile_.resize(mbSize_ * nbSize_);
+      C_buffer_start = C_tile_.data();
       leadingDim = nbSize_;
     }
 
@@ -255,22 +318,12 @@ void ExecuteKernel<
       // When C_tile_ is used for the last column block, we need a separate
       // handling for the last column block.
       int32_t nSize =
-          (C_buffer_start == C_tile_ ? (jb - jb_begin) * nbSize_
+          (C_buffer_start == C_tile_.data() ? (jb - jb_begin) * nbSize_
                                      : (jb_end - jb_begin) * nbSize_);
       if (nSize) {
-        if (fbgemmHasAvx512VnniSupport() || fbgemmHasAvx512Support()) {
+        if (fbgemmHasAvx2Support()) {
           // TODO: avx512 path
           // Currently use avx2 code
-          outputProcess_.template f<inst_set_t::avx2>(
-              matC_,
-              C_buffer_row_start + jb_begin * nbSize_,
-              {row_start_A,
-               packed_rows_A,
-               NDim * group + jb_begin * nbSize_,
-               nSize},
-              ldc_,
-              ldc_);
-        } else if (fbgemmHasAvx2Support()) {
           outputProcess_.template f<inst_set_t::avx2>(
               matC_,
               C_buffer_row_start + jb_begin * nbSize_,
@@ -283,28 +336,19 @@ void ExecuteKernel<
         } else {
           // TODO: Have default slower path
           assert(0 && "unsupported architecure");
+          throw std::runtime_error("unsupported architecure");
         }
       }
 
-      if (C_buffer_start == C_tile_) {
+      if (C_buffer_start == C_tile_.data()) {
         // When C_tile_ scratchpad was used to avoid accessing memory past
         // C_buffer_ .
-        if (fbgemmHasAvx512VnniSupport() || fbgemmHasAvx512Support()) {
+        if (fbgemmHasAvx2Support()) {
           // TODO: avx512 path
           // Currently use avx2 code
           outputProcess_.template f<inst_set_t::avx2>(
               matC_,
-              C_tile_,
-              {row_start_A,
-               packed_rows_A,
-               NDim * group + jb * nbSize_,
-               packedB_.lastBcol()},
-              ldc_,
-              leadingDim);
-        } else if (fbgemmHasAvx2Support()) {
-          outputProcess_.template f<inst_set_t::avx2>(
-              matC_,
-              C_tile_,
+              C_tile_.data(),
               {row_start_A,
                packed_rows_A,
                NDim * group + jb * nbSize_,
@@ -314,6 +358,7 @@ void ExecuteKernel<
         } else {
           // TODO: Have default slower path
           assert(0 && "unsupported architecure");
+          throw std::runtime_error("unsupported architecure");
         }
       }
     } // output processing
@@ -388,6 +433,7 @@ INSTANTIATE_REQUANT_ACC_T(PackAWithRowOffset);
       ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::OUT_CHANNEL);
 
 #define INSTANTIATE_IM2COL_REQUANT_SPATIAL_DIM(ACC_T, RELU) \
+  INSTANTIATE_IM2COL_REQUANT_Q_GRANS(ACC_T, RELU, 1);       \
   INSTANTIATE_IM2COL_REQUANT_Q_GRANS(ACC_T, RELU, 2);       \
   INSTANTIATE_IM2COL_REQUANT_Q_GRANS(ACC_T, RELU, 3);
 
@@ -449,6 +495,7 @@ INSTANTIATE_REQUANT_FLOAT_RELU(PackAWithQuantRowOffset);
       ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::OUT_CHANNEL);
 
 #define INSTANTIATE_REQUANT_FLOAT_IM2COL_SPATIAL_DIM(ACC_T, RELU) \
+  INSTANTIATE_REQUANT_FLOAT_IM2COL_Q_GRANS(ACC_T, RELU, 1);       \
   INSTANTIATE_REQUANT_FLOAT_IM2COL_Q_GRANS(ACC_T, RELU, 2);       \
   INSTANTIATE_REQUANT_FLOAT_IM2COL_Q_GRANS(ACC_T, RELU, 3);
 
@@ -546,6 +593,7 @@ INSTANTIATE_MEMCPY_ACC_T(PackAWithRowOffset);
       memCopy<>>;
 
 #define INSTANTIATE_MEMCPY_IM2COL_SPATIAL_DIM(ACC_T) \
+  INSTANTIATE_MEMCPY_IM2COL_BASE(ACC_T, 1);          \
   INSTANTIATE_MEMCPY_IM2COL_BASE(ACC_T, 2);          \
   INSTANTIATE_MEMCPY_IM2COL_BASE(ACC_T, 3);
 

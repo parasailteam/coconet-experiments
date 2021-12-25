@@ -100,6 +100,12 @@ class Runner {
   template <typename T>
   void run(BenchmarkFn<T>& fn, size_t n);
 
+  template <typename T>
+  Samples createAndRun(
+    std::vector<std::unique_ptr<Benchmark<T>>> &benchmarks,
+    int niters
+  );
+
  protected:
 #if GLOO_USE_REDIS
   void rendezvousRedis();
@@ -120,15 +126,24 @@ class Runner {
       size_t elements,
       size_t elementSize,
       const Distribution& samples);
+  void printVerifyHeader();
+  void printFooter();
+
+  // Checks and prints errors, exits the program with
+  // status 1 if any errors were found
+  void checkErrors();
 
   options options_;
   std::vector<std::shared_ptr<transport::Device>> transportDevices_;
   std::shared_ptr<rendezvous::ContextFactory> contextFactory_;
+  std::vector<std::string> keyFilePaths_;
   std::vector<std::unique_ptr<RunnerThread>> threads_;
 
   long broadcastValue_;
   std::unique_ptr<Algorithm> broadcast_;
   std::unique_ptr<Barrier> barrier_;
+
+  std::vector<std::string> mismatchErrors_;
 };
 
 } // namespace benchmark

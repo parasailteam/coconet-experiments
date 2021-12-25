@@ -41,12 +41,25 @@ enum class matrix_op_t { NoTranspose, Transpose };
 /**
  * @brief Typed enum for supported instruction sets.
  */
-enum class inst_set_t { anyarch, avx2, avx512, avx512_ymm, avx512_vnni };
+enum class inst_set_t {
+  anyarch,
+  avx2,
+  avx512,
+  avx512_ymm,
+  avx512_vnni,
+  avx512_vnni_ymm
+};
 
 /**
  * @brief Typed enum for optimized paths for convolutions
  */
-enum class optimized_conv_t { depthwise, groupwise, pointwise, im2col };
+enum class optimized_conv_t {
+  depthwise,
+  groupwise,
+  pointwise,
+  fastpath1d,
+  im2col
+};
 
 /**
  * @brief Typed enum for implementation type.
@@ -76,7 +89,6 @@ struct simd_info<inst_set_t::avx2> {
   static constexpr int NUM_VEC_REGS = 16;
 
   using vec_reg_t = asmjit::x86::Ymm;
-  using half_vec_reg_t = asmjit::x86::Xmm;
 };
 
 template <>
@@ -87,15 +99,25 @@ struct simd_info<inst_set_t::avx512> {
   static constexpr int NUM_VEC_REGS = 32;
 
   using vec_reg_t = asmjit::x86::Zmm;
-  using half_vec_reg_t = asmjit::x86::Ymm;
 };
 
 template <>
-struct simd_info<inst_set_t::avx512_vnni> {
-  static constexpr int WIDTH_BITS = 512;
-  static constexpr int WIDTH_BYTES = 64;
-  static constexpr int WIDTH_32BIT_ELEMS = 16;
+struct simd_info<inst_set_t::avx512_vnni>
+    : public simd_info<inst_set_t::avx512> {};
+
+template <>
+struct simd_info<inst_set_t::avx512_ymm> {
+  static constexpr int WIDTH_BITS = 256;
+  static constexpr int WIDTH_BYTES = 32;
+  static constexpr int WIDTH_32BIT_ELEMS = 8;
+  static constexpr int NUM_VEC_REGS = 32;
+
+  using vec_reg_t = asmjit::x86::Ymm;
 };
+
+template <>
+struct simd_info<inst_set_t::avx512_vnni_ymm>
+    : public simd_info<inst_set_t::avx512_ymm> {};
 
 /**
  * @brief A function to compare data in two buffers for closeness/equality.
@@ -107,7 +129,7 @@ FBGEMM_API int compare_buffers(
     int m,
     int n,
     int ld,
-    int max_mismatches_to_report,
+    size_t max_mismatches_to_report,
     float atol = 1e-3);
 
 /**
@@ -128,13 +150,9 @@ void printMatrix(
  * @param M the number of rows of input matrix
  * @param N the number of columns of input matrix
  */
-FBGEMM_API void transpose_simd(
-    int M,
-    int N,
-    const float* src,
-    int ld_src,
-    float* dst,
-    int ld_dst);
+template <typename T>
+FBGEMM_API void
+transpose_simd(unsigned M, unsigned N, const T* src, unsigned ld_src, T* dst, unsigned ld_dst);
 
 /**
  * @brief Explicitly set instruction set to be used

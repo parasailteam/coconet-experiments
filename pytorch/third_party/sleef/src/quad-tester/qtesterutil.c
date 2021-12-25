@@ -1,4 +1,4 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -11,14 +11,6 @@
 #include <float.h>
 #include <limits.h>
 #include <assert.h>
-
-#if defined(POWER64_UNDEF_USE_EXTERN_INLINES)
-// This is a workaround required to cross compile for PPC64 binaries
-#include <features.h>
-#ifdef __USE_EXTERN_INLINES
-#undef __USE_EXTERN_INLINES
-#endif
-#endif
 
 #include <math.h>
 
@@ -36,6 +28,10 @@
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <unistd.h>
+#endif
+
+#if defined(_MSC_VER)
+#include <io.h>
 #endif
 
 #include "misc.h"
@@ -71,22 +67,22 @@ int startsWith(char *str, char *prefix) {
 //
 
 xuint128 xu(uint64_t h, uint64_t l) {
-  xuint128 r = { l, h };
+  xuint128 r = { .l = l, .h = h };
   return r;
 }
 
 xuint128 sll128(uint64_t u, int c) {
   if (c < 64) {
-    xuint128 r = { u << c, u >> (64 - c) };
+    xuint128 r = { .l = u << c, .h = u >> (64 - c) };
     return r;
   }
 
-  xuint128 r = { 0, u << (c - 64) };
+  xuint128 r = { .l = 0, .h = u << (c - 64) };
   return r;
 }
 
 xuint128 add128(xuint128 x, xuint128 y) {
-  xuint128 r = { x.l + y.l, x.h + y.h };
+  xuint128 r = { .l = x.l + y.l, .h = x.h + y.h };
   if (r.l < x.l) r.h++;
   return r;
 }
@@ -103,13 +99,17 @@ typedef union {
   Sleef_quad q;
   xuint128 x;
   struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+    uint64_t h, l;
+#else
     uint64_t l, h;
+#endif
   };
 } cnv_t;
 
 int iszerof128(Sleef_quad a) {
   cnv_t c128 = { .q = a };
-  return (((c128.h & 0x7fffffffffffffffULL) == 0) && c128.l == 0);
+  return (((c128.h & UINT64_C(0x7fffffffffffffff)) == 0) && c128.l == 0);
 }
 
 int isnegf128(Sleef_quad a) {
@@ -119,12 +119,12 @@ int isnegf128(Sleef_quad a) {
 
 int isinff128(Sleef_quad a) {
   cnv_t c128 = { .q = a };
-  return (((c128.h & 0x7fffffffffffffffULL) == 0x7fff000000000000ULL) && c128.l == 0);
+  return (((c128.h & UINT64_C(0x7fffffffffffffff)) == UINT64_C(0x7fff000000000000)) && c128.l == 0);
 }
 
 int isnonnumberf128(Sleef_quad a) {
   cnv_t c128 = { .q = a };
-  return (c128.h & 0x7fff000000000000ULL) == 0x7fff000000000000ULL;
+  return (c128.h & UINT64_C(0x7fff000000000000)) == UINT64_C(0x7fff000000000000);
 }
 
 int isnanf128(Sleef_quad a) {
@@ -137,9 +137,9 @@ static uint64_t xseed;
 
 uint64_t xrand() {
   uint64_t u = xseed;
-  xseed = xseed * 6364136223846793005ULL + 1;
-  u = (u & ((~0ULL) << 32)) | (xseed >> 32);
-  xseed = xseed * 6364136223846793005ULL + 1;
+  xseed = xseed * UINT64_C(6364136223846793005) + 1;
+  u = (u & ((~UINT64_C(0)) << 32)) | (xseed >> 32);
+  xseed = xseed * UINT64_C(6364136223846793005) + 1;
   return u;
 }
 
@@ -160,13 +160,13 @@ void memrand(void *p, int size) {
 
 Sleef_quad rndf128(Sleef_quad min, Sleef_quad max) {
   cnv_t cmin = { .q = min }, cmax = { .q = max }, c;
-  uint64_t enablesign = cmin.h & cmax.h & 0x8000000000000000ULL, sign = 0;
-  cmin.h &= 0x7fffffffffffffffULL;
-  cmax.h &= 0x7fffffffffffffffULL;
+  uint64_t enablesign = cmin.h & cmax.h & UINT64_C(0x8000000000000000), sign = 0;
+  cmin.h &= UINT64_C(0x7fffffffffffffff);
+  cmax.h &= UINT64_C(0x7fffffffffffffff);
   do {
     memrand(&c.q, sizeof(Sleef_quad));
     sign = c.h;
-    c.h &= 0x7fffffffffffffffULL;
+    c.h &= UINT64_C(0x7fffffffffffffff);
   } while(isnonnumberf128(c.q) || lt128(c.x, cmin.x) || lt128(cmax.x, c.x));
   c.h |= sign & enablesign;
   return c.q;
@@ -268,7 +268,7 @@ char *sprintfr(mpfr_t fr) {
 
 //
 
-#if MPFR_VERSION_MAJOR >= 4 && defined(ENABLEFLOAT128) && !defined(__APPLE__)
+#if MPFR_VERSION_MAJOR >= 4 && defined(ENABLEFLOAT128) && !defined(__APPLE__) && !defined(__PPC64__) && !defined(__i386__)
 void mpfr_set_f128(mpfr_t frx, Sleef_quad q, mpfr_rnd_t rnd) {
   int mpfr_set_float128(mpfr_t rop, __float128 op, mpfr_rnd_t rnd);
   union {
@@ -288,13 +288,35 @@ Sleef_quad mpfr_get_f128(mpfr_t m, mpfr_rnd_t rnd) {
   c.f = mpfr_get_float128(m, rnd);
   return c.q;
 }
+#elif defined(__SIZEOF_LONG_DOUBLE__) && defined(__aarch64__)
+void mpfr_set_f128(mpfr_t frx, Sleef_quad q, mpfr_rnd_t rnd) {
+  union {
+    Sleef_quad q;
+    long double f;
+  } c;
+  c.q = q;
+  mpfr_set_ld(frx, c.f, rnd);
+}
+
+Sleef_quad mpfr_get_f128(mpfr_t m, mpfr_rnd_t rnd) {
+  union {
+    Sleef_quad q;
+    long double f;
+  } c;
+  c.f = mpfr_get_ld(m, rnd);
+  return c.q;
+}
 #else
 #pragma message ( "Internal MPFR<->float128 conversion is used" )
 void mpfr_set_f128(mpfr_t frx, Sleef_quad a, mpfr_rnd_t rnd) {
   union {
     Sleef_quad u;
     struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+      uint64_t h, l;
+#else
       uint64_t l, h;
+#endif
     };
   } c128 = { .u = a };
 
@@ -306,18 +328,18 @@ void mpfr_set_f128(mpfr_t frx, Sleef_quad a, mpfr_rnd_t rnd) {
   } else if (isinff128(a)) {
     mpfr_set_inf(frx, sign ? -1 : 1);
   } else if (exp == 0) {
-    c128.h &= 0xffffffffffffULL;
+    c128.h &= UINT64_C(0xffffffffffff);
     mpfr_set_d(frx, ldexp((double)c128.h, 64), GMP_RNDN);
-    mpfr_add_d(frx, frx, (double)(c128.l & 0xffffffff00000000ULL), GMP_RNDN);
-    mpfr_add_d(frx, frx, (double)(c128.l & 0xffffffffULL), GMP_RNDN);
+    mpfr_add_d(frx, frx, (double)(c128.l & UINT64_C(0xffffffff00000000)), GMP_RNDN);
+    mpfr_add_d(frx, frx, (double)(c128.l & UINT64_C(0xffffffff)), GMP_RNDN);
     mpfr_set_exp(frx, mpfr_get_exp(frx) - 16382 - 112);
     mpfr_setsign(frx, frx, sign, GMP_RNDN);
   } else {
-    c128.h &= 0xffffffffffffULL;
+    c128.h &= UINT64_C(0xffffffffffff);
     mpfr_set_d(frx, ldexp(1, 112), GMP_RNDN);
     mpfr_add_d(frx, frx, ldexp((double)c128.h, 64), GMP_RNDN);
-    mpfr_add_d(frx, frx, (double)(c128.l & 0xffffffff00000000ULL), GMP_RNDN);
-    mpfr_add_d(frx, frx, (double)(c128.l & 0xffffffffULL), GMP_RNDN);
+    mpfr_add_d(frx, frx, (double)(c128.l & UINT64_C(0xffffffff00000000)), GMP_RNDN);
+    mpfr_add_d(frx, frx, (double)(c128.l & UINT64_C(0xffffffff)), GMP_RNDN);
     mpfr_set_exp(frx, exp - 16382);
     mpfr_setsign(frx, frx, sign, GMP_RNDN);
   }
@@ -389,15 +411,15 @@ static TDX_t mpfr_get_tdx(mpfr_t fr, mpfr_rnd_t rnd) {
 #define LOGXSCALE 1
 #define XSCALE (1 << LOGXSCALE)
 #define SX 61
-#define HBY (1.0 / (1ULL << 53))
+#define HBY (1.0 / (UINT64_C(1) << 53))
 #define LOGYSCALE 4
 #define YSCALE (1 << LOGYSCALE)
 #define SY 11
-#define HBZ (1.0 / ((1ULL << 53) * (double)(1ULL << 53)))
+#define HBZ (1.0 / ((UINT64_C(1) << 53) * (double)(UINT64_C(1) << 53)))
 #define LOGZSCALE 10
 #define ZSCALE (1 << LOGZSCALE)
 #define SZ 36
-#define HBR (1.0 / (1ULL << 60))
+#define HBR (1.0 / (UINT64_C(1) << 60))
 
 static int64_t doubleToRawLongBits(double d) {
   union {
@@ -418,7 +440,7 @@ static double longBitsToDouble(int64_t i) {
 }
 
 static int xisnonnumber(double x) {
-  return (doubleToRawLongBits(x) & 0x7ff0000000000000ULL) == 0x7ff0000000000000ULL;
+  return (doubleToRawLongBits(x) & UINT64_C(0x7ff0000000000000)) == UINT64_C(0x7ff0000000000000);
 }
 
 static double xordu(double x, uint64_t y) {
@@ -450,7 +472,7 @@ Sleef_quad mpfr_get_f128(mpfr_t a, mpfr_rnd_t rnd) {
   } c64;
 
   c64.d = f.dd.x;
-  uint64_t signbit = c64.u & 0x8000000000000000ULL;
+  uint64_t signbit = c64.u & UINT64_C(0x8000000000000000);
   int isZero = (f.dd.x == 0.0), denorm = 0;
 
   f.dd.x = xordu(f.dd.x, signbit);
@@ -476,19 +498,19 @@ Sleef_quad mpfr_get_f128(mpfr_t a, mpfr_rnd_t rnd) {
   f.dd.z *= t;
 
   c64.d = f.dd.y + HBY * YSCALE;
-  c64.u &= 0xffffffffffffffffULL << LOGYSCALE;
+  c64.u &= UINT64_C(0xffffffffffffffff) << LOGYSCALE;
   f.dd.z += f.dd.y - (c64.d - (HBZ * ZSCALE + HBY * YSCALE));
   f.dd.y = c64.d;
 
   double c = denorm ? (HBX * XSCALE + HBX) : (HBX * XSCALE);
   c64.d = f.dd.x + c;
-  c64.u &= 0xffffffffffffffffULL << LOGXSCALE;
+  c64.u &= UINT64_C(0xffffffffffffffff) << LOGXSCALE;
   t = f.dd.y + (f.dd.x - (c64.d - c));
   f.dd.z += f.dd.y - t + (f.dd.x - (c64.d - c));
   f.dd.x = c64.d;
 
   c64.d = t;
-  c64.u &= 0xffffffffffffffffULL << LOGYSCALE;
+  c64.u &= UINT64_C(0xffffffffffffffff) << LOGYSCALE;
   f.dd.z += t - c64.d;
   f.dd.y = c64.d;
 
@@ -505,26 +527,26 @@ Sleef_quad mpfr_get_f128(mpfr_t a, mpfr_rnd_t rnd) {
   //
 
   c64.d = f.dd.x;
-  c64.u &= 0xfffffffffffffULL;
+  c64.u &= UINT64_C(0xfffffffffffff);
   c128.x = sll128(c64.u, SX);
 
   c64.d = f.dd.z;
-  c64.u &= 0xfffffffffffffULL;
+  c64.u &= UINT64_C(0xfffffffffffff);
   c128.l |= c64.u >> SZ;
 
   c64.d = f.dd.y;
-  c64.u &= 0xfffffffffffffULL;
+  c64.u &= UINT64_C(0xfffffffffffff);
   c128.x = add128(c128.x, sll128(c64.u, SY));
 
-  c128.h &= denorm ? 0xffffffffffffULL : 0x3ffffffffffffULL;
+  c128.h &= denorm ? UINT64_C(0xffffffffffff) : UINT64_C(0x3ffffffffffff);
   c128.h += ((f.e-1) & ~((uint64_t)-1UL << 15)) << 48;
 
   if (isZero) { c128.l = c128.h = 0; }
   if (f.e >= 32767 || f.dd.x == INFINITY) {
-    c128.h = 0x7fff000000000000ULL;
+    c128.h = UINT64_C(0x7fff000000000000);
     c128.l = 0;
   }
-  if (xisnonnumber(f.dd.x) && f.dd.x != INFINITY) c128.h = c128.l = 0xffffffffffffffffULL;
+  if (xisnonnumber(f.dd.x) && f.dd.x != INFINITY) c128.h = c128.l = UINT64_C(0xffffffffffffffff);
 
   c128.h |= signbit;
 
@@ -568,6 +590,15 @@ Sleef_quad cast_q_str(const char *s) {
   mpfr_t fr;
   mpfr_inits(fr, NULL);
   mpfr_set_str(fr, s, 10, GMP_RNDN);
+  Sleef_quad q = mpfr_get_f128(fr, GMP_RNDN);
+  mpfr_clears(fr, NULL);
+  return q;
+}
+
+Sleef_quad cast_q_str_hex(const char *s) {
+  mpfr_t fr;
+  mpfr_inits(fr, NULL);
+  mpfr_set_str(fr, s, 16, GMP_RNDN);
   Sleef_quad q = mpfr_get_f128(fr, GMP_RNDN);
   mpfr_clears(fr, NULL);
   return q;

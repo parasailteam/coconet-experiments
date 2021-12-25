@@ -1,10 +1,14 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
 
 typedef struct {
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+  uint64_t h, l;
+#else
   uint64_t l, h;
+#endif
 } xuint128;
 
 xuint128 xu(uint64_t h, uint64_t l);
@@ -55,5 +59,6 @@ char *sprintf128(Sleef_quad x);
 
 double cast_d_q(Sleef_quad q);
 Sleef_quad cast_q_str(const char *s);
+Sleef_quad cast_q_str_hex(const char *s);
 Sleef_quad add_q_d(Sleef_quad q, double d);
 #endif

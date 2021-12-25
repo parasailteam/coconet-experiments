@@ -1,5 +1,5 @@
 #===============================================================================
-# Copyright 2017-2018 Intel Corporation
+# Copyright 2017-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,6 @@ if(OpenMP_cmake_included)
 endif()
 set(OpenMP_cmake_included true)
 include("cmake/Threading.cmake")
-include("cmake/MKL.cmake")
-
-set(MKLDNN_USES_INTEL_OPENMP FALSE)
 
 if (APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # OSX Clang doesn't have OpenMP by default.
@@ -48,51 +45,7 @@ macro(forbid_link_compiler_omp_rt)
     endif()
 endmacro()
 
-macro(use_intel_omp_rt)
-    # fast return
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-        set(MKLDNN_USES_INTEL_OPENMP TRUE)
-        return()
-    endif()
-
-    # Do not link with compiler-native OpenMP library if Intel MKL is present.
-    # Rationale: Intel MKL comes with Intel OpenMP library which is compatible
-    # with all libraries shipped with compilers that Intel MKL-DNN supports.
-    get_filename_component(MKLIOMP5LIB "${MKLIOMP5LIB}" PATH)
-    find_library(IOMP5LIB
-                NAMES "iomp5" "iomp5md" "libiomp5" "libiomp5md"
-                HINTS  ${MKLIOMP5LIB} )
-    if(IOMP5LIB)
-        forbid_link_compiler_omp_rt()
-        if (WIN32)
-            get_filename_component(MKLIOMP5DLL "${MKLIOMP5DLL}" PATH)
-            find_file(IOMP5DLL
-                NAMES "libiomp5.dll" "libiomp5md.dll"
-                HINTS ${MKLIOMP5DLL})
-        endif()
-        list(APPEND EXTRA_SHARED_LIBS ${IOMP5LIB})
-    else()
-        if (MKLDNN_THREADING STREQUAL "OMP:INTEL")
-            message(${_omp_severity} "Intel OpenMP runtime could not be found. "
-                "Please either use OpenMP runtime that comes with the compiler "
-                "(via -DMKLDNN_THREADING={OMP,OMP:COMP}), or "
-                "explicitely provide the path to libiomp with the "
-                "-DCMAKE_LIBRARY_PATH option")
-        endif()
-    endif()
-endmacro()
-
-if(WIN32 AND ${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
-    add_definitions(/Qpar)
-    add_definitions(/openmp)
-    set(OpenMP_CXX_FOUND true)
-elseif(MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    append(CMAKE_C_FLAGS "-Xclang -fopenmp")
-    append(CMAKE_CXX_FLAGS "-Xclang -fopenmp")
-    set(OpenMP_CXX_FOUND true)
-    list(APPEND EXTRA_SHARED_LIBS ${IOMP5LIB})
-else()
-    find_package(OpenMP)
+macro(set_openmp_values_for_old_cmake)
     #newer version for findOpenMP (>= v. 3.9)
     if(CMAKE_VERSION VERSION_LESS "3.9" AND OPENMP_FOUND)
         if(${CMAKE_MAJOR_VERSION} VERSION_LESS "3" AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
@@ -103,39 +56,54 @@ else()
         set(OpenMP_C_FOUND true)
         set(OpenMP_CXX_FOUND true)
     endif()
-    append_if(OpenMP_C_FOUND CMAKE_SRC_CCXX_FLAGS "${OpenMP_C_FLAGS}")
+endmacro()
+
+find_package(OpenMP)
+set_openmp_values_for_old_cmake()
+
+# special case for clang-cl (not recognized by cmake up to 3.17)
+if(NOT OpenMP_CXX_FOUND AND MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT DNNL_WITH_SYCL)
+    # clang-cl and icx will fall under this condition
+    # CAVEAT: undocumented variable, may be inappropriate
+    if(CMAKE_BASE_NAME STREQUAL "icx")
+        # XXX: Use `-Xclang --dependent-lib=libiomp5md` to workaround an issue
+        # with linking OpenMP on Windows.
+        # The ICX driver doesn't link OpenMP library even if `/Qopenmp`
+        # was specified.
+        set(OpenMP_FLAGS "/Qopenmp -Xclang --dependent-lib=libiomp5md")
+    else()
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0")
+            # version < 10 can't pass cl-style `/openmp` flag
+            set(OpenMP_FLAGS "-Xclang -fopenmp")
+            # ... and requires explicit linking against omp library
+            set(OpenMP_CXX_LIBRARIES "libomp.lib")
+        endif()
+    endif()
+    set(OpenMP_C_FLAGS ${OpenMP_FLAGS})
+    set(OpenMP_CXX_FLAGS ${OpenMP_FLAGS})
+    set(OpenMP_CXX_FOUND true)
 endif()
 
-if (MKLDNN_THREADING MATCHES "OMP")
-    if (OpenMP_CXX_FOUND)
-        set_threading("OMP")
-        append(CMAKE_TEST_CCXX_FLAGS "${OpenMP_CXX_FLAGS}")
-        append(CMAKE_EXAMPLE_CCXX_FLAGS "${OpenMP_CXX_FLAGS}")
+# add flags unconditionally to always utilize openmp-simd for any threading runtime
+if(OpenMP_CXX_FOUND)
+    append(CMAKE_C_FLAGS ${OpenMP_C_FLAGS})
+    append(CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS})
+endif()
+
+if(DNNL_CPU_THREADING_RUNTIME MATCHES "OMP")
+    if(OpenMP_CXX_FOUND)
+        if(MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            list(APPEND EXTRA_SHARED_LIBS ${OpenMP_CXX_LIBRARIES})
+        endif()
     else()
         message(${_omp_severity} "OpenMP library could not be found. "
             "Proceeding might lead to highly sub-optimal performance.")
-    endif()
-
-    if (MKLDNN_THREADING STREQUAL "OMP:COMP")
-        set(IOMP5LIB "")
-        set(IOMP5DLL "")
-    else()
-        use_intel_omp_rt()
-    endif()
-
-    if(MKLIOMP5LIB)
-        set(MKLDNN_USES_INTEL_OPENMP TRUE)
+        # Override CPU threading to sequential if allowed to proceed
+        set(DNNL_CPU_THREADING_RUNTIME "SEQ")
     endif()
 else()
     # Compilation happens with OpenMP to enable `#pragma omp simd`
     # but during linkage OpenMP dependency should be avoided
     forbid_link_compiler_omp_rt()
     return()
-endif()
-
-set_ternary(_omp_lib_msg IOMP5LIB "${IOMP5LIB}" "provided by compiler")
-message(STATUS "OpenMP lib: ${_omp_lib_msg}")
-if(WIN32)
-    set_ternary(_omp_dll_msg IOMP5DLL "${IOMP5LIB}" "provided by compiler")
-    message(STATUS "OpenMP dll: ${_omp_dll_msg}")
 endif()

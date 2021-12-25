@@ -1,5 +1,5 @@
 #===============================================================================
-# Copyright 2018 Intel Corporation
+# Copyright 2018-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,14 +23,25 @@ endif()
 set(utils_cmake_included true)
 include("cmake/options.cmake")
 
+if ("${CMAKE_PROJECT_NAME}" STREQUAL "${PROJECT_NAME}")
+    set(DNNL_IS_MAIN_PROJECT TRUE)
+endif()
+
 # Common configuration for tests / test cases on Windows
 function(maybe_configure_windows_test name kind)
-    if(WIN32 OR MINGW)
+    if(WIN32 AND (NOT DNNL_BUILD_FOR_CI))
         string(REPLACE  ";" "\;" PATH "${CTESTCONFIG_PATH};$ENV{PATH}")
         set_property(${kind} ${name} PROPERTY ENVIRONMENT "PATH=${PATH}")
-        configure_file(${PROJECT_SOURCE_DIR}/cmake/template.vcxproj.user
-            ${name}.vcxproj.user @ONLY)
+        if(TARGET ${name} AND CMAKE_GENERATOR MATCHES "Visual Studio")
+            configure_file(${PROJECT_SOURCE_DIR}/cmake/template.vcxproj.user
+                ${name}.vcxproj.user @ONLY)
+        endif()
     endif()
+endfunction()
+
+# Add test (aka add_test), but possibly appends an emulator
+function(add_dnnl_test name command)
+    add_test(${name} ${DNNL_TARGET_EMULATOR} ${command} ${ARGN})
 endfunction()
 
 # Register new executable/test
@@ -41,9 +52,11 @@ endfunction()
 function(register_exe name srcs test)
     add_executable(${name} ${srcs})
     target_link_libraries(${name} ${LIB_NAME} ${EXTRA_SHARED_LIBS} ${ARGV3})
-    if("${test}" STREQUAL "test")
-        add_test(${name} ${name})
+    if("x${test}" STREQUAL "xtest")
+        add_dnnl_test(${name} ${name})
         maybe_configure_windows_test(${name} TEST)
+    else()
+        maybe_configure_windows_test(${name} TARGET)
     endif()
 endfunction()
 

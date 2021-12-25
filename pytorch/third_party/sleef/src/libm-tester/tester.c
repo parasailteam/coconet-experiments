@@ -1,4 +1,4 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -16,14 +16,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <inttypes.h>
-
-#if defined(POWER64_UNDEF_USE_EXTERN_INLINES)
-// This is a workaround required to cross compile for PPC64 binaries
-#include <features.h>
-#ifdef __USE_EXTERN_INLINES
-#undef __USE_EXTERN_INLINES
-#endif
-#endif
+#include <sys/wait.h>
 
 #include <math.h>
 #include <mpfr.h>
@@ -196,6 +189,7 @@ double child_fmin(double x, double y) { child_d_d_d("fmin", x, y); }
 double child_fdim(double x, double y) { child_d_d_d("fdim", x, y); }
 double child_nextafter(double x, double y) { child_d_d_d("nextafter", x, y); }
 double child_fmod(double x, double y) { child_d_d_d("fmod", x, y); }
+double child_remainder(double x, double y) { child_d_d_d("remainder", x, y); }
 double child_fabs(double x) { child_d_d("fabs", x); }
 double child_trunc(double x) { child_d_d("trunc", x); }
 double child_floor(double x) { child_d_d("floor", x); }
@@ -330,6 +324,7 @@ float child_fminf(float x, float y) { child_f_f_f("fminf", x, y); }
 float child_fdimf(float x, float y) { child_f_f_f("fdimf", x, y); }
 float child_nextafterf(float x, float y) { child_f_f_f("nextafterf", x, y); }
 float child_fmodf(float x, float y) { child_f_f_f("fmodf", x, y); }
+float child_remainderf(float x, float y) { child_f_f_f("remainderf", x, y); }
 float child_fabsf(float x) { child_f_f("fabsf", x); }
 float child_truncf(float x) { child_f_f("truncf", x); }
 float child_floorf(float x) { child_f_f("floorf", x); }
@@ -2719,6 +2714,22 @@ void do_test() {
     }
 
     {
+      fprintf(stderr, "remainder denormal/nonnumber test : ");
+
+      double xa[] = { +0.0, -0.0, +1, -1, +1e+100, -1e+100, 1.7e+308, DBL_MAX, -DBL_MAX, DBL_MIN, -DBL_MIN, POSITIVE_INFINITY, NEGATIVE_INFINITY, NAN };
+      double ya[] = { +0.0, -0.0, +1, -1, +1e+100, -1e+100, 1.0e+308, DBL_MAX, -DBL_MAX, DBL_MIN, -DBL_MIN, POSITIVE_INFINITY, NEGATIVE_INFINITY, NAN };
+
+      for(i=0;i<sizeof(xa)/sizeof(double) && success;i++) {
+	for(j=0;j<sizeof(ya)/sizeof(double) && success;j++) {
+	  if (fabs(xa[i] / ya[j]) > 1e+300) continue;
+	  cmpDenorm_d_d(mpfr_remainder, child_remainder, xa[i], ya[j]);
+	}
+      }
+
+      showResult(success);
+    }
+
+    {
       fprintf(stderr, "trunc denormal/nonnumber test : ");
       double xa[] = { +0.0, -0.0, +1, -1, +1e+10, -1e+10, DBL_MAX, -DBL_MAX, DBL_MIN, -DBL_MIN, POSITIVE_INFINITY, NEGATIVE_INFINITY, NAN };
       for(i=0;i<sizeof(xa)/sizeof(double) && success;i++) cmpDenormNR_d(mpfr_trunc, child_trunc, xa[i]);
@@ -3298,6 +3309,32 @@ void do_test() {
     }
 
     {
+      fprintf(stderr, "remainderf denormal/nonnumber test : ");
+
+      if (enableFlushToZero) {
+	float xa[] = { +0.0, -0.0, +1, -1, +1e+30, -1e+30, FLT_MAX, -FLT_MAX, POSITIVE_INFINITYf, NEGATIVE_INFINITYf, NAN };
+	float ya[] = { +0.0, -0.0, +1, -1, POSITIVE_INFINITYf, NEGATIVE_INFINITYf, NAN };
+	for(i=0;i<sizeof(xa)/sizeof(float) && success;i++) {
+	  for(j=0;j<sizeof(ya)/sizeof(float) && success;j++) {
+	    if (fabs(xa[i] / ya[j]) > 1e+38) continue;
+	    cmpDenorm_f_f(mpfr_remainder, child_remainderf, xa[i], ya[j]);
+	  }
+	}
+      } else {
+	float xa[] = { +0.0, -0.0, +1, -1, +1e+30, -1e+30, FLT_MAX, -FLT_MAX, FLT_MIN, -FLT_MIN, POSITIVE_INFINITYf, NEGATIVE_INFINITYf, NAN };
+	float ya[] = { +0.0, -0.0, +1, -1, +1e+30, -1e+30, FLT_MAX, -FLT_MAX, FLT_MIN, -FLT_MIN, POSITIVE_INFINITYf, NEGATIVE_INFINITYf, NAN };
+	for(i=0;i<sizeof(xa)/sizeof(float) && success;i++) {
+	  for(j=0;j<sizeof(ya)/sizeof(float) && success;j++) {
+	    if (fabs(xa[i] / ya[j]) > 1e+38) continue;
+	    cmpDenorm_f_f(mpfr_remainder, child_remainderf, xa[i], ya[j]);
+	  }
+	}
+      }
+      
+      showResult(success);
+    }
+
+    {
       fprintf(stderr, "truncf denormal/nonnumber test : ");
       float xa[] = { +0.0, -0.0, +1, -1, +1e+10, -1e+10, FLT_MAX, -FLT_MAX, FLT_MIN, -FLT_MIN, POSITIVE_INFINITYf, NEGATIVE_INFINITYf, NAN };
       for(i=0;i<sizeof(xa)/sizeof(float) && success;i++) cmpDenormNR_f(mpfr_trunc, child_truncf, xa[i]);
@@ -3506,13 +3543,24 @@ void do_test() {
   
     //
 
+    fprintf(stderr, "remainder : ");
+    for(y = -10;y < 10 && success;y += 0.15) {
+      for(x = -10;x < 10 && success;x += 0.15) checkAccuracy_d_d(mpfr_remainder, child_remainder, y, x, 0.5);
+    }
+    for(y = -1e+10;y < 1e+10 && success;y += 1.51e+8) {
+      for(x = -1e+10;x < 1e+10 && success;x += 1.51e+8) checkAccuracy_d_d(mpfr_remainder, child_remainder, y, x, 0.5);
+    }
+    showResult(success);
+  
+    //
+
     fprintf(stderr, "trunc : ");
     for(x = -100.5;x <= 100.5;x+=0.5) {
       for(d = u2d(d2u(x)-3);d <= u2d(d2u(x)+3) && success;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_trunc, child_trunc, d, 0);
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_d(mpfr_trunc, child_trunc, d, 0);
     {
-      double start = u2d(d2u((double)(1LL << 52))-20), end = u2d(d2u((double)(1LL << 52))+20);
+      double start = u2d(d2u((double)(INT64_C(1) << 52))-20), end = u2d(d2u((double)(INT64_C(1) << 52))+20);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_trunc, child_trunc,  d, 0);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_trunc, child_trunc, -d, 0);
     }
@@ -3526,7 +3574,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_d(mpfr_floor, child_floor, d, 0);
     {
-      double start = u2d(d2u((double)(1LL << 52))-20), end = u2d(d2u((double)(1LL << 52))+20);
+      double start = u2d(d2u((double)(INT64_C(1) << 52))-20), end = u2d(d2u((double)(INT64_C(1) << 52))+20);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_floor, child_floor,  d, 0);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_floor, child_floor, -d, 0);
     }
@@ -3540,7 +3588,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_d(mpfr_ceil, child_ceil, d, 0);
     {
-      double start = u2d(d2u((double)(1LL << 52))-20), end = u2d(d2u((double)(1LL << 52))+20);
+      double start = u2d(d2u((double)(INT64_C(1) << 52))-20), end = u2d(d2u((double)(INT64_C(1) << 52))+20);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_ceil, child_ceil,  d, 0);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_ceil, child_ceil, -d, 0);
     }
@@ -3554,7 +3602,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_d(mpfr_round, child_round, d, 0);
     {
-      double start = u2d(d2u((double)(1LL << 52))-20), end = u2d(d2u((double)(1LL << 52))+20);
+      double start = u2d(d2u((double)(INT64_C(1) << 52))-20), end = u2d(d2u((double)(INT64_C(1) << 52))+20);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_round, child_round,  d, 0);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracyNR_d(mpfr_round, child_round, -d, 0);
     }
@@ -3568,7 +3616,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracy_d(mpfr_rint, child_rint, d, 0);
     {
-      double start = u2d(d2u((double)(1LL << 52))-20), end = u2d(d2u((double)(1LL << 52))+20);
+      double start = u2d(d2u((double)(INT64_C(1) << 52))-20), end = u2d(d2u((double)(INT64_C(1) << 52))+20);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracy_d(mpfr_rint, child_rint,  d, 0);
       for(d = start;d <= end;d = u2d(d2u(d)+1)) checkAccuracy_d(mpfr_rint, child_rint, -d, 0);
     }
@@ -4293,13 +4341,25 @@ void do_test() {
   
     //
 
+    fprintf(stderr, "remainderf : ");
+    for(y = -10;y < 10 && success;y += 0.15) {
+      for(x = -10;x < 10 && success;x += 0.15) checkAccuracy_f_f(mpfr_remainder, child_remainderf, y, x, 0.5);
+    }
+    for(y = -1e+7;y < 1e+7 && success;y += 1.51e+5) {
+      for(x = -1e+7;x < 1e+7 && success;x += 1.51e+5) checkAccuracy_f_f(mpfr_remainder, child_remainderf, y, x, 0.5);
+    }
+    checkAccuracy_f_f(mpfr_remainder, child_remainderf, 11114942644092928.0, 224544296009728.0, 0.5);
+    showResult(success);
+  
+    //
+
     fprintf(stderr, "truncf : ");
     for(x = -100.5;x <= 100.5;x+=0.5) {
       for(d = u2d(d2u(x)-3);d <= u2d(d2u(x)+3) && success;d = u2d(d2u(d)+1)) checkAccuracyNR_f(mpfr_trunc, child_truncf, d, 0);
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_f(mpfr_trunc, child_truncf, d, 0);
     {
-      double start = u2f(f2u((double)(1LL << 23))-20), end = u2f(f2u((double)(1LL << 23))+20);
+      double start = u2f(f2u((double)(INT64_C(1) << 23))-20), end = u2f(f2u((double)(INT64_C(1) << 23))+20);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_trunc, child_truncf,  d, 0);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_trunc, child_truncf, -d, 0);
     }
@@ -4313,7 +4373,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_f(mpfr_floor, child_floorf, d, 0);
     {
-      double start = u2f(f2u((double)(1LL << 23))-20), end = u2f(f2u((double)(1LL << 23))+20);
+      double start = u2f(f2u((double)(INT64_C(1) << 23))-20), end = u2f(f2u((double)(INT64_C(1) << 23))+20);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_floor, child_floorf,  d, 0);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_floor, child_floorf, -d, 0);
     }
@@ -4327,7 +4387,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_f(mpfr_ceil, child_ceilf, d, 0);
     {
-      double start = u2f(f2u((double)(1LL << 23))-20), end = u2f(f2u((double)(1LL << 23))+20);
+      double start = u2f(f2u((double)(INT64_C(1) << 23))-20), end = u2f(f2u((double)(INT64_C(1) << 23))+20);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_ceil, child_ceilf,  d, 0);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_ceil, child_ceilf, -d, 0);
     }
@@ -4341,7 +4401,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracyNR_f(mpfr_round, child_roundf, d, 0);
     {
-      double start = u2f(f2u((double)(1LL << 23))-20), end = u2f(f2u((double)(1LL << 23))+20);
+      double start = u2f(f2u((double)(INT64_C(1) << 23))-20), end = u2f(f2u((double)(INT64_C(1) << 23))+20);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_round, child_roundf,  d, 0);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracyNR_f(mpfr_round, child_roundf, -d, 0);
     }
@@ -4355,7 +4415,7 @@ void do_test() {
     }
     for(d = -10000;d < 10000 && success;d += 2.5) checkAccuracy_f(mpfr_rint, child_rintf, d, 0);
     {
-      double start = u2f(f2u((double)(1LL << 23))-20), end = u2f(f2u((double)(1LL << 23))+20);
+      double start = u2f(f2u((double)(INT64_C(1) << 23))-20), end = u2f(f2u((double)(INT64_C(1) << 23))+20);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracy_f(mpfr_rint, child_rintf,  d, 0);
       for(d = start;d <= end;d = u2f(f2u(d)+1)) checkAccuracy_f(mpfr_rint, child_rintf, -d, 0);
     }
@@ -4948,7 +5008,7 @@ void do_test() {
 }
 
 int main(int argc, char **argv) {
-  char *argv2[argc+2], *commandSde = NULL;
+  char *argv2[argc+2], *commandSde = NULL, *commandQEmu = NULL;
   int i, a2s;
 
   // BUGFIX: this flush is to prevent incorrect syncing with the
@@ -4961,6 +5021,9 @@ int main(int argc, char **argv) {
       enableFlushToZero = 1;
     } else if (a2s+1 < argc && strcmp(argv[a2s], "--sde") == 0) {
       commandSde = argv[a2s+1];
+      a2s++;
+    } else if (a2s+1 < argc && strcmp(argv[a2s], "--qemu") == 0) {
+      commandQEmu = argv[a2s+1];
       a2s++;
     } else {
       break;
@@ -4988,14 +5051,20 @@ int main(int argc, char **argv) {
     if (readln(ctop[0], str, 255) < 1 ||
 	sscanf(str, "%d", &u) != 1 ||
 	(u & 3) == 0) {
-      if (commandSde != NULL) {
+      if (commandSde != NULL || commandQEmu != NULL) {
 	close(ctop[0]);
 	close(ptoc[1]);
 
-	argv2[0] = commandSde;
-	argv2[1] = "--";
-	for(i=a2s;i<argc;i++) argv2[i-a2s+2] = argv[i];
-	argv2[argc-a2s+2] = NULL;
+	if (commandSde) {
+	  argv2[0] = commandSde;
+	  argv2[1] = "--";
+	  for(i=a2s;i<argc;i++) argv2[i-a2s+2] = argv[i];
+	  argv2[argc-a2s+2] = NULL;
+	} else {
+	  argv2[0] = commandQEmu;
+	  for(i=a2s;i<argc;i++) argv2[i-a2s+1] = argv[i];
+	  argv2[argc-a2s+1] = NULL;
+	}
 	
 	startChild(argv2[0], argv2);
 
@@ -5006,8 +5075,15 @@ int main(int argc, char **argv) {
 	  return 0;
 	}
 
-	printf("*** Using SDE\n");
+	printf("*** Using emulator\n");
       } else {
+	int status;
+	waitpid(pid, &status, 0);
+	if (WIFSIGNALED(status)) {
+	  fprintf(stderr, "\n\nTester : *** Child process has crashed\n");
+	  return -1;
+	}
+
 	fprintf(stderr, "\n\nTester : *** CPU does not support the necessary feature\n");
 	return 0;
       }

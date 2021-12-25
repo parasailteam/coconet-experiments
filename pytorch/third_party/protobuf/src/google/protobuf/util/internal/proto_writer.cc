@@ -34,27 +34,29 @@
 #include <stack>
 
 #include <google/protobuf/stubs/once.h>
-#include <google/protobuf/stubs/time.h>
 #include <google/protobuf/wire_format_lite.h>
 #include <google/protobuf/util/internal/field_mask_utility.h>
 #include <google/protobuf/util/internal/object_location_tracker.h>
 #include <google/protobuf/util/internal/constants.h>
 #include <google/protobuf/util/internal/utility.h>
 #include <google/protobuf/stubs/strutil.h>
+#include <google/protobuf/stubs/time.h>
 #include <google/protobuf/stubs/map_util.h>
 #include <google/protobuf/stubs/statusor.h>
 
+
+#include <google/protobuf/port_def.inc>
 
 namespace google {
 namespace protobuf {
 namespace util {
 namespace converter {
 
-using google::protobuf::internal::WireFormatLite;
-using google::protobuf::io::CodedOutputStream;
-using util::error::INVALID_ARGUMENT;
+using io::CodedOutputStream;
+using ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite;
 using util::Status;
 using util::StatusOr;
+using util::error::INVALID_ARGUMENT;
 
 
 ProtoWriter::ProtoWriter(TypeResolver* type_resolver,
@@ -65,7 +67,9 @@ ProtoWriter::ProtoWriter(TypeResolver* type_resolver,
       own_typeinfo_(true),
       done_(false),
       ignore_unknown_fields_(false),
+      ignore_unknown_enum_values_(false),
       use_lower_camel_for_enums_(false),
+      case_insensitive_enum_parsing_(true),
       element_(nullptr),
       size_insert_(),
       output_(output),
@@ -84,7 +88,9 @@ ProtoWriter::ProtoWriter(const TypeInfo* typeinfo,
       own_typeinfo_(false),
       done_(false),
       ignore_unknown_fields_(false),
+      ignore_unknown_enum_values_(false),
       use_lower_camel_for_enums_(false),
+      case_insensitive_enum_parsing_(true),
       element_(nullptr),
       size_insert_(),
       output_(output),
@@ -118,7 +124,7 @@ inline Status WriteInt32(int field_number, const DataPiece& data,
                          CodedOutputStream* stream) {
   StatusOr<int32> i32 = data.ToInt32();
   if (i32.ok()) {
-    WireFormatLite::WriteInt32(field_number, i32.ValueOrDie(), stream);
+    WireFormatLite::WriteInt32(field_number, i32.value(), stream);
   }
   return i32.status();
 }
@@ -128,7 +134,7 @@ inline Status WriteSFixed32(int field_number, const DataPiece& data,
                             CodedOutputStream* stream) {
   StatusOr<int32> i32 = data.ToInt32();
   if (i32.ok()) {
-    WireFormatLite::WriteSFixed32(field_number, i32.ValueOrDie(), stream);
+    WireFormatLite::WriteSFixed32(field_number, i32.value(), stream);
   }
   return i32.status();
 }
@@ -138,7 +144,7 @@ inline Status WriteSInt32(int field_number, const DataPiece& data,
                           CodedOutputStream* stream) {
   StatusOr<int32> i32 = data.ToInt32();
   if (i32.ok()) {
-    WireFormatLite::WriteSInt32(field_number, i32.ValueOrDie(), stream);
+    WireFormatLite::WriteSInt32(field_number, i32.value(), stream);
   }
   return i32.status();
 }
@@ -148,7 +154,7 @@ inline Status WriteFixed32(int field_number, const DataPiece& data,
                            CodedOutputStream* stream) {
   StatusOr<uint32> u32 = data.ToUint32();
   if (u32.ok()) {
-    WireFormatLite::WriteFixed32(field_number, u32.ValueOrDie(), stream);
+    WireFormatLite::WriteFixed32(field_number, u32.value(), stream);
   }
   return u32.status();
 }
@@ -158,7 +164,7 @@ inline Status WriteUInt32(int field_number, const DataPiece& data,
                           CodedOutputStream* stream) {
   StatusOr<uint32> u32 = data.ToUint32();
   if (u32.ok()) {
-    WireFormatLite::WriteUInt32(field_number, u32.ValueOrDie(), stream);
+    WireFormatLite::WriteUInt32(field_number, u32.value(), stream);
   }
   return u32.status();
 }
@@ -168,7 +174,7 @@ inline Status WriteInt64(int field_number, const DataPiece& data,
                          CodedOutputStream* stream) {
   StatusOr<int64> i64 = data.ToInt64();
   if (i64.ok()) {
-    WireFormatLite::WriteInt64(field_number, i64.ValueOrDie(), stream);
+    WireFormatLite::WriteInt64(field_number, i64.value(), stream);
   }
   return i64.status();
 }
@@ -178,7 +184,7 @@ inline Status WriteSFixed64(int field_number, const DataPiece& data,
                             CodedOutputStream* stream) {
   StatusOr<int64> i64 = data.ToInt64();
   if (i64.ok()) {
-    WireFormatLite::WriteSFixed64(field_number, i64.ValueOrDie(), stream);
+    WireFormatLite::WriteSFixed64(field_number, i64.value(), stream);
   }
   return i64.status();
 }
@@ -188,7 +194,7 @@ inline Status WriteSInt64(int field_number, const DataPiece& data,
                           CodedOutputStream* stream) {
   StatusOr<int64> i64 = data.ToInt64();
   if (i64.ok()) {
-    WireFormatLite::WriteSInt64(field_number, i64.ValueOrDie(), stream);
+    WireFormatLite::WriteSInt64(field_number, i64.value(), stream);
   }
   return i64.status();
 }
@@ -198,7 +204,7 @@ inline Status WriteFixed64(int field_number, const DataPiece& data,
                            CodedOutputStream* stream) {
   StatusOr<uint64> u64 = data.ToUint64();
   if (u64.ok()) {
-    WireFormatLite::WriteFixed64(field_number, u64.ValueOrDie(), stream);
+    WireFormatLite::WriteFixed64(field_number, u64.value(), stream);
   }
   return u64.status();
 }
@@ -208,7 +214,7 @@ inline Status WriteUInt64(int field_number, const DataPiece& data,
                           CodedOutputStream* stream) {
   StatusOr<uint64> u64 = data.ToUint64();
   if (u64.ok()) {
-    WireFormatLite::WriteUInt64(field_number, u64.ValueOrDie(), stream);
+    WireFormatLite::WriteUInt64(field_number, u64.value(), stream);
   }
   return u64.status();
 }
@@ -218,7 +224,7 @@ inline Status WriteDouble(int field_number, const DataPiece& data,
                           CodedOutputStream* stream) {
   StatusOr<double> d = data.ToDouble();
   if (d.ok()) {
-    WireFormatLite::WriteDouble(field_number, d.ValueOrDie(), stream);
+    WireFormatLite::WriteDouble(field_number, d.value(), stream);
   }
   return d.status();
 }
@@ -228,7 +234,7 @@ inline Status WriteFloat(int field_number, const DataPiece& data,
                          CodedOutputStream* stream) {
   StatusOr<float> f = data.ToFloat();
   if (f.ok()) {
-    WireFormatLite::WriteFloat(field_number, f.ValueOrDie(), stream);
+    WireFormatLite::WriteFloat(field_number, f.value(), stream);
   }
   return f.status();
 }
@@ -238,7 +244,7 @@ inline Status WriteBool(int field_number, const DataPiece& data,
                         CodedOutputStream* stream) {
   StatusOr<bool> b = data.ToBool();
   if (b.ok()) {
-    WireFormatLite::WriteBool(field_number, b.ValueOrDie(), stream);
+    WireFormatLite::WriteBool(field_number, b.value(), stream);
   }
   return b.status();
 }
@@ -246,7 +252,7 @@ inline Status WriteBool(int field_number, const DataPiece& data,
 // Writes a BYTES field, including tag, to the stream.
 inline Status WriteBytes(int field_number, const DataPiece& data,
                          CodedOutputStream* stream) {
-  StatusOr<string> c = data.ToBytes();
+  StatusOr<std::string> c = data.ToBytes();
   if (c.ok()) {
     WireFormatLite::WriteBytes(field_number, c.ValueOrDie(), stream);
   }
@@ -256,24 +262,11 @@ inline Status WriteBytes(int field_number, const DataPiece& data,
 // Writes a STRING field, including tag, to the stream.
 inline Status WriteString(int field_number, const DataPiece& data,
                           CodedOutputStream* stream) {
-  StatusOr<string> s = data.ToString();
+  StatusOr<std::string> s = data.ToString();
   if (s.ok()) {
-    WireFormatLite::WriteString(field_number, s.ValueOrDie(), stream);
+    WireFormatLite::WriteString(field_number, s.value(), stream);
   }
   return s.status();
-}
-
-// Writes an ENUM field, including tag, to the stream.
-inline Status WriteEnum(int field_number, const DataPiece& data,
-                        const google::protobuf::Enum* enum_type,
-                        CodedOutputStream* stream,
-                        bool use_lower_camel_for_enums,
-                        bool ignore_unknown_values) {
-  StatusOr<int> e = data.ToEnum(enum_type, use_lower_camel_for_enums, ignore_unknown_values);
-  if (e.ok()) {
-    WireFormatLite::WriteEnum(field_number, e.ValueOrDie(), stream);
-  }
-  return e.status();
 }
 
 // Given a google::protobuf::Type, returns the set of all required fields.
@@ -282,8 +275,7 @@ std::set<const google::protobuf::Field*> GetRequiredFields(
   std::set<const google::protobuf::Field*> required;
   for (int i = 0; i < type.fields_size(); i++) {
     const google::protobuf::Field& field = type.fields(i);
-    if (field.cardinality() ==
-        google::protobuf::Field_Cardinality_CARDINALITY_REQUIRED) {
+    if (field.cardinality() == google::protobuf::Field::CARDINALITY_REQUIRED) {
       required.insert(&field);
     }
   }
@@ -320,10 +312,10 @@ ProtoWriter::ProtoElement::ProtoElement(ProtoWriter::ProtoElement* parent,
       typeinfo_(this->parent()->typeinfo_),
       proto3_(type.syntax() == google::protobuf::SYNTAX_PROTO3),
       type_(type),
-      size_index_(
-          !is_list && field->kind() == google::protobuf::Field_Kind_TYPE_MESSAGE
-              ? ow_->size_insert_.size()
-              : -1),
+      size_index_(!is_list &&
+                          field->kind() == google::protobuf::Field::TYPE_MESSAGE
+                      ? ow_->size_insert_.size()
+                      : -1),
       array_index_(is_list ? 0 : -1),
       // oneof_indices_ values are 1-indexed (0 means not present).
       oneof_indices_(type_.oneofs_size() + 1) {
@@ -336,7 +328,7 @@ ProtoWriter::ProtoElement::ProtoElement(ProtoWriter::ProtoElement* parent,
       this->parent()->RegisterField(field);
     }
 
-    if (field->kind() == google::protobuf::Field_Kind_TYPE_MESSAGE) {
+    if (field->kind() == google::protobuf::Field::TYPE_MESSAGE) {
       if (!proto3_) {
         required_fields_ = GetRequiredFields(type_);
       }
@@ -388,34 +380,53 @@ ProtoWriter::ProtoElement* ProtoWriter::ProtoElement::pop() {
 void ProtoWriter::ProtoElement::RegisterField(
     const google::protobuf::Field* field) {
   if (!required_fields_.empty() &&
-      field->cardinality() ==
-          google::protobuf::Field_Cardinality_CARDINALITY_REQUIRED) {
+      field->cardinality() == google::protobuf::Field::CARDINALITY_REQUIRED) {
     required_fields_.erase(field);
   }
 }
 
-string ProtoWriter::ProtoElement::ToString() const {
-  if (parent() == nullptr) return "";
-  string loc = parent()->ToString();
-  if (!ow_->IsRepeated(*parent_field_) ||
-      parent()->parent_field_ != parent_field_) {
-    string name = parent_field_->name();
-    int i = 0;
-    while (i < name.size() && (ascii_isalnum(name[i]) || name[i] == '_')) ++i;
-    if (i > 0 && i == name.size()) {  // safe field name
-      if (loc.empty()) {
-        loc = name;
+std::string ProtoWriter::ProtoElement::ToString() const {
+  std::string loc = "";
+
+  // first populate a stack with the nodes since we need to process them
+  // from root to leaf when generating the string location
+  const ProtoWriter::ProtoElement* now = this;
+  std::stack<const ProtoWriter::ProtoElement*> element_stack;
+  while (now->parent() != nullptr) {
+    element_stack.push(now);
+    now = now->parent();
+  }
+
+  // now pop each node from the stack and append to the location string
+  while (!element_stack.empty()) {
+    now = element_stack.top();
+    element_stack.pop();
+
+    if (!ow_->IsRepeated(*(now->parent_field_)) ||
+        now->parent()->parent_field_ != now->parent_field_) {
+      std::string name = now->parent_field_->name();
+      int i = 0;
+      while (i < name.size() &&
+             (ascii_isalnum(name[i]) || name[i] == '_'))
+        ++i;
+      if (i > 0 && i == name.size()) {  // safe field name
+        if (loc.empty()) {
+          loc = name;
+        } else {
+          StrAppend(&loc, ".", name);
+        }
       } else {
-        StrAppend(&loc, ".", name);
+        StrAppend(&loc, "[\"", CEscape(name), "\"]");
       }
-    } else {
-      StrAppend(&loc, "[\"", CEscape(name), "\"]");
+    }
+
+    int array_index_now = now->array_index_;
+    if (ow_->IsRepeated(*(now->parent_field_)) && array_index_now > 0) {
+      StrAppend(&loc, "[", array_index_now - 1, "]");
     }
   }
-  if (ow_->IsRepeated(*parent_field_) && array_index_ > 0) {
-    StrAppend(&loc, "[", array_index_ - 1, "]");
-  }
-  return loc.empty() ? "." : loc;
+
+  return loc;
 }
 
 bool ProtoWriter::ProtoElement::IsOneofIndexTaken(int32 index) {
@@ -426,11 +437,13 @@ void ProtoWriter::ProtoElement::TakeOneofIndex(int32 index) {
   oneof_indices_[index] = true;
 }
 
-void ProtoWriter::InvalidName(StringPiece unknown_name, StringPiece message) {
-  listener_->InvalidName(location(), ToSnakeCase(unknown_name), message);
+void ProtoWriter::InvalidName(StringPiece unknown_name,
+                              StringPiece message) {
+  listener_->InvalidName(location(), unknown_name, message);
 }
 
-void ProtoWriter::InvalidValue(StringPiece type_name, StringPiece value) {
+void ProtoWriter::InvalidValue(StringPiece type_name,
+                               StringPiece value) {
   listener_->InvalidValue(location(), type_name, value);
 }
 
@@ -438,7 +451,8 @@ void ProtoWriter::MissingField(StringPiece missing_name) {
   listener_->MissingField(location(), missing_name);
 }
 
-ProtoWriter* ProtoWriter::StartObject(StringPiece name) {
+ProtoWriter* ProtoWriter::StartObject(
+    StringPiece name) {
   // Starting the root message. Create the root ProtoElement and return.
   if (element_ == nullptr) {
     if (!name.empty()) {
@@ -448,8 +462,8 @@ ProtoWriter* ProtoWriter::StartObject(StringPiece name) {
     return this;
   }
 
-  const google::protobuf::Field* field = nullptr;
-  field = BeginNamed(name, false);
+  const google::protobuf::Field* field = BeginNamed(name, false);
+
   if (field == nullptr) return this;
 
   // Check to see if this field is a oneof and that no oneof in that group has
@@ -462,13 +476,14 @@ ProtoWriter* ProtoWriter::StartObject(StringPiece name) {
   const google::protobuf::Type* type = LookupType(field);
   if (type == nullptr) {
     ++invalid_depth_;
-    InvalidName(name,
-                StrCat("Missing descriptor for field: ", field->type_url()));
+    InvalidName(name, StrCat("Missing descriptor for field: ",
+                                   field->type_url()));
     return this;
   }
 
   return StartObjectField(*field, *type);
 }
+
 
 ProtoWriter* ProtoWriter::EndObject() {
   if (invalid_depth_ > 0) {
@@ -489,8 +504,11 @@ ProtoWriter* ProtoWriter::EndObject() {
   return this;
 }
 
-ProtoWriter* ProtoWriter::StartList(StringPiece name) {
+ProtoWriter* ProtoWriter::StartList(
+    StringPiece name) {
+
   const google::protobuf::Field* field = BeginNamed(name, true);
+
   if (field == nullptr) return this;
 
   if (!ValidOneof(*field, name)) {
@@ -501,13 +519,14 @@ ProtoWriter* ProtoWriter::StartList(StringPiece name) {
   const google::protobuf::Type* type = LookupType(field);
   if (type == nullptr) {
     ++invalid_depth_;
-    InvalidName(name,
-                StrCat("Missing descriptor for field: ", field->type_url()));
+    InvalidName(name, StrCat("Missing descriptor for field: ",
+                                   field->type_url()));
     return this;
   }
 
   return StartListField(*field, *type);
 }
+
 
 ProtoWriter* ProtoWriter::EndList() {
   if (invalid_depth_ > 0) {
@@ -518,20 +537,21 @@ ProtoWriter* ProtoWriter::EndList() {
   return this;
 }
 
-ProtoWriter* ProtoWriter::RenderDataPiece(StringPiece name,
-                                          const DataPiece& data) {
+ProtoWriter* ProtoWriter::RenderDataPiece(
+    StringPiece name, const DataPiece& data) {
   Status status;
   if (invalid_depth_ > 0) return this;
 
   const google::protobuf::Field* field = Lookup(name);
+
   if (field == nullptr) return this;
 
   if (!ValidOneof(*field, name)) return this;
 
   const google::protobuf::Type* type = LookupType(field);
   if (type == nullptr) {
-    InvalidName(name,
-                StrCat("Missing descriptor for field: ", field->type_url()));
+    InvalidName(name, StrCat("Missing descriptor for field: ",
+                                   field->type_url()));
     return this;
   }
 
@@ -546,9 +566,9 @@ bool ProtoWriter::ValidOneof(const google::protobuf::Field& field,
     if (element_->IsOneofIndexTaken(field.oneof_index())) {
       InvalidValue(
           "oneof",
-          StrCat("oneof field '",
-                 element_->type().oneofs(field.oneof_index() - 1),
-                 "' is already set. Cannot set '", unnormalized_name, "'"));
+          StrCat(
+              "oneof field '", element_->type().oneofs(field.oneof_index() - 1),
+              "' is already set. Cannot set '", unnormalized_name, "'"));
       return false;
     }
     element_->TakeOneofIndex(field.oneof_index());
@@ -557,8 +577,7 @@ bool ProtoWriter::ValidOneof(const google::protobuf::Field& field,
 }
 
 bool ProtoWriter::IsRepeated(const google::protobuf::Field& field) {
-  return field.cardinality() ==
-         google::protobuf::Field_Cardinality_CARDINALITY_REPEATED;
+  return field.cardinality() == google::protobuf::Field::CARDINALITY_REPEATED;
 }
 
 ProtoWriter* ProtoWriter::StartObjectField(const google::protobuf::Field& field,
@@ -572,6 +591,22 @@ ProtoWriter* ProtoWriter::StartListField(const google::protobuf::Field& field,
                                          const google::protobuf::Type& type) {
   element_.reset(new ProtoElement(element_.release(), &field, type, true));
   return this;
+}
+
+Status ProtoWriter::WriteEnum(int field_number, const DataPiece& data,
+                              const google::protobuf::Enum* enum_type,
+                              CodedOutputStream* stream,
+                              bool use_lower_camel_for_enums,
+                              bool case_insensitive_enum_parsing,
+                              bool ignore_unknown_values) {
+  bool is_unknown_enum_value = false;
+  StatusOr<int> e = data.ToEnum(enum_type, use_lower_camel_for_enums,
+                                case_insensitive_enum_parsing,
+                                ignore_unknown_values, &is_unknown_enum_value);
+  if (e.ok() && !is_unknown_enum_value) {
+    WireFormatLite::WriteEnum(field_number, e.value(), stream);
+  }
+  return e.status();
 }
 
 ProtoWriter* ProtoWriter::RenderPrimitiveField(
@@ -588,8 +623,8 @@ ProtoWriter* ProtoWriter::RenderPrimitiveField(
     element_.reset(new ProtoElement(element_.release(), &field, type, false));
   }
 
-  if (field.kind() == google::protobuf::Field_Kind_TYPE_UNKNOWN ||
-      field.kind() == google::protobuf::Field_Kind_TYPE_MESSAGE) {
+  if (field.kind() == google::protobuf::Field::TYPE_UNKNOWN ||
+      field.kind() == google::protobuf::Field::TYPE_MESSAGE) {
     // Push a ProtoElement for location reporting purposes.
     if (element_->proto3()) {
       element_.reset(new ProtoElement(element_.release(), &field, type, false));
@@ -603,75 +638,76 @@ ProtoWriter* ProtoWriter::RenderPrimitiveField(
   }
 
   switch (field.kind()) {
-    case google::protobuf::Field_Kind_TYPE_INT32: {
+    case google::protobuf::Field::TYPE_INT32: {
       status = WriteInt32(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_SFIXED32: {
+    case google::protobuf::Field::TYPE_SFIXED32: {
       status = WriteSFixed32(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_SINT32: {
+    case google::protobuf::Field::TYPE_SINT32: {
       status = WriteSInt32(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_FIXED32: {
+    case google::protobuf::Field::TYPE_FIXED32: {
       status = WriteFixed32(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_UINT32: {
+    case google::protobuf::Field::TYPE_UINT32: {
       status = WriteUInt32(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_INT64: {
+    case google::protobuf::Field::TYPE_INT64: {
       status = WriteInt64(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_SFIXED64: {
+    case google::protobuf::Field::TYPE_SFIXED64: {
       status = WriteSFixed64(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_SINT64: {
+    case google::protobuf::Field::TYPE_SINT64: {
       status = WriteSInt64(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_FIXED64: {
+    case google::protobuf::Field::TYPE_FIXED64: {
       status = WriteFixed64(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_UINT64: {
+    case google::protobuf::Field::TYPE_UINT64: {
       status = WriteUInt64(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_DOUBLE: {
+    case google::protobuf::Field::TYPE_DOUBLE: {
       status = WriteDouble(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_FLOAT: {
+    case google::protobuf::Field::TYPE_FLOAT: {
       status = WriteFloat(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_BOOL: {
+    case google::protobuf::Field::TYPE_BOOL: {
       status = WriteBool(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_BYTES: {
+    case google::protobuf::Field::TYPE_BYTES: {
       status = WriteBytes(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_STRING: {
+    case google::protobuf::Field::TYPE_STRING: {
       status = WriteString(field.number(), data, stream_.get());
       break;
     }
-    case google::protobuf::Field_Kind_TYPE_ENUM: {
-      status = WriteEnum(field.number(), data,
-                         typeinfo_->GetEnumByTypeUrl(field.type_url()),
-                         stream_.get(), use_lower_camel_for_enums_,
-                         ignore_unknown_fields_);
+    case google::protobuf::Field::TYPE_ENUM: {
+      status = WriteEnum(
+          field.number(), data, typeinfo_->GetEnumByTypeUrl(field.type_url()),
+          stream_.get(), use_lower_camel_for_enums_,
+          case_insensitive_enum_parsing_, ignore_unknown_enum_values_);
       break;
     }
     default:  // TYPE_GROUP or TYPE_MESSAGE
-      status = Status(INVALID_ARGUMENT, data.ToString().ValueOrDie());
+      status =
+          Status(util::error::INVALID_ARGUMENT, data.ToString().value());
   }
 
   if (!status.ok()) {
@@ -680,7 +716,7 @@ ProtoWriter* ProtoWriter::RenderPrimitiveField(
       element_.reset(new ProtoElement(element_.release(), &field, type, false));
     }
     InvalidValue(google::protobuf::Field_Kind_Name(field.kind()),
-                 status.error_message());
+                 status.message());
     element_.reset(element()->pop());
     return this;
   }
@@ -737,8 +773,8 @@ const google::protobuf::Field* ProtoWriter::Lookup(
 
 const google::protobuf::Type* ProtoWriter::LookupType(
     const google::protobuf::Field* field) {
-  return ((field->kind() == google::protobuf::Field_Kind_TYPE_MESSAGE ||
-           field->kind() == google::protobuf::Field_Kind_TYPE_GROUP)
+  return ((field->kind() == google::protobuf::Field::TYPE_MESSAGE ||
+           field->kind() == google::protobuf::Field::TYPE_GROUP)
               ? typeinfo_->GetTypeByTypeUrl(field->type_url())
               : &element_->type());
 }
@@ -751,7 +787,7 @@ void ProtoWriter::WriteRootMessage() {
   stream_.reset(nullptr);
   const void* data;
   int length;
-  google::protobuf::io::ArrayInputStream input_stream(buffer_.data(), buffer_.size());
+  io::ArrayInputStream input_stream(buffer_.data(), buffer_.size());
   while (input_stream.Next(&data, &length)) {
     if (length == 0) continue;
     int num_bytes = length;

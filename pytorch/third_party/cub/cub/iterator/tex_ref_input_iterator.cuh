@@ -1,7 +1,7 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
- * 
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *     * Redistributions of source code must retain the above copyright
@@ -12,7 +12,7 @@
  *     * Neither the name of the NVIDIA CORPORATION nor the
  *       names of its contributors may be used to endorse or promote products
  *       derived from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -40,9 +40,9 @@
 #include "../thread/thread_store.cuh"
 #include "../util_device.cuh"
 #include "../util_debug.cuh"
-#include "../util_namespace.cuh"
+#include "../config.cuh"
 
-#if (CUDA_VERSION >= 5050) || defined(DOXYGEN_ACTIVE)  // This iterator is compatible with CUDA 5.5 and newer
+#if (CUDART_VERSION >= 5050) || defined(DOXYGEN_ACTIVE)  // This iterator is compatible with CUDA 5.5 and newer
 
 #if (THRUST_VERSION >= 100700)    // This iterator is compatible with Thrust API 1.7 and newer
     #include <thrust/iterator/iterator_facade.h>
@@ -279,13 +279,19 @@ public:
     /// Indirection
     __host__ __device__ __forceinline__ reference operator*() const
     {
-#if (CUB_PTX_ARCH == 0)
-        // Simply dereference the pointer on the host
-        return ptr[tex_offset];
-#else
-        // Use the texture reference
-        return TexId::Fetch(tex_offset);
-#endif
+        if (CUB_IS_HOST_CODE) {
+            // Simply dereference the pointer on the host
+            return ptr[tex_offset];
+        } else {
+            #if CUB_INCLUDE_DEVICE_CODE
+                // Use the texture reference
+                return TexId::Fetch(tex_offset);
+            #else
+                // This is dead code that will never be executed.  It is here
+                // only to avoid warnings about missing returns.
+                return ptr[tex_offset];
+            #endif
+        }
     }
 
     /// Addition
@@ -371,4 +377,4 @@ public:
 }               // CUB namespace
 CUB_NS_POSTFIX  // Optional outer namespace(s)
 
-#endif // CUDA_VERSION
+#endif // CUDART_VERSION

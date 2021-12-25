@@ -6,29 +6,11 @@
  */
 #include <iostream>
 #include "./GenerateKernel.h"
+#include "./CodeGenHelpers.h"
 
 namespace fbgemm {
 
 namespace x86 = asmjit::x86;
-
-/**
- * Generate AVX2 instructions for initializing the C registers to 0 in 16-bit
- * Accumulation kernel.
- */
-template <>
-template <>
-void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::initCRegs<
-    inst_set_t::avx2>(x86::Emitter* a, int rowRegs, int colRegs) {
-  using CRegs = x86::Ymm;
-  for (int i = 0; i < rowRegs; ++i) {
-    for (int j = 0; j < colRegs; ++j) {
-      a->vxorps(
-          CRegs(i * colRegs + j),
-          CRegs(i * colRegs + j),
-          CRegs(i * colRegs + j));
-    }
-  }
-}
 
 /**
  * Generate AVX2 instructions for computing block in the rank-k update of 16-bit
@@ -36,8 +18,8 @@ void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::initCRegs<
  */
 template <>
 template <>
-void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::genComputeBlock<
-    inst_set_t::avx2>(
+void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::
+genComputeBlock<inst_set_t::avx2>(
     x86::Emitter* a,
     x86::Gp buffer_A,
     x86::Gp buffer_B,
@@ -45,20 +27,19 @@ void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::genComputeBlock<
     int rowRegs,
     int colRegs,
     int lda) {
+  using CRegs = x86::Ymm;
+  static constexpr int vectorLen = simd_info<inst_set_t::avx2>::WIDTH_BYTES;
+
   // used for matrix A
   x86::Ymm AReg = x86::ymm13;
-
   x86::Ymm tmpReg = x86::ymm14;
-
-  using CRegs = x86::Ymm;
-
   for (int i = 0; i < rowRegs; ++i) {
     // broadcast A
     a->vpbroadcastw(
         AReg, x86::dword_ptr(buffer_A, (i * lda) * sizeof(uint8_t)));
     for (int j = 0; j < colRegs; ++j) {
       a->vpmaddubsw(
-          tmpReg, AReg, x86::dword_ptr(buffer_B, j * VLEN_ * sizeof(int8_t)));
+          tmpReg, AReg, x86::dword_ptr(buffer_B, j * vectorLen * sizeof(int8_t)));
       a->vpaddsw(CRegs(i * colRegs + j), tmpReg, CRegs(i * colRegs + j));
       // Prefetching is hurting performance in some cases
       // because prefetch instructions itself consumes a slot
@@ -71,35 +52,37 @@ void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::genComputeBlock<
 }
 
 /**
- * Generate AVX2 instructions for storing the C registers back to the memory in
- * 16-bit Accumulation kernel.
+ * Generate instructions for storing the C registers back to the memory
+ * in 16-bit Accumulation kernel.
  */
 template <>
-template <>
-void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::storeCRegs<
-    inst_set_t::avx2>(
+template <inst_set_t instSet>
+void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::storeCRegs(
     x86::Emitter* a,
     int rowRegs,
     int colRegs,
     x86::Gp C_Offset,
     x86::Gp ldcReg,
     bool accum) {
-  x86::Xmm extractDest128 = x86::xmm15;
-  x86::Ymm extractDest256 = x86::ymm15;
+  using VecT = typename simd_info<instSet>::vec_reg_t;
+  static constexpr int vectorLen = simd_info<instSet>::WIDTH_BYTES;
 
-  using CRegs = x86::Ymm;
+  VecT extractDestFull(simd_info<instSet>::NUM_VEC_REGS - 1);
+  auto extractDestHalf = extractDestFull.half();
+
   for (int i = 0; i < rowRegs; ++i) {
     a->imul(C_Offset, ldcReg, static_cast<asmjit::Imm>(i * sizeof(int32_t)));
     for (int j = 0; j < colRegs; ++j) {
       for (int idx = 0; idx < 2; ++idx) {
-        a->vextracti128(extractDest128, CRegs(i * colRegs + j), idx);
-        a->vpmovsxwd(extractDest256, extractDest128);
+        emitExtractHalfVector<instSet, VecT>(
+            a, extractDestHalf, VecT(i * colRegs + j), idx);
+        a->vpmovsxwd(extractDestFull, extractDestHalf);
         x86::Mem destAddr = x86::dword_ptr(
-            a->zcx(), C_Offset, 0, (j * 2 + idx) * 8 * sizeof(int32_t));
+            a->zcx(), C_Offset, 0, (j * 2 + idx) * vectorLen);
         if (accum) {
-          a->vpaddd(extractDest256, extractDest256, destAddr);
+          a->vpaddd(extractDestFull, extractDestFull, destAddr);
         }
-        a->vmovups(destAddr, extractDest256);
+        a->vmovups(destAddr, extractDestFull);
       }
     }
   }
@@ -112,11 +95,14 @@ void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::storeCRegs<
 template <>
 template <>
 CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::jit_micro_kernel_fp
-CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
+CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::
+getOrCreate<inst_set_t::avx2>(
     bool accum,
     int32_t mc,
     int32_t nc,
     int32_t kc) {
+  constexpr int vectorLen = simd_info<inst_set_t::avx2>::WIDTH_BYTES;
+
   std::tuple<bool, int, int, int, int, int, int> kernelSig;
   int kBlock;
   int nBlock;
@@ -148,7 +134,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
 
   return codeCache_.getOrCreate(kernelSig, [&]() -> jit_micro_kernel_fp {
     asmjit::CodeHolder code;
-    code.init(runtime().codeInfo());
+    code.init(runtime().environment());
     x86::Assembler assembler(&code);
     x86::Emitter* a = assembler.as<x86::Emitter>();
 
@@ -174,8 +160,10 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
     assert(
         kc % row_interleave == 0 && "kc must be a multiple of row_interleave");
     assert(nc % nRegBlockSizeMin == 0 && "nc must be a multiple of NR_MIN");
-    int maxMRegs = mRegBlockSize;
-    int maxNRegs = nRegBlockSize * row_interleave / VLEN_;
+    const int maxMRegs = mRegBlockSize;
+    const int maxNRegs = nRegBlockSize * row_interleave / vectorLen;
+    (void)maxMRegs; // Suppress unused variable warning
+    (void)maxNRegs; // Suppress unused variable warning
     assert(
         maxMRegs * maxNRegs <= 13 &&
         "MR*(NR*ROW_INTERLEAVE*8/256"
@@ -196,14 +184,16 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
     x86::Gp ldcReg = a->gpz(9);
 
     asmjit::FuncDetail func;
-    func.init(asmjit::FuncSignatureT<
-              void,
-              uint8_t*,
-              int8_t*,
-              int8_t*,
-              int32_t*,
-              int,
-              int>(asmjit::CallConv::kIdHost));
+    func.init(
+        asmjit::FuncSignatureT<
+            void,
+            uint8_t*,
+            int8_t*,
+            int8_t*,
+            int32_t*,
+            int,
+            int>(asmjit::CallConv::kIdHost),
+        a->environment());
 
     asmjit::FuncFrame frame;
     frame.init(func);
@@ -232,7 +222,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
     x86::Gp iIdx = a->gpz(13);
     x86::Gp kIdx = a->gpz(14);
 
-    int colRegs = nc * row_interleave / VLEN_;
+    int colRegs = nc * row_interleave / vectorLen;
     if (mRegBlocks > 0) {
       // move 0 to iteration variables
       a->xor_(iIdx.r32(), iIdx.r32());
@@ -247,7 +237,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
       int rowRegs = mRegBlockSize;
 
       // init C registers
-      initCRegs<inst_set_t::avx2>(a, rowRegs, colRegs);
+      initCRegs(a, rowRegs, colRegs);
 
       // init k loop index
       a->xor_(kIdx.r32(), kIdx.r32());
@@ -273,8 +263,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
       a->jl(Loopk);
 
       // store C matrix
-      storeCRegs<inst_set_t::avx2>(
-          a, rowRegs, colRegs, C_Offset, ldcReg, accum);
+      storeCRegs<inst_set_t::avx2>(a, rowRegs, colRegs, C_Offset, ldcReg, accum);
 
       // increment A for next block
       a->sub(buffer_A, kSize);
@@ -300,7 +289,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
       int rowRegs = mRegBlocksRem;
 
       // init C registers
-      initCRegs<inst_set_t::avx2>(a, rowRegs, colRegs);
+      initCRegs(a, rowRegs, colRegs);
 
       // init k loop index
       a->xor_(kIdx.r32(), kIdx.r32());
@@ -327,8 +316,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
       a->jl(LoopkRem);
 
       // store C matrix
-      storeCRegs<inst_set_t::avx2>(
-          a, rowRegs, colRegs, C_Offset, ldcReg, accum);
+      storeCRegs<inst_set_t::avx2>(a, rowRegs, colRegs, C_Offset, ldcReg, accum);
     }
 
     a->emitEpilog(frame);
@@ -352,5 +340,47 @@ CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::getOrCreate<inst_set_t::avx2>(
     return fn;
   });
 }
+
+/**
+ * Instantiate the inst_set_t::avx2 instructions for store kernel.
+ *
+ */
+template
+void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::
+storeCRegs<inst_set_t::avx2>(
+    x86::Emitter* a,
+    int rowRegs,
+    int colRegs,
+    x86::Gp C_Offset,
+    x86::Gp ldcReg,
+    bool accum);
+
+/**
+ * Instantiate the inst_set_t::avx512 instructions for store kernel.
+ *
+ */
+template
+void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::
+storeCRegs<inst_set_t::avx512>(
+    x86::Emitter* a,
+    int rowRegs,
+    int colRegs,
+    x86::Gp C_Offset,
+    x86::Gp ldcReg,
+    bool accum);
+
+/**
+ * Instantiate the inst_set_t::avx512_ymm instructions for store kernel.
+ *
+ */
+template
+void CodeGenBase<uint8_t, int8_t, int32_t, int16_t>::
+storeCRegs<inst_set_t::avx512_ymm>(
+    x86::Emitter* a,
+    int rowRegs,
+    int colRegs,
+    x86::Gp C_Offset,
+    x86::Gp ldcReg,
+    bool accum);
 
 } // namespace fbgemm

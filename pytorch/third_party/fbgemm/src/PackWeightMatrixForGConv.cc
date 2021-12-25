@@ -21,6 +21,13 @@ PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::PackWeightMatrixForGConv(
     const T* sdata,
     T* pdata)
     : trans_(trans), conv_param_(conv_param), sdata_(sdata) {
+  if (!cpuinfo_initialize()) {
+    throw std::runtime_error("Failed to initialize cpuinfo!");
+  }
+  GTogether_ = numOfGroupsTogether(conv_param_);
+  assert(
+      GTogether_ <= conv_param_.G &&
+      "Number of groups together smaller than total number of groups");
   if (!pdata) {
     bufAllocatedHere_ = true;
     int kernel_prod = std::accumulate(
@@ -29,36 +36,31 @@ PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::PackWeightMatrixForGConv(
     int paddedICPerG = ((conv_param_.IC / conv_param_.G) + 3) / 4 * 4;
     pdata_ = static_cast<T*>(fbgemmAlignedAlloc(
         64,
-        conv_param_.G * kernel_prod * (conv_param_.OC / conv_param_.G) *
-            paddedICPerG * sizeof(T)));
+        (conv_param_.G + GTogether_ - 1) / GTogether_ * GTogether_ *
+            kernel_prod * (conv_param_.OC / conv_param_.G) * paddedICPerG *
+            sizeof(T)));
   } else {
     bufAllocatedHere_ = false;
     pdata_ = pdata;
   }
 
-  GTogether_ = numOfGroupsTogether(conv_param_);
-  assert(
-      GTogether_ <= conv_param_.G &&
-      "Number of groups together smaller than total number of groups");
   pack();
 }
 
 template <typename T, typename accT, int SPATIAL_DIM>
 int PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::numOfGroupsTogether(
     const conv_param_t<SPATIAL_DIM>& conv_param) {
-  if (fbgemmHasAvx512Support()) {
-    int OC_per_G = conv_param.OC / conv_param.G;
-    int IC_per_G = conv_param.IC / conv_param.G;
+  int OC_per_G = conv_param.OC / conv_param.G;
+  int IC_per_G = conv_param.IC / conv_param.G;
+  if (fbgemmHasAvx512Support() || fbgemmHasAvx512VnniSupport()) {
     // TODO: change to avx512 when avx512 support is available
     return std::max(
-        simd_info<inst_set_t::avx2>::WIDTH_BYTES / OC_per_G /
+        simd_info<inst_set_t::avx512>::WIDTH_BYTES / OC_per_G /
             std::max(IC_per_G, 4),
         1);
   } else {
     // avx2
     // e.g., IC_per_G == 4, we need to work on 2 groups at a time
-    int OC_per_G = conv_param.OC / conv_param.G;
-    int IC_per_G = conv_param.IC / conv_param.G;
     return std::max(
         simd_info<inst_set_t::avx2>::WIDTH_BYTES / OC_per_G /
             std::max(IC_per_G, 4),
@@ -86,8 +88,8 @@ inline int PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::unpacked_index_(
     bool tr) {
   // Get the full dimensions
   // Can't use T as varname because T is a template parameter.
-  int F = SPATIAL_DIM == 2 ? 1 : conv_param_.K[SPATIAL_DIM - 3];
-  int R = conv_param_.K[SPATIAL_DIM - 2];
+  int F = SPATIAL_DIM <= 2 ? 1 : conv_param_.K[SPATIAL_DIM - 3];
+  int R = SPATIAL_DIM == 1 ? 1 : conv_param_.K[SPATIAL_DIM - 2];
   int S = conv_param_.K[SPATIAL_DIM - 1];
   int G = conv_param_.G;
   int IC_per_G = conv_param_.IC / G;
@@ -118,8 +120,8 @@ inline int PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::packed_index_(
     int c) {
   // Get the full dimensions
   // Can't use T as varname because T is a template parameter.
-  int F = SPATIAL_DIM == 2 ? 1 : conv_param_.K[SPATIAL_DIM - 3];
-  int R = conv_param_.K[SPATIAL_DIM - 2];
+  int F = SPATIAL_DIM <= 2 ? 1 : conv_param_.K[SPATIAL_DIM - 3];
+  int R = SPATIAL_DIM == 1 ? 1 : conv_param_.K[SPATIAL_DIM - 2];
   int S = conv_param_.K[SPATIAL_DIM - 1];
   int G = conv_param_.G;
   int IC_per_G = conv_param_.IC / G;
@@ -135,7 +137,7 @@ inline int PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::packed_index_(
 }
 
 /**
- * @ brief Pack or unpack matrix
+ * @brief Pack or unpack matrix
  *
  * Let IC_per_G be number of input channels per group and OC_per_G be number of
  * output channels per group.
@@ -150,7 +152,7 @@ inline int PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::packed_index_(
  * For IC_per_G == 8, 16, 32 && OC_per_G == 8, 16, 32 there is no need to work
  * on 2 groups at a time and full SIMD width can be efficiently utilized even
  * while working on 1 group at a time.
- * In this case, the layout is G (C/4) R S K 4
+ * In this case, the layout is G R S K_per_G paddedICPerG
  */
 
 template <typename T, typename accT, int SPATIAL_DIM>
@@ -159,8 +161,8 @@ void PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::pack_unpack_(
     T* dst,
     bool ispack) {
   // Can't use T as varname because T is a template parameter.
-  int F = SPATIAL_DIM == 2 ? 1 : conv_param_.K[SPATIAL_DIM - 3];
-  int R = conv_param_.K[SPATIAL_DIM - 2];
+  int F = SPATIAL_DIM <= 2 ? 1 : conv_param_.K[SPATIAL_DIM - 3];
+  int R = SPATIAL_DIM == 1 ? 1 : conv_param_.K[SPATIAL_DIM - 2];
   int S = conv_param_.K[SPATIAL_DIM - 1];
   int G = conv_param_.G;
   int IC_per_G = conv_param_.IC / G;
@@ -257,6 +259,8 @@ void PackWeightMatrixForGConv<T, accT, SPATIAL_DIM>::unpack(T* origin_buf) {
   pack_unpack_(const_cast<const T*>(pdata_), origin_buf, false);
 }
 
+template class FBGEMM_API PackWeightMatrixForGConv<int8_t, int32_t, 1>;
+template class FBGEMM_API PackWeightMatrixForGConv<int8_t, int16_t, 1>;
 template class FBGEMM_API PackWeightMatrixForGConv<int8_t, int32_t, 2>;
 template class FBGEMM_API PackWeightMatrixForGConv<int8_t, int16_t, 2>;
 template class FBGEMM_API PackWeightMatrixForGConv<int8_t, int32_t, 3>;

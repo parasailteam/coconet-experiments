@@ -1,140 +1,168 @@
 /*******************************************************************************
- * Copyright 2018 Intel Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *******************************************************************************/
+* Copyright 2018-2021 Intel Corporation
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*******************************************************************************/
 
-#ifndef _LSTM_HPP
-#define _LSTM_HPP
+#ifndef RNN_HPP
+#define RNN_HPP
 
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
 
+#include <string>
+#include <vector>
+
 #include "common.hpp"
 #include "dnn_types.hpp"
-#include "mkldnn_common.hpp"
-#include "mkldnn_debug.hpp"
-#include "mkldnn_memory.hpp"
+#include "dnnl_common.hpp"
+#include "dnnl_debug.hpp"
+#include "dnnl_memory.hpp"
+#include "perf_report.hpp"
+
+#define AOC array_offset_calculator
 
 namespace rnn {
-
-extern const char *perf_template;
 
 enum alg_t { VANILLA_RNN, VANILLA_LSTM, VANILLA_GRU, LBR_GRU };
 alg_t str2alg(const char *str);
 const char *alg2str(alg_t alg);
-mkldnn_alg_kind_t alg2kind(alg_t alg);
+dnnl_alg_kind_t alg2kind(alg_t alg);
 
-enum activation_t { RELU, LOGISTIC, TANH };
+enum activation_t { UNDEF, RELU, LOGISTIC, TANH };
 activation_t str2activation(const char *str);
 const char *activation2str(activation_t alg);
-mkldnn_alg_kind_t activation2kind(activation_t alg);
+dnnl_alg_kind_t activation2kind(activation_t alg);
 
-mkldnn_prop_kind_t str2prop(const char *str);
-const char *prop2str(mkldnn_prop_kind_t prop);
+dnnl_rnn_direction_t str2direction(const char *str);
+const char *direction2str(dnnl_rnn_direction_t direction);
 
-mkldnn_rnn_direction_t str2direction(const char *str);
-const char *direction2str(mkldnn_rnn_direction_t direction);
+enum data_kind_t {
+    SRC_LAYER,
+    SRC_ITER,
+    SRC_ITER_C,
+    WEIGHTS_LAYER,
+    WEIGHTS_ITER,
+    BIAS,
+    DST_ITER,
+    DST_ITER_C,
+    DST_LAYER,
 
-const int H = 0;
-const int C = 1;
+    DIFF_SRC_LAYER,
+    DIFF_SRC_ITER,
+    DIFF_SRC_ITER_C,
+    DIFF_WEIGHTS_LAYER,
+    DIFF_WEIGHTS_ITER,
+    DIFF_BIAS,
+    DIFF_DST_ITER,
+    DIFF_DST_ITER_C,
+    DIFF_DST_LAYER,
+
+    // FIXME: adding peephole related weights to the appropriate places will
+    // cause false-positive accuracy check failures in unrelated test cases
+    // (e.g.  backward vanilla RNN for bf16) due to the data fill seed being
+    // dependent on the position of the tensor kind in the enum: adding
+    // `WEIGHTS_PEEPHOLE` before `dst_*` and `*diff_*` results in initializing
+    // the corresponding tensors differently.
+    // We need a more robust way of testing RNN.
+    WEIGHTS_PEEPHOLE,
+    DIFF_WEIGHTS_PEEPHOLE,
+    WEIGHTS_PROJECTION,
+    DIFF_WEIGHTS_PROJECTION,
+};
+const char *data_kind2str(data_kind_t kind);
+
+// Gates indices
+enum {
+    LSTM_I = 0,
+    LSTM_F = 1,
+    LSTM_C = 2,
+    LSTM_O = 3,
+    GRU_U = 0,
+    GRU_R = 1,
+    GRU_O = 2,
+    LBR_GRU_U_PRIME = 3,
+};
+
+// dlc is different at the cell level and the primitive level
+// This enum enable to explicitely query the intended one
+enum dlc_type_t { CELL, PRIMITIVE };
 
 template <typename Telem>
 struct array_offset_calculator {
-    template <typename... Targs>
-    array_offset_calculator(Telem *base, Targs... Fargs)
-        : _size(sizeof...(Fargs)) {
-        const int init_list[] = { Fargs... };
-        _dims = new int[_size];
-        for (int i = 0; i < _size; ++i)
-            _dims[i] = init_list[i];
+    array_offset_calculator() = default;
 
-        _base_ptr = base;
-    }
-    ~array_offset_calculator() { delete[] _dims; }
     template <typename... Targs>
-    inline Telem &operator()(Targs... Fargs) {
-        return *(_base_ptr + _offset(1, Fargs...));
+    array_offset_calculator(Telem *base_ptr, Targs... dims)
+        : base_ptr_(base_ptr), dims_({dims...}) {}
+
+    // ctor for AOC<const T> based on const AOC<T> &
+    template <typename Uelem>
+    array_offset_calculator(const array_offset_calculator<Uelem> &rhs)
+        : base_ptr_(rhs.base_ptr_), dims_(rhs.dims_) {}
+
+    // to make the above ctor work AOC<const T> should be able to access
+    // private fields of AOC<T>, hence let's friend them
+    friend struct array_offset_calculator<const Telem>;
+
+    template <typename... Targs>
+    Telem &operator()(Targs... Fargs) const {
+        return *(base_ptr_ + offset(1, Fargs...));
     }
+
+    int64_t nelems() const {
+        int64_t res = 1;
+        for (auto dim : dims_)
+            res *= dim;
+        return res;
+    }
+
+    void set_base_ptr(Telem *base_ptr) { base_ptr_ = base_ptr; }
 
 private:
     template <typename... Targs>
-    inline int _offset(int const dimension, int element) {
-        return element;
+    int64_t offset(int64_t d, int64_t pos) const {
+        return pos;
     }
 
     template <typename... Targs>
-    inline int _offset(int const dimension, int theta, int element) {
-        return element + (_dims[dimension] * theta);
+    int64_t offset(int64_t d, int64_t off, int64_t pos) const {
+        return off * dims_[d] + pos;
     }
 
     template <typename... Targs>
-    inline int _offset(
-            int const dimension, int theta, int element, Targs... Fargs) {
-        int t_prime = element + (_dims[dimension] * theta);
-        return _offset(dimension + 1, t_prime, Fargs...);
+    int64_t offset(int64_t d, int64_t off, int64_t pos, Targs... rem) const {
+        return offset(d + 1, off * dims_[d] + pos, rem...);
     }
 
-    Telem *_base_ptr;
-    int _size;
-    int *_dims;
+    Telem *base_ptr_;
+    std::vector<int64_t> dims_;
 };
 
-struct rnn_desc_t {
-    int sic;
-    int slc;
-    int dic;
-    int dlc;
-    int mb;
-    int n_layer;
-    int n_iter;
+struct desc_t {
+    int64_t sic;
+    int64_t slc;
+    int64_t dhc;
+    int64_t dic;
+    int64_t wc;
+    int64_t mb;
+    int64_t n_layer;
+    int64_t n_iter;
     const char *name;
 };
-int str2desc(rnn_desc_t *desc, const char *str);
-
-enum rnn_data_kind_t {
-    input,
-    states,
-    weights_input,
-    weights_states,
-    bias,
-    dst_last_iteration,
-    dst_last_layer,
-    dst_diff_input,
-    dst_diff_states,
-    dst_diff_weights_input,
-    dst_diff_weights_states,
-    dst_diff_bias,
-    diff_last_iteration,
-    diff_last_layer,
-    data_kind_total // should be last to provide the total number of data kinds
-};
-
-inline const char *rnn_data_kind2str(rnn_data_kind_t kind) {
-    switch (kind) {
-    case input: return "INPUT";
-    case states: return "STATES";
-    case weights_input: return "WEIGHTS_INPUT";
-    case weights_states: return "WEIGHTS_STATES";
-    case bias: return "BIAS";
-    case dst_last_layer: return "DST_LAST_LAYER";
-    case dst_last_iteration: return "DST_LAST_ITERATION";
-    default:
-        assert(!"incorrect rnn data kind");
-        return "incorrect rnn data kind";
-    }
-}
+int str2desc(desc_t *desc, const char *str);
+std::ostream &operator<<(std::ostream &s, const desc_t &d);
 
 /** configuration structure, that controls initial data filling + error check
 *
@@ -149,251 +177,306 @@ inline const char *rnn_data_kind2str(rnn_data_kind_t kind) {
 * on final check the resulting values should be in [min .. max] range, the
 * relative difference should not exceed eps
 */
+struct dt_conf_t {
+    struct entry_t {
+        dnnl_data_type_t dt;
+        int min, max; // representative
+        float f_min, f_max; // fill range
+        float f_mean, f_stddev; // parameters of normal distribution
+        double eps; // acceptable error
+    };
 
-typedef struct dt_conf_t {
-    mkldnn_data_type_t dt;
-    int min, max; /* representative */
-    int f_min, f_max; /* fill range */
-    float f_mean, f_var; /* mean and variance of normally distributed data */
-    double eps; /* acceptable error */
-} _dt_conf_t[data_kind_total];
+    dt_conf_t(const std::string &str) : str_(str) {}
 
-extern const _dt_conf_t conf_f32;
-extern const _dt_conf_t conf_u8u8u8u8;
-extern const _dt_conf_t conf_u8u8u8f32;
-extern const _dt_conf_t conf_f32u8f32f32;
-extern const _dt_conf_t conf_f32u8f32u8;
+    virtual const entry_t &operator[](data_kind_t kind) const = 0;
 
-const dt_conf_t *str2cfg(const char *str);
-const char *cfg2str(const dt_conf_t *cfg);
+    const std::string &str() const { return str_; }
+    bool is_int8() const { return operator[](SRC_LAYER).dt == dnnl_u8; }
 
-enum policy_t { NONE = 0, COMMON, PER_OC };
-policy_t str2policy(const char *str);
-const char *policy2str(attr_t::scale_t::policy_t policy);
+    static const dt_conf_t &create(const std::string &str);
 
-struct rnn_prb_t : public rnn_desc_t {
-    rnn_prb_t(const rnn_desc_t desc, const dt_conf_t *cfg,
-            mkldnn_prop_kind_t prop, alg_t alg,
-            mkldnn_rnn_direction_t direction, activation_t activation,
-            const attr_t &attr, policy_t scale_policy, int mb = 0)
-        : rnn_desc_t(desc)
+    std::string str_;
+};
+
+struct settings_t {
+    settings_t() = default;
+
+    // ctor to save certain fields from resetting
+    settings_t(const char *perf_template) : settings_t() {
+        this->perf_template = perf_template;
+    }
+
+    desc_t desc {};
+
+    std::vector<dir_t> prop {FWD_I};
+    std::vector<std::string> cfg {"f32"};
+    std::vector<alg_t> alg {VANILLA_RNN};
+    std::vector<dnnl_rnn_direction_t> direction {
+            dnnl_unidirectional_left2right};
+    std::vector<activation_t> activation {RELU};
+    std::vector<bool> skip_nonlinear {false};
+    std::vector<bool> trivial_strides {false};
+    std::vector<bool> with_peephole {false};
+    std::vector<bool> with_projection {false};
+    std::vector<int64_t> n_layer {0}, n_iter {0}, mb {0};
+    std::vector<policy_t> scale_policy {policy_t::COMMON};
+    std::vector<policy_t> scale_proj_policy {policy_t::COMMON};
+    std::vector<dnnl_scratchpad_mode_t> scratchpad_mode {
+            dnnl_scratchpad_mode_library};
+    unsigned int flags = 0x0;
+    float alpha = 0.9f, beta = 0.0f;
+
+    const char *perf_template_csv
+            = "perf,%engine%,%impl%,%name%,%prop%,%cfg%,%alg%,%activation%,%"
+              "direction%"
+              ","
+              "%DESC%,%Gops%,%Gfreq%,%-time%,%-Gflops%,%0time%,%0Gflops%";
+    const char *perf_template_def
+            = "perf,%engine%,%impl%,%name%,%prb%,%Gops%,%Gfreq%,%-time%,%-"
+              "Gflops%,%0time%,%0Gflops%";
+    const char *perf_template = perf_template_def;
+
+    void reset() { *this = settings_t(perf_template); }
+};
+
+struct prb_t : public desc_t {
+    prb_t(const desc_t &desc, const dt_conf_t &cfg, dir_t prop, alg_t alg,
+            bool with_peephole, bool with_projection,
+            dnnl_rnn_direction_t direction, policy_t scale_policy,
+            policy_t scale_proj_policy, unsigned int flags,
+            activation_t activation, const attr_t &attr, float alpha,
+            float beta, bool skip_nonlinear, bool trivial_strides,
+            int64_t n_layer, int64_t n_iter, int64_t mb = 0)
+        : desc_t(desc)
         , cfg(cfg)
-        , prop(prop)
+        , prop(prop2prop_kind(prop))
         , alg(alg)
+        , with_peephole(with_peephole)
+        , with_projection(with_projection)
         , direction(direction)
+        , wei_scales_policy(scale_policy)
+        , wei_proj_scales_policy(scale_proj_policy)
+        , flags(flags)
         , activation(activation)
         , attr(attr)
-        , scale_policy(scale_policy)
-        , ops(0.0) {
-        count_ops();
+        , user_mb(mb)
+        , alpha(alpha)
+        , beta(beta)
+        , skip_nonlinear(skip_nonlinear)
+        , trivial_strides(trivial_strides)
+        , ops(0.0)
+        , linear_cscale(0.0f) {
+
+        if (n_layer) this->n_layer = n_layer;
+        if (n_iter) this->n_iter = n_iter;
         if (mb) this->mb = mb;
-        wei_oc_scales = NULL;
-        if (scale_policy == PER_OC)
-            wei_oc_scales
-                    = (float *)zmalloc(sizeof(float) * dic * n_gates(), 64);
+        count_ops();
+
+        wei_scales = nullptr;
+        wei_proj_scales = nullptr;
+        linear_scales = nullptr;
+
+        // We always allocate linear scales. Even if they are not
+        // used, they get dereferenced when built in debug mode.
+        linear_scales = (float *)zmalloc(sizeof(float) * n_gates(), 64);
+        // Here we use the range of SRC_LAYER to set the scales
+        set_tparams(cfg[SRC_LAYER].f_min, cfg[SRC_LAYER].f_max);
+
+        switch (wei_scales_policy) {
+            case policy_t::COMMON:
+                wei_scales_mask = 0x0;
+                wei_nscales = 1;
+                break;
+            case policy_t::PER_OC:
+                wei_scales_mask = 0x18;
+                wei_nscales = dhc * n_gates();
+                break;
+            default: assert(!"unsupported scaling policy");
+        }
+        wei_scales = (float *)zmalloc(sizeof(float) * wei_nscales, 64);
+
+        if (with_projection) {
+            switch (wei_proj_scales_policy) {
+                case policy_t::PER_OC:
+                    wei_proj_scales_mask = 0x8;
+                    wei_proj_nscales = dic;
+                    break;
+                case policy_t::COMMON:
+                    wei_proj_scales_mask = 0x0;
+                    wei_proj_nscales = 1;
+                    break;
+                default: assert(!"unsupported scaling policy");
+            }
+            wei_proj_scales
+                    = (float *)zmalloc(sizeof(float) * wei_proj_nscales, 64);
+        }
+
         set_qparams(-1., 1.);
     }
-    ~rnn_prb_t() {
-        if (wei_oc_scales)
-            zfree(wei_oc_scales);
+    ~prb_t() {
+        if (wei_scales) zfree(wei_scales);
+        if (wei_proj_scales) zfree(wei_proj_scales);
+        if (linear_scales) zfree(linear_scales);
+    }
+
+    float get_wei_scale(int idx) const {
+        return wei_scales[MIN2(idx, wei_nscales - 1)];
+    }
+
+    inline float get_wei_proj_scale(int idx) const {
+        return wei_proj_scales[MIN2(idx, wei_proj_nscales - 1)];
     }
 
     void count_ops() {
         // Here, we count only the ops in GEMM portion as there is no
         // theoretical number of ops for the post-gemm operations
-        size_t num_cells = (size_t) n_directions() * n_layer * n_iter;
-        size_t cell_ops = (size_t) 2 * (n_gates() * dic) * mb * (sic + slc);
-        ops = num_cells * cell_ops;
+        int64_t num_cells = (int64_t)n_dir() * n_layer * n_iter;
+        int64_t cell_ops = (int64_t)2 * (n_gates() * dhc) * mb * (sic + slc);
+        if (with_projection) cell_ops += (int64_t)2 * dhc * mb * dic;
+        int64_t prop_multiplier = prop == dnnl_backward ? 2 : 1;
+        ops = prop_multiplier * num_cells * cell_ops;
     }
 
-    int n_directions() const {
-        return (direction == mkldnn_bidirectional_concat
-                       || direction == mkldnn_bidirectional_sum) ?
-                2 :
-                1;
+    int64_t n_dir() const {
+        return (direction == dnnl_bidirectional_concat
+                       || direction == dnnl_bidirectional_sum)
+                ? 2
+                : 1;
     }
-    int n_weights() const { return 1; }
-    int n_states() const { return alg == VANILLA_LSTM ? 2 : 1; }
-    int n_gates() const {
-        return alg == VANILLA_LSTM ?
-                4 :
-                (alg == VANILLA_GRU || alg == LBR_GRU ? 3 : 1);
+    int64_t n_states() const { return alg == VANILLA_LSTM ? 2 : 1; }
+    int64_t n_gates() const {
+        return alg == VANILLA_LSTM
+                ? 4
+                : (alg == VANILLA_GRU || alg == LBR_GRU ? 3 : 1);
     }
-    int n_bias() const {
+    int64_t n_bias() const {
         return alg == LBR_GRU ? n_gates() + 1 : n_gates();
     }
 
-    const dt_conf_t *cfg;
-    mkldnn_prop_kind_t prop;
+    int64_t dlc(dlc_type_t type) const {
+        if (type == PRIMITIVE)
+            return (direction == dnnl_bidirectional_concat ? 2 : 1) * dic;
+        if (type == CELL) return dic;
+        assert(!"unsupported dlc type");
+        return 0;
+    }
+
+    bool is_int8() const { return cfg[SRC_LAYER].dt == dnnl_u8; }
+    bool is_lstm_peephole() const { return with_peephole; }
+    bool is_lstm_projection() const { return with_projection; }
+
+    const dt_conf_t &cfg;
+    dnnl_prop_kind_t prop;
     alg_t alg;
-    mkldnn_rnn_direction_t direction;
+    bool with_peephole, with_projection;
+    dnnl_rnn_direction_t direction;
+    policy_t wei_scales_policy;
+    policy_t wei_proj_scales_policy;
+    unsigned int flags;
     activation_t activation;
     attr_t attr;
-    policy_t scale_policy;
-
-    double ops;
+    int64_t user_mb;
+    float alpha;
+    float beta;
 
     float data_scale, data_shift;
-    float wei_scale;
-    float *wei_oc_scales;
+
+    float *wei_scales;
+    int wei_nscales;
+    int wei_scales_mask;
+
+    float *wei_proj_scales;
+    int wei_proj_nscales;
+    int wei_proj_scales_mask;
+
+    bool skip_nonlinear;
+    bool trivial_strides;
+    double ops;
+    float *linear_scales;
+    float linear_cscale;
 
 private:
+    /* Todo: fused the two functions in set_shifts_scales */
     void set_qparams(float fp_min, float fp_max);
-    rnn_prb_t(const rnn_prb_t &) = delete;
-    rnn_prb_t &operator=(const rnn_prb_t &) = delete;
+    void set_tparams(float fp_min, float fp_max);
+    prb_t(const prb_t &) = delete;
+    prb_t &operator=(const prb_t &) = delete;
+};
+std::ostream &operator<<(std::ostream &s, const prb_t &prb);
+
+struct perf_report_t : public base_perf_report_t {
+    using base_perf_report_t::base_perf_report_t;
+
+    void report(const prb_t *prb, const res_t *res, const char *prb_str) {
+        p_ = prb;
+        base_report(res, prb_str);
+    }
+
+    void dump_alg(std::ostream &s) const override { s << alg2str(p_->alg); }
+
+    void dump_cfg(std::ostream &s) const override { s << p_->cfg.str(); }
+
+    void dump_desc(std::ostream &s) const override {
+        s << static_cast<const desc_t &>(*p_);
+    }
+
+    void dump_desc_csv(std::ostream &s) const override {
+        s << p_->n_layer << "," << p_->n_iter << "," << p_->mb << "," << p_->sic
+          << "," << p_->slc << "," << p_->dhc << "," << p_->dic;
+    }
+
+    void dump_rnn_activation(std::ostream &s) const override {
+        s << activation2str(p_->activation);
+    }
+
+    void dump_rnn_direction(std::ostream &s) const override {
+        s << direction2str(p_->direction);
+    }
+
+    double ops() const override { return p_->ops; }
+    const int64_t *user_mb() const override { return &p_->user_mb; }
+    const char *name() const override { return p_->name; }
+    const dnnl_prop_kind_t *prop() const override { return &p_->prop; }
+
+private:
+    const prb_t *p_ = nullptr;
 };
 
-const size_t max_prb_len = 392;
-void prb2str(const rnn_prb_t *p, const res_t *res, char *buffer);
+void prepare_ws_fwd(const prb_t &prb, std::vector<float> &ws_fwd_buffer,
+        AOC<float> &ws_src_layer, AOC<float> &ws_src_iter,
+        AOC<float> &ws_src_iter_c, AOC<float> &ws_gates, AOC<float> &ws_ht);
 
-void compute_ref_fwd(const rnn_prb_t *p, dnn_mem_t &input_m,
-        dnn_mem_t &states_m, dnn_mem_t &weights_input_m,
-        dnn_mem_t &weights_states_m, dnn_mem_t &bias_m,
-        dnn_mem_t &dst_last_layer_m, dnn_mem_t &dst_last_iteration_m,
-        mkldnn_rnn_direction_t direction);
+void rnn_linear_fwd(const prb_t &prb, const float *src_layer_,
+        const float *src_iter_, const float *src_iter_c_,
+        const float *weights_layer_, const float *weights_iter_,
+        const float *weights_peephole_, const float *weights_projection_,
+        const float *bias_, float *dst_layer_, float *dst_iter_,
+        float *dst_iter_c_, const AOC<float> &ws_src_layer,
+        const AOC<float> &ws_src_iter, const AOC<float> &ws_src_iter_c,
+        const AOC<float> &ws_gates, const AOC<float> &ws_ht);
 
-void compute_ref_bwd(const rnn_prb_t *p, dnn_mem_t &input_m,
-        dnn_mem_t &states_m, dnn_mem_t &diff_last_layer_m,
-        dnn_mem_t &diff_last_iteration_m, dnn_mem_t &weights_input_m,
-        dnn_mem_t &weights_states_m, dnn_mem_t &bias_m,
-        dnn_mem_t &dst_last_layer_m, dnn_mem_t &dst_last_iteration_m,
-        dnn_mem_t &dst_diff_input_m, dnn_mem_t &dst_diff_states_m,
-        dnn_mem_t &dst_diff_weights_input_m,
-        dnn_mem_t &dst_diff_weights_states_m, dnn_mem_t &dst_diff_bias_m,
-        mkldnn_rnn_direction_t direction);
+void compute_ref_fwd(const prb_t &prb, dnn_mem_t &src_layer_m,
+        dnn_mem_t &src_iter_m, dnn_mem_t &src_iter_c_m,
+        dnn_mem_t &weights_layer_m, dnn_mem_t &weights_iter_m,
+        dnn_mem_t &weights_peephole_m, dnn_mem_t &weights_projection_m,
+        dnn_mem_t &bias_m, dnn_mem_t &dst_layer_m, dnn_mem_t &dst_iter_m,
+        dnn_mem_t &dst_iter_c_m);
 
-// mkldnn_ntc
-inline size_t ntc_off_f(const rnn_prb_t *p, int n, int t, int c) {
-    return ((size_t)n * p->n_iter + t) * p->slc + c;
-}
+void compute_ref_bwd(const prb_t &prb, dnn_mem_t &src_layer_m,
+        dnn_mem_t &src_iter_m, dnn_mem_t &src_iter_c_m,
+        dnn_mem_t &diff_dst_layer_m, dnn_mem_t &diff_dst_iter_m,
+        dnn_mem_t &diff_dst_iter_c_m, dnn_mem_t &weights_layer_m,
+        dnn_mem_t &weights_iter_m, dnn_mem_t &weights_peephole_m,
+        dnn_mem_t &weights_projection_m, dnn_mem_t &bias_m,
+        dnn_mem_t &dst_layer_m, dnn_mem_t &dst_iter_m, dnn_mem_t &dst_iter_c_m,
+        dnn_mem_t &diff_src_layer_m, dnn_mem_t &diff_src_iter_m,
+        dnn_mem_t &diff_src_iter_c_m, dnn_mem_t &diff_weights_layer_m,
+        dnn_mem_t &diff_weights_iter_m, dnn_mem_t &diff_weights_peephole_m,
+        dnn_mem_t &diff_weights_projection_m, dnn_mem_t &diff_bias_m);
 
-inline void inv_ntc_off_f(
-        const rnn_prb_t *p, size_t off, int &n, int &t, int &c) {
-    c = off % p->slc;
-    off /= p->slc;
-    t = off % p->n_iter;
-    off /= p->n_iter;
-    n = off % p->mb;
-    off /= p->mb;
-    assert(off == 0);
-}
+int doit(const prb_t &prb, res_t *res);
+int bench(int argc, char **argv);
 
-// mkldnn_ldsnc
-inline size_t ldsnc_off_f(
-        const rnn_prb_t *p, int l, int d, int s, int n, int c) {
-    return ((((size_t)l * p->n_directions() + d) * p->n_states() + s) * p->mb
-                   + n)
-            * p->sic
-            + c;
-}
-
-inline void inv_ldsnc_off_f(const rnn_prb_t *p, size_t off, int &l, int &d,
-        int &s, int &n, int &c) {
-    c = off % p->sic;
-    off /= p->sic;
-    n = off % p->mb;
-    off /= p->mb;
-    s = off % p->n_states();
-    off /= p->n_states();
-    d = off % p->n_directions();
-    off /= p->n_directions();
-    l = off % p->n_layer;
-    off /= p->n_layer;
-    assert(off == 0);
-}
-
-// mkldnn_ldigo
-inline size_t ldigo_off_f(
-        const rnn_prb_t *p, int l, int d, int w, int ic, int oc) {
-    return ((((size_t)l * p->n_directions() + d) * p->n_weights() + w)
-                           * (4 * p->slc)
-                   + ic)
-            * p->sic
-            + oc;
-}
-
-inline void inv_ldigo_off_f(const rnn_prb_t *p, size_t off, int &l, int &d,
-        int &w, int &ic, int &oc) {
-    oc = off % p->sic;
-    off /= p->sic;
-    ic = off % (4 * p->slc);
-    off /= (4 * p->slc);
-    w = off % p->n_weights();
-    off /= p->n_weights();
-    d = off % p->n_directions();
-    off /= p->n_directions();
-    l = off % p->n_layer;
-    off /= p->n_layer;
-    assert(off == 0);
-}
-
-// mkldnn_ldwOcIc
-inline size_t ldwOcIc_off_f(
-        const rnn_prb_t *p, int l, int d, int w, int oc, int ic) {
-    return ((((size_t)l * p->n_directions() + d) * p->n_weights() + w)
-                           * (4 * p->sic)
-                   + oc)
-            * p->slc
-            + ic;
-}
-
-inline void inv_ldwOcIc_off_f(const rnn_prb_t *p, size_t off, int &l, int &d,
-        int &w, int &oc, int &ic) {
-    ic = off % p->slc;
-    off /= p->slc;
-    oc = off % (4 * p->sic);
-    off /= (4 * p->sic);
-    w = off % p->n_weights();
-    off /= p->n_weights();
-    d = off % p->n_directions();
-    off /= p->n_directions();
-    l = off % p->n_layer;
-    off /= p->n_layer;
-    assert(off == 0);
-}
-
-// bias: mkldnn_ldgo
-inline size_t ldgo_off_f(const rnn_prb_t *p, int l, int d, int b, int c) {
-    return (((size_t)l * p->n_directions() + d) * p->n_bias() + b) * p->sic
-            + c;
-}
-
-inline void inv_ldgo_off_f(
-        const rnn_prb_t *p, size_t off, int &l, int &d, int &b, int &c) {
-    c = off % p->dic;
-    off /= p->dic;
-    b = off % p->n_bias();
-    off /= p->n_bias();
-    d = off % p->n_directions();
-    off /= p->n_directions();
-    l = off % p->n_layer;
-    off /= p->n_layer;
-    assert(off == 0);
-}
-
-// dst_last_layer: mkldnn_tnc
-inline size_t tnc_off_f(const rnn_prb_t *p, int s, int t, int n, int c) {
-    return (((size_t)s * p->n_iter + t) * p->mb + n) * p->sic + c;
-}
-
-inline void inv_tnc_off_f(
-        const rnn_prb_t *p, size_t off, int &s, int &t, int &n, int &c) {
-    c = off % p->sic;
-    off /= p->sic;
-    n = off % p->mb;
-    off /= p->mb;
-    t = off % p->n_iter;
-    off /= p->n_iter;
-    s = off % p->n_states();
-    off /= p->n_states();
-    assert(off == 0);
-}
-
-void perf_report(const rnn_prb_t *p, const res_t *r, const char *pstr);
-
-int doit(const rnn_prb_t *p, res_t *res);
-void check(rnn_desc_t *p);
-int bench(int argc, char **argv, bool main_bench = true);
 } // namespace rnn
 
 #endif

@@ -23,6 +23,7 @@ import com.facebook.jni.annotations.DoNotStrip;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
+import org.fest.assertions.api.Fail;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -707,6 +708,25 @@ public class FBJniTests extends BaseFBJniTests {
   }
 
   private native boolean nativeTestInterDsoExceptionHandlingB();
+
+  @Test
+  public void testHandleNonStdExceptionThrow() {
+    try {
+      nativeTestHandleNonStdExceptionThrow();
+      Fail.failBecauseExceptionWasNotThrown(UnknownCppException.class);
+    } catch (UnknownCppException ex) {
+      if (System.getProperty("os.name").startsWith("Windows")) {
+        // Unknown exception types not supported on Windows.
+        assertThat(ex.getMessage()).isEqualTo("Unknown");
+        return;
+      }
+      // the actual string is implementation-defined and mangled, but in practice,
+      // it has the name of the C++ type in it somewhere.
+      assertThat(ex.getMessage()).startsWith("Unknown: ").contains("NonStdException");
+    }
+  }
+
+  private native void nativeTestHandleNonStdExceptionThrow();
 
   @Test(expected = UnknownCppException.class)
   public void testHandleCppCharPointerThrow() {

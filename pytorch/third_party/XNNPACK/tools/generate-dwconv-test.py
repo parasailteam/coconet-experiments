@@ -33,7 +33,12 @@ def split_ukernel_name(name):
   assert param_spec.startswith("up")
   cr, kr = map(int, param_spec[2:].split("x"))
   arch, isa = xnncommon.parse_target_name(target_name)
-  return cr, kr, arch, isa
+
+  requantization = common_parts[-3]
+  if requantization not in ["gemmlowp", "fp32"]:
+    requantization = None
+
+  return cr, kr, requantization, arch, isa
 
 
 DWCONV_TEST_CODE = """\
@@ -71,31 +76,32 @@ $if CBLOCK > 1:
     }
   }
 
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmin) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-      DWConvMicrokernelTester()
-        .cr(${CR})
-        .kr(${KR})
-        .channels(channels)
-        .qmin(128)
-        .Test(${", ".join(TEST_ARGS)});
+  $if ACTIVATION == "MINMAX":
+    TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmin) {
+      $if ISA_CHECK:
+        ${ISA_CHECK};
+      for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+        DWConvMicrokernelTester()
+          .cr(${CR})
+          .kr(${KR})
+          .channels(channels)
+          .qmin(128)
+          .Test(${", ".join(TEST_ARGS)});
+      }
     }
-  }
 
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmax) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-      DWConvMicrokernelTester()
-        .cr(${CR})
-        .kr(${KR})
-        .channels(channels)
-        .qmax(128)
-        .Test(${", ".join(TEST_ARGS)});
+    TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmax) {
+      $if ISA_CHECK:
+        ${ISA_CHECK};
+      for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+        DWConvMicrokernelTester()
+          .cr(${CR})
+          .kr(${KR})
+          .channels(channels)
+          .qmax(128)
+          .Test(${", ".join(TEST_ARGS)});
+      }
     }
-  }
 
   TEST(${TEST_NAME}, c_lt_${ADJCBLOCK}) {
     $if ISA_CHECK:
@@ -121,31 +127,32 @@ TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}) {
   }
 }
 
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmin) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .qmin(128)
-      .Test(${", ".join(TEST_ARGS)});
+$if ACTIVATION == "MINMAX":
+  TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmin) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .qmin(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmax) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .qmax(128)
-      .Test(${", ".join(TEST_ARGS)});
+  TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmax) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .qmax(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
 TEST(${TEST_NAME}, multipixel) {
   $if ISA_CHECK:
@@ -190,35 +197,36 @@ TEST(${TEST_NAME}, multipixel_with_output_stride) {
   }
 }
 
-TEST(${TEST_NAME}, multipixel_with_qmin) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .width(3)
-      .qmin(128)
-      .Test(${", ".join(TEST_ARGS)});
+$if ACTIVATION == "MINMAX":
+  TEST(${TEST_NAME}, multipixel_with_qmin) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .width(3)
+        .qmin(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
-TEST(${TEST_NAME}, multipixel_with_qmax) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .width(3)
-      .qmax(128)
-      .Test(${", ".join(TEST_ARGS)});
+  TEST(${TEST_NAME}, multipixel_with_qmax) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .width(3)
+        .qmax(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
-$if DATATYPE == "q8":
+$if DATATYPE == "qu8":
   TEST(${TEST_NAME}, input_zero_point_only) {
     $if ISA_CHECK:
       ${ISA_CHECK};
@@ -248,10 +256,39 @@ $if DATATYPE == "q8":
         .Test(${", ".join(TEST_ARGS)});
     }
   }
+
+TEST(${TEST_NAME}, input_offset) {
+  $if ISA_CHECK:
+    ${ISA_CHECK};
+  for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+    DWConvMicrokernelTester()
+      .cr(${CR})
+      .kr(${KR})
+      .channels(channels)
+      .input_offset(${next_prime(CR + 1) * 16})
+      .Test(${", ".join(TEST_ARGS)});
+  }
+}
+
+TEST(${TEST_NAME}, zero) {
+  $if ISA_CHECK:
+    ${ISA_CHECK};
+  for (uint32_t mz = 0; mz < ${KR}; mz++) {
+    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .input_offset(${next_prime(CR + 1) * 16})
+        .zero_index(mz)
+        .Test(${", ".join(TEST_ARGS)});
+    }
+  }
+}
 """
 
-
-def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
+def generate_test_cases(ukernel, cr, kr, c_block,
+                        init_fn, requantization, is_pipelined, isa):
   """Generates all tests cases for a DWCONV micro-kernel.
 
   Args:
@@ -260,6 +297,8 @@ def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
     kr: KR parameter of the DWCONV micro-kernel.
     k_block: Number of C values processed per one iteration of the main loop of
              the micro-kernel.
+    init_fn: C name of the function to initialize microkernel parameters.
+    requantization: name of the requantization scheme used by the microkernel.
     is_pipelined: Indicates if the micro-kernel is implemented with software
                   pipelining. Additional test cases are generated for software
                   pipelined micro-kernels to separately test prologue + epiloque
@@ -271,15 +310,23 @@ def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
     Code for the test case.
   """
   _, test_name = ukernel.split("_", 1)
-  _, datatype, ukernel_type, _ = ukernel.split("_", 3)
+  _, datatype, ukernel_type, activation, _ = ukernel.split("_", 4)
+  if activation == "ukernel":
+    activation = "linear"
   test_args = [ukernel]
-  if not isa or isa == "psimd":
-    test_args.append("DWConvMicrokernelTester::Variant::Scalar")
+  if init_fn:
+    test_args.append(init_fn)
+    if requantization:
+      test_args += [
+        "xnn_init_qs8_requantization_%s_params" % requantization,
+        "xnn_qs8_requantize_%s" % requantization
+      ]
   return xngen.preprocess(DWCONV_TEST_CODE, {
       "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),
       "TEST_ARGS": test_args,
       "UKERNEL_TYPE": ukernel_type.upper(),
       "DATATYPE": datatype,
+      "ACTIVATION": activation.upper(),
       "CR": cr,
       "KR": kr,
       "CBLOCK": c_block,
@@ -324,14 +371,16 @@ def main(args):
 
     for ukernel_spec in spec_yaml:
       name = ukernel_spec["name"]
+      init_fn = ukernel_spec.get("init")
       pipelined = bool(ukernel_spec.get("pipelined", False))
       assembly = bool(ukernel_spec.get("assembly", False))
-      cr, kr, arch, isa = split_ukernel_name(name)
+      cr, kr, requantization, arch, isa = split_ukernel_name(name)
 
       # specification can override architecture
       arch = ukernel_spec.get("arch", arch)
 
-      test_case = generate_test_cases(name, cr, kr, cr, pipelined, isa)
+      test_case = generate_test_cases(
+        name, cr, kr, cr, init_fn, requantization, pipelined, isa)
       tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa, assembly)
 
     with codecs.open(options.output, "w", encoding="utf-8") as output_file:

@@ -88,8 +88,8 @@ class ncclScatteredPrimitives {
 		inline __device__ T* recvPtr(int i) { return ((T*)recvBuff[i])+recvOffset(i); }
 		inline __device__ T* sendPtr(int i) { return ((T*)sendBuff[i])+sendOffset(i); }
 
-		inline __device__ double* recvPtrDouble(int i) { return ((double*)recvBuff[i])+recvOffset(i)/(sizeof(double)/sizeof(T)); }
-		inline __device__ double* sendPtrDouble(int i) { return ((double*)sendBuff[i])+sendOffset(i)/(sizeof(double)/sizeof(T)); }
+		template<typename ReduceT> inline __device__ ReduceT* recvPtrDouble(int i) { return ((ReduceT*)recvBuff[i])+recvOffset(i)/(sizeof(ReduceT)/sizeof(T)); }
+		template<typename ReduceT> inline __device__ ReduceT* sendPtrDouble(int i) { return ((ReduceT*)sendBuff[i])+sendOffset(i)/(sizeof(ReduceT)/sizeof(T)); }
 
 		inline __device__ void barrier() {
 			asm volatile ("bar.sync 1, %0;" :: "r"(nthreads));
@@ -205,14 +205,14 @@ class ncclScatteredPrimitives {
 			return DIRECTSEND && sendDirectBuff[i] ? ((T*)sendDirectBuff[i])+directOffset : sendPtr(i);
 		}
 
-		template <int DIRECTRECV>
-		inline __device__ const double* directRecvPtrDouble(int i, ssize_t directOffset) {
-			return DIRECTRECV && recvDirectBuff[i] ? ((const double*)recvDirectBuff[i])+directOffset : recvPtrDouble(i);
+		template <typename ReduceT, int DIRECTRECV>
+		inline __device__ const ReduceT* directRecvPtrDouble(int i, ssize_t directOffset) {
+			return DIRECTRECV && recvDirectBuff[i] ? ((const ReduceT*)recvDirectBuff[i])+directOffset : recvPtrDouble<ReduceT>(i);
 		}
 
-		template <int DIRECTSEND>
-		inline __device__ double* directSendPtrDouble(int i, ssize_t directOffset) {
-			return DIRECTSEND && sendDirectBuff[i] ? ((double*)sendDirectBuff[i])+directOffset : sendPtrDouble(i);
+		template <typename ReduceT,int DIRECTSEND>
+		inline __device__ ReduceT* directSendPtrDouble(int i, ssize_t directOffset) {
+			return DIRECTSEND && sendDirectBuff[i] ? ((ReduceT*)sendDirectBuff[i])+directOffset : sendPtrDouble<ReduceT>(i);
 		}
 
 		template <int DIRECTRECV>
@@ -235,71 +235,71 @@ class ncclScatteredPrimitives {
 			return DIRECTSEND && sendDirectBuff[i] ? directInc : sliceInc;
 		}
 
-		template <int DIRECTRECV, int DIRECTSEND, int RECV, int SEND, int SRC, int DST>
+		template <typename ReduceT, class ReduceFunc, int DIRECTRECV, int DIRECTSEND, int RECV, int SEND, int SRC, int DST>
 		inline __device__ void
-		GenericOp(const double* srcPtr, double* dstPtr, int nelem, ssize_t directOffset) {
+		GenericOp(const ReduceT* srcPtr, ReduceT* dstPtr, int nelem, ssize_t directOffset) {
 			int offset = 0;
-			int sliceSize = stepSize/(sizeof(double)/sizeof(T))*SLICESTEPS;
+			int sliceSize = (stepSize/(sizeof(ReduceT)/sizeof(T)))*SLICESTEPS;
 			int dataSize = max(DIVUP(nelem, 16*SLICESPERCHUNK)*16, sliceSize/32);
 
-			const double* srcs[RECV*NRECV+SRC];
-			srcs[0] = SRC ? srcPtr : (const double*)directRecvPtrDouble<DIRECTRECV>(0, directOffset);
+			const ReduceT* srcs[RECV*NRECV+SRC];
+			srcs[0] = SRC ? srcPtr : (const ReduceT*)directRecvPtrDouble<ReduceT, DIRECTRECV>(0, directOffset);
 			if (RECV) {
-			if (SRC) srcs[1] = (const double*)recvPtrDouble(0);
-			for (int i=1; i<NRECV && i<nrecv; i++) srcs[SRC+i] = (const double*)recvPtrDouble(i);
+				if (SRC) srcs[1] = (const ReduceT*)recvPtrDouble<ReduceT>(0);
+				for (int i=1; i<NRECV && i<nrecv; i++) srcs[SRC+i] = (const ReduceT*)recvPtrDouble<ReduceT>(i);
 			}
 
-			double* dsts[SEND*NSEND+DST];
-			dsts[0] = DST ? dstPtr : (double*)directSendPtrDouble<DIRECTSEND>(0, directOffset);
+			ReduceT* dsts[SEND*NSEND+DST];
+			dsts[0] = DST ? dstPtr : (ReduceT*)directSendPtrDouble<ReduceT,DIRECTSEND>(0, directOffset);
 			if (SEND) {
-			if (DST) dsts[1] = (double*)directSendPtrDouble<DIRECTSEND>(0, directOffset);
-			for (int i=1; i<NSEND && i<nsend; i++) dsts[DST+i] = (double*)directSendPtrDouble<DIRECTSEND>(i, directOffset);
+				if (DST) dsts[1] = (ReduceT*)directSendPtrDouble<ReduceT,DIRECTSEND>(0, directOffset);
+				for (int i=1; i<NSEND && i<nsend; i++) dsts[DST+i] = (ReduceT*)directSendPtrDouble<ReduceT,DIRECTSEND>(i, directOffset);
 			}
 
 			bool syncThread = tid >= nthreads-WARP_SIZE;
 
 			#pragma unroll
 			for (int slice=0; slice<SLICESPERCHUNK; ++slice) {
-			int realSize = max(0, min(dataSize, nelem-offset));
-			if (!syncThread) {
-				if (SEND) waitSend(realSize*sizeof(double));
-				if (RECV) waitRecv();
-				if (realSize > 0) {
-				subBarrier();
-				if (DIRECTRECV && recvDirectBuff[0]) {
-					// We can only have one direct receive. Since srcs[0] == dstPtr+offset, skip one copy
-					if (SEND) {
-					ReduceOrCopyMulti<UNROLL, FuncSum<double>, double, 1, 1, 1, NSEND,0,0,0,0>(tid, nthreads-WARP_SIZE, 1, srcs, nsend, dsts+1, nullptr, nullptr, nullptr, realSize, 0,0,0,0,0,0,0,nullptr, nullptr, 0, nullptr);
+				int realSize = max(0, min(dataSize, nelem-offset));
+				if (!syncThread) {
+					if (SEND) waitSend(realSize*sizeof(ReduceT));
+					if (RECV) waitRecv();
+					if (realSize > 0) {
+						subBarrier();
+						if (DIRECTRECV && recvDirectBuff[0]) {
+							// We can only have one direct receive. Since srcs[0] == dstPtr+offset, skip one copy
+							if (SEND) {
+								ReduceOrCopyMulti<UNROLL, ReduceFunc, ReduceT, ReduceT, 1, 1, 1, NSEND,0,0,0>(tid, nthreads-WARP_SIZE, 1, srcs, nsend, dsts+1, nullptr, nullptr, nullptr, nullptr,realSize, 0,0,0,0.0f,0,0,0,0,nullptr, nullptr, 0, nullptr);
+							}
+						} else {
+							ReduceOrCopyMulti<UNROLL, ReduceFunc, ReduceT, ReduceT, RECV+SRC, RECV*NRECV+SRC, SEND+DST, SEND*NSEND+DST,0,0,0>(tid, nthreads-WARP_SIZE, RECV*nrecv+SRC, srcs, SEND*nsend+DST, dsts, nullptr, nullptr, nullptr,nullptr,realSize, 0,0,0,0.0f,0,0,0,0,nullptr,nullptr, 0, nullptr);
+						}			
 					}
-				} else {
-					ReduceOrCopyMulti<UNROLL, FuncSum<double>, double, RECV+SRC, RECV*NRECV+SRC, SEND+DST, SEND*NSEND+DST,0,0,0,0>(tid, nthreads-WARP_SIZE, RECV*nrecv+SRC, srcs, SEND*nsend+DST, dsts, nullptr, nullptr, nullptr,realSize, 0,0,0,0,0,0,0,nullptr,nullptr, 0, nullptr);
 				}
+				barrier();
+				FOR_SEND(incSend);
+				FOR_RECV(incRecv);
+				if (syncThread) {
+					if (SEND) {
+						if (realSize > 0 && wid == 0) __threadfence_system();
+						__syncwarp();
+						postSend();
+					}
+					if (RECV) postRecv();
 				}
-			}
-			barrier();
-			FOR_SEND(incSend);
-			FOR_RECV(incRecv);
-			if (syncThread) {
-				if (SEND) {
-				if (realSize > 0 && wid == 0) __threadfence_system();
-				__syncwarp();
-				postSend();
-				}
-				if (RECV) postRecv();
-			}
-			srcs[0] += SRC ? realSize : directRecvInc<DIRECTRECV>(0, realSize, sliceSize);
-			for (int i=1-SRC; i<RECV*NRECV; i++) srcs[SRC+i] += sliceSize;
-			dsts[0] += DST ? realSize : directSendInc<DIRECTSEND>(0, realSize, sliceSize);
-			for (int i=1-DST; i<SEND*NSEND; i++) dsts[DST+i] += directSendInc<DIRECTSEND>(i, realSize, sliceSize);
-			offset += realSize;
+				srcs[0] += SRC ? realSize : directRecvInc<DIRECTRECV>(0, realSize, sliceSize);
+				for (int i=1-SRC; i<RECV*NRECV; i++) srcs[SRC+i] += sliceSize;
+				dsts[0] += DST ? realSize : directSendInc<DIRECTSEND>(0, realSize, sliceSize);
+				for (int i=1-DST; i<SEND*NSEND; i++) dsts[DST+i] += directSendInc<DIRECTSEND>(i, realSize, sliceSize);
+				offset += realSize;
 			}
 		}
 #define PRIMAUTOUNROLL (UNROLL*(4/(RECV+SRC+SEND+DST)))
 
 		template <int DIRECTRECV, int DIRECTSEND, int RECV, int SEND, int SRC, int DST, int WEIGHT_UPDATE, int LAMB, int LAMB_SEND_COMPUTE>
 			inline __device__ void
-			GenericOpScattered(const T** srcPtr, T** dstPtr, T* firstMoment, T* secondMoment, T* rStorage, int nelem, ssize_t directOffset, const T alpha, 
-					const T beta1, const T beta2, const int epoch, int partNum, double* weightNorm, double* rNorm) {
+			GenericOpScattered(const T** srcPtr, T** dstPtr, float** floatWeights, float* firstMoment, float* secondMoment, float* rStorage, int nelem, ssize_t directOffset, const float alpha, 
+					const float beta1, const float beta2, const float unscaleParameter, const int epoch, int partNum, double* weightNorm, double* rNorm, int* numOverflows) {
 				int offset = 0;
 				int sliceSize = stepSize*SLICESTEPS;
 				int dataSize = max(DIVUP(nelem, 16*SLICESPERCHUNK)*16, sliceSize/32);
@@ -387,8 +387,10 @@ class ncclScatteredPrimitives {
 
 								//assert(buffIdToParentBufferId[firstContiguousBufferIndex] < nContiguousBuffs);
 
-								T* firstMomentPtr = (WEIGHT_UPDATE || LAMB) ? (firstMoment) : NULL;
-								T* secondMomentPtr = (WEIGHT_UPDATE || LAMB) ? (secondMoment) : NULL;
+								float* firstMomentPtr = (WEIGHT_UPDATE || LAMB) ? (firstMoment) : NULL;
+								float* secondMomentPtr = (WEIGHT_UPDATE || LAMB) ? (secondMoment) : NULL;
+								float* floatWeightPtr = (WEIGHT_UPDATE || LAMB || LAMB_SEND_COMPUTE) ? (floatWeights[firstContiguousBufferIndex]+firstContiguousBufferOffset) : NULL;
+
 								if (sizeToConsider > 0) {
 									int parentBuffId = 0;
 									double* wNormPtr = nullptr;
@@ -403,10 +405,10 @@ class ncclScatteredPrimitives {
 									if (DIRECTRECV && recvDirectBuff[0]) {
 										// We can only have one direct receive. Since srcs[0] == dstPtr+offset, skip one copy
 										if (SEND) {
-											ReduceOrCopyMulti<UNROLL, FUNC, T, 1, 1, 1, NSEND, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE, 0>(relativeTid, nThreadsToConsider, 1, srcs, nsend, dsts+1, firstMomentPtr, secondMomentPtr, rStorage, sizeToConsider, alpha, beta1, beta2, epoch, 
+											ReduceOrCopyMulti<UNROLL, FUNC, T, float, 1, 1, 1, NSEND, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(relativeTid, nThreadsToConsider, 1, srcs, nsend, dsts+1, firstMomentPtr, secondMomentPtr, rStorage, floatWeightPtr, sizeToConsider, alpha, beta1, beta2, unscaleParameter, epoch, 
 											// directOffsetBackup + offset+sizeProcessed, 
 											firstContiguousBufferIndex*maxBuffSize+firstContiguousBufferOffset,
-												partStartOffset, maxPartSize, wNormPtr, rNormPtr, parentBuffSize, nullptr);
+												partStartOffset, maxPartSize, wNormPtr, rNormPtr, parentBuffSize, numOverflows);
 										}
 									} else {
 										ssize_t oo = firstContiguousBufferIndex*maxBuffSize+firstContiguousBufferOffset;
@@ -418,10 +420,10 @@ class ncclScatteredPrimitives {
 										// 		printf("wNorm %lf rNorm %lf\n", weightNorm[parentBuffId], rNorm[parentBuffId]);
 										// 	}
 										// }
-										ReduceOrCopyMulti<UNROLL, FUNC, T, RECV+SRC, RECV*NRECV+SRC, SEND+DST, SEND*NSEND+DST, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE, 0>(relativeTid, nThreadsToConsider, RECV*nrecv+SRC, srcs, SEND*nsend+DST, dsts, firstMomentPtr, secondMomentPtr, rStorage, sizeToConsider, alpha, beta1, beta2, epoch, 
+										ReduceOrCopyMulti<UNROLL, FUNC, T, float, RECV+SRC, RECV*NRECV+SRC, SEND+DST, SEND*NSEND+DST, WEIGHT_UPDATE, LAMB, LAMB_SEND_COMPUTE>(relativeTid, nThreadsToConsider, RECV*nrecv+SRC, srcs, SEND*nsend+DST, dsts, firstMomentPtr, secondMomentPtr, rStorage, floatWeightPtr, sizeToConsider, alpha, beta1, beta2, unscaleParameter, epoch, 
 										// directOffsetBackup + offset + sizeProcessed, 
 										oo,
-											partStartOffset, maxPartSize, wNormPtr, rNormPtr, parentBuffSize, nullptr);
+											partStartOffset, maxPartSize, wNormPtr, rNormPtr, parentBuffSize, numOverflows);
 									}
 								}
 
@@ -564,136 +566,153 @@ class ncclScatteredPrimitives {
 
 				__device__ __forceinline__ void
 					sendScattered(const T** src, ssize_t directOffset, int nelem) {
-						GenericOpScattered<0, 0, 0, 1, 1, 0, 0, 0, 0>(src, NULL, NULL, NULL, nullptr,nelem, directOffset, (T)0.0, (T)0.0, (T)0.0, 0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 0, 1, 1, 0, 0, 0, 0>(src, NULL, NULL, NULL, nullptr, nullptr,nelem, directOffset, 0.0f, 0.0f, 0.0f, 0.0f, 0, 0, nullptr, nullptr, nullptr);
 					}
 				__device__ __forceinline__ void
 					directSendScattered(const T** src, ssize_t directOffset, int nelem) {
-						GenericOpScattered<0, 1, 0, 1, 1, 0, 0, 0, 0>(src, NULL, NULL, NULL, nullptr,nelem, directOffset, (T)0.0, (T)0.0, (T)0.0, 0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 1, 0, 1, 1, 0, 0, 0, 0>(src, NULL, NULL, NULL, nullptr, nullptr,nelem, directOffset, 0.0f, 0.0f, 0.0f, 0.0f,0, 0, nullptr, nullptr, nullptr);
 					}
 					
 					__device__ __forceinline__ void
-					directSendScatteredLAMB(const T** src, T* rStorage, ssize_t directOffset, int nelem, int partNum, T lr, double* wNorm, double* rNorm) {
-						GenericOpScattered<0, 1, 0, 1, 1, 0, 0, 0, 1>(src, nullptr, nullptr, nullptr, rStorage,nelem, directOffset, lr, (T)0.0, (T)0.0, 0, partNum, wNorm, rNorm);
+					directSendScatteredLAMB(const T** src, float** floatWeights, float* rStorage, ssize_t directOffset, int nelem, int partNum, float lr, double* wNorm, double* rNorm) {
+						GenericOpScattered<0, 1, 0, 1, 1, 0, 0, 0, 1>(src, nullptr, floatWeights, nullptr, nullptr, rStorage,nelem, directOffset, lr, 0.0f, 0.0f, 0.0f, 0, partNum, wNorm, rNorm, nullptr);
 					}
 
 				__device__ __forceinline__ void
 					recvScattered(T** dst, int nelem) {
-						GenericOpScattered<0, 0, 1, 0, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr,nelem, 0, (T)0.0, (T)0.0, (T)0.0, (T)0.0,  0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 1, 0, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr, nullptr,nelem, 0, 0.0f, 0.0f, 0.0f, 0.0f,  0.0f, 0, nullptr, nullptr, nullptr);
 					}
 				__device__ __forceinline__ void
 					directRecvScattered(T** dst, ssize_t directOffset, int nelem) {
-						GenericOpScattered<1, 0, 1, 0, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr,nelem, directOffset, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<1, 0, 1, 0, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr, nullptr,nelem, directOffset, 0.0f, 0.0f, 0.0f, 0.0f,0.0f, 0, nullptr, nullptr, nullptr);
 					}
 
 				__device__ __forceinline__ void
 					copySendScattered(const T** src, T* dst, int nelem) {
-						GenericOpScattered<0, 0, 0, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr,nelem, 0, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 0, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr, nullptr,nelem, 0, 0.0f, 0.0f, 0.0f, 0.0f,0.0f, 0, nullptr, nullptr, nullptr);
 					}
 				__device__ __forceinline__ void
 					directCopySendScattered(const T** src, T* dst, ssize_t directOffset, int nelem) {
-						GenericOpScattered<0, 1, 0, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr,nelem, directOffset, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 1, 0, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr, nullptr,nelem, directOffset, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,0, nullptr, nullptr, nullptr);
 					}
 
 				__device__ __forceinline__ void
 					recvCopySendScattered(T** dst, int nelem) {
-						GenericOpScattered<0, 0, 1, 1, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr,nelem, 0, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 1, 1, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr, nullptr,nelem, 0, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, nullptr, nullptr, nullptr);
 					}
 				__device__ __forceinline__ void
 					directRecvCopySendScattered(T** dst, ssize_t directOffset, int nelem) {
-						GenericOpScattered<1, 1, 1, 1, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr,nelem, directOffset, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<1, 1, 1, 1, 0, 1, 0, 0, 0>(NULL, dst, NULL, NULL, nullptr, nullptr,nelem, directOffset, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, nullptr, nullptr, nullptr);
 					}
 
 				__device__ __forceinline__ void
 					recvReduceCopyScattered(const T** src, T** dst, int nelem) {
-						GenericOpScattered<0, 0, 1, 0, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr,nelem, 0, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 1, 0, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr, nullptr,nelem, 0, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, nullptr, nullptr, nullptr);
 					}
 
 				__device__ __forceinline__ void
 					recvReduceSendScattered(const T** src, ssize_t directOffset, int nelem) {
-						GenericOpScattered<0, 0, 1, 1, 1, 0, 0, 0, 0>(src, NULL, NULL, NULL, nullptr,nelem,directOffset, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 1, 1, 1, 0, 0, 0, 0>(src, NULL, NULL, NULL, nullptr, nullptr,nelem,directOffset, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, nullptr, nullptr, nullptr);
 					}
 
 				__device__ __forceinline__ void
 					recvReduceCopySendScattered(const T** src, T** dst, int nelem) {
-						GenericOpScattered<0, 0, 1, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr,nelem, 0, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 0, 1, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr, nullptr,nelem, 0, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, nullptr, nullptr, nullptr);
 					}
 				__device__ __forceinline__ void
 					directRecvReduceCopySend(const T** src, T** dst, ssize_t directOffset, int nelem) {
 						// Direct is only for the send part
-						GenericOpScattered<0, 1, 1, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL,nullptr, nelem, directOffset, (T)0.0, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 1, 1, 1, 1, 1, 0, 0, 0>(src, dst, NULL, NULL, nullptr,nullptr, nelem, directOffset, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, nullptr, nullptr, nullptr);
 					}
 
 				__device__ __forceinline__ void 
-					directRecvReduceCopySendAdam(const T** src, T** weight, T* firstMoment, T* secondMoment, 
-							ssize_t directOffset, int nelem, const T alpha, const T beta1, const T beta2, const int epoch, int partNum) {
-						GenericOpScattered<0, 1, 1, 1, 1, 1, 1, 0, 0>(src, weight, firstMoment, secondMoment, nullptr, nelem, directOffset, alpha, beta1, beta2, epoch, partNum, nullptr, nullptr);
+					directRecvReduceCopySendAdam(const T** src, T** weight, float** floatWeight, float* firstMoment, float* secondMoment, 
+							ssize_t directOffset, int nelem, const float alpha, const float beta1, const float beta2, const float unscaleParameter, const int epoch, int partNum,
+							int* numOverflows) {
+						GenericOpScattered<0, 1, 1, 1, 1, 1, 1, 0, 0>(src, weight, floatWeight, firstMoment, secondMoment, nullptr, nelem, directOffset, alpha, beta1, beta2, unscaleParameter, epoch, partNum, nullptr, nullptr, numOverflows);
 					}
 
 					__device__ __forceinline__ void 
-					directRecvReduceCopyLAMB(const T** src, T** weight, T* firstMoment, T* secondMoment, T* rStorage,
-							ssize_t directOffset, int nelem, const T alpha, const T beta1, const T beta2, const int epoch, int partNum, double* weightNorm, double* rNorm) {
-						GenericOpScattered<0, 0, 1, 0, 1, 1, 1, 1, 0>(src, weight, firstMoment, secondMoment, rStorage, nelem, directOffset, alpha, beta1, beta2, epoch, partNum, weightNorm, rNorm);
+					directRecvReduceCopyLAMB(const T** src, T** weight, float** floatWeight, float* firstMoment, float* secondMoment, float* rStorage,
+							ssize_t directOffset, int nelem, const float alpha, const float beta1, const float beta2, const float unscaleParameter,
+							const int epoch, int partNum, double* weightNorm, double* rNorm, int* numOverflows) {
+						GenericOpScattered<0, 0, 1, 0, 1, 1, 1, 1, 0>(src, weight, floatWeight,firstMoment, secondMoment, rStorage, nelem, directOffset, alpha, beta1, beta2, unscaleParameter, epoch, partNum, weightNorm, rNorm, numOverflows);
 					}
 
 				__device__ __forceinline__ void 
 					directRecvReduceCopySendWeight(const T** src, T** weight, ssize_t directOffset, int nelem, const T alpha) {
-						GenericOpScattered<0, 1, 1, 1, 1, 1, 1, 0, 0>(src, weight, NULL, NULL, nullptr, nelem, directOffset, alpha, (T)0.0, (T)0.0, (T)0.0, 0, nullptr, nullptr);
+						GenericOpScattered<0, 1, 1, 1, 1, 1, 1, 0, 0>(src, weight, NULL, nullptr, NULL, nullptr, nelem, directOffset, alpha, 0.0f, 0.0f, 0.0f, 0.0f,0, nullptr, nullptr, nullptr);
 					}
 
 				  __device__ __forceinline__ void
 					send(const double* src, int nelem) {
-						GenericOp<0, 0, 0, 1, 1, 0>(src, NULL, nelem, 0);
+						GenericOp<double, FuncSum<double>, 0, 0, 0, 1, 1, 0>(src, NULL, nelem, 0);
 					}
 					__device__ __forceinline__ void
 					directSend(const double* src, ssize_t directOffset, int nelem) {
-						GenericOp<0, 1, 0, 1, 1, 0>(src, NULL, nelem, directOffset);
+						GenericOp<double, FuncSum<double>, 0, 1, 0, 1, 1, 0>(src, NULL, nelem, directOffset);
 					}
 
 					__device__ __forceinline__ void
 					recv(double* dst, int nelem) {
-						GenericOp<0, 0, 1, 0, 0, 1>(NULL, dst, nelem, 0);
+						GenericOp<double, FuncSum<double>,0, 0, 1, 0, 0, 1>(NULL, dst, nelem, 0);
 					}
 					__device__ __forceinline__ void
 					directRecv(double* dst, ssize_t directOffset, int nelem) {
-						GenericOp<1, 0, 1, 0, 0, 1>(NULL, dst, nelem, directOffset);
+						GenericOp<double, FuncSum<double>,1, 0, 1, 0, 0, 1>(NULL, dst, nelem, directOffset);
 					}
 
 					__device__ __forceinline__ void
 					copySend(const double* src, double* dst, int nelem) {
-						GenericOp<0, 0, 0, 1, 1, 1>(src, dst, nelem, 0);
+						GenericOp<double, FuncSum<double>,0, 0, 0, 1, 1, 1>(src, dst, nelem, 0);
 					}
 					__device__ __forceinline__ void
 					directCopySend(const double* src, double* dst, ssize_t directOffset, int nelem) {
-						GenericOp<0, 1, 0, 1, 1, 1>(src, dst, nelem, directOffset);
+						GenericOp<double, FuncSum<double>,0, 1, 0, 1, 1, 1>(src, dst, nelem, directOffset);
 					}
 
 					__device__ __forceinline__ void
 					recvCopySend(double* dst, int nelem) {
-						GenericOp<0, 0, 1, 1, 0, 1>(NULL, dst, nelem, 0);
+						GenericOp<double, FuncSum<double>,0, 0, 1, 1, 0, 1>(NULL, dst, nelem, 0);
 					}
 					__device__ __forceinline__ void
 					directRecvCopySend(double* dst, ssize_t directOffset, int nelem) {
-						GenericOp<1, 1, 1, 1, 0, 1>(NULL, dst, nelem, directOffset);
+						GenericOp<double, FuncSum<double>,1, 1, 1, 1, 0, 1>(NULL, dst, nelem, directOffset);
 					}
 
 					__device__ __forceinline__ void
 					recvReduceCopy(const double* src, double* dst, int nelem) {
-						GenericOp<0, 0, 1, 0, 1, 1>(src, dst, nelem, 0);
+						GenericOp<double, FuncSum<double>,0, 0, 1, 0, 1, 1>(src, dst, nelem, 0);
 					}
 
 					__device__ __forceinline__ void
 					recvReduceSend(const double* src, int nelem) {
-						GenericOp<0, 0, 1, 1, 1, 0>(src, NULL, nelem, 0);
+						GenericOp<double, FuncSum<double>,0, 0, 1, 1, 1, 0>(src, NULL, nelem, 0);
 					}
 
 					__device__ __forceinline__ void
 					recvReduceCopySend(const double* src, double* dst, int nelem) {
-						GenericOp<0, 0, 1, 1, 1, 1>(src, dst, nelem, 0);
+						GenericOp<double, FuncSum<double>,0, 0, 1, 1, 1, 1>(src, dst, nelem, 0);
 					}
 					__device__ __forceinline__ void
 					directRecvReduceCopySend(const double* src, double* dst, ssize_t directOffset, int nelem) {
 						// Direct is only for the send part
-						GenericOp<0, 1, 1, 1, 1, 1>(src, dst, nelem, directOffset);
+						GenericOp<double, FuncSum<double>, 0, 1, 1, 1, 1, 1>(src, dst, nelem, directOffset);
+					}
+
+					__device__ __forceinline__ void
+					sendInt(const int* src, int nelem) {
+						GenericOp<int, FuncSum<int>,0, 0, 0, 1, 1, 0>(src, NULL, nelem, 0);
+					}
+
+					__device__ __forceinline__ void
+					recvReduceCopyInt(const int* src, int* dst, int nelem) {
+						GenericOp<int, FuncSum<int>,0, 0, 1, 0, 1, 1>(src, dst, nelem, 0);
+					}
+
+					__device__ __forceinline__ void
+					recvReduceSendInt(const int* src, int nelem) {
+						GenericOp<int, FuncSum<int>,0, 0, 1, 1, 1, 0>(src, NULL, nelem, 0);
 					}
 
 				__device__ __forceinline__ ~ncclScatteredPrimitives() {

@@ -40,12 +40,25 @@ struct FBGEMM_API RequantizationParams {
 ////////////////////////////////////////////////////////////////////////////////
 // Utility functions
 
-template <typename T = std::uint8_t>
+template <typename T = std::uint8_t, bool LEGACY = true>
 void QuantizeAvx2(
     const float* src,
     T* dst,
     int len,
     const TensorQuantizationParams& qparams);
+
+template <typename T = std::uint8_t>
+void FusedQuantizeDequantizeAvx2(
+    const float* src,
+    float* dst,
+    int len,
+    const TensorQuantizationParams& qparams,
+    float noise_ratio=0.0f);
+
+/*
+ * Random number generator in [0, 9]: https://www.jstatsoft.org/v08/i14/paper
+ */
+uint32_t FBGEMM_API Xor128(void);
 
 /**
  * @brief Find the min and max value in a float matrix.
@@ -111,5 +124,33 @@ FBGEMM_API void requantizeForFloatAvx2(
     int ld_out,
     int ld_in,
     const requantizationForFloatParams_t& r);
+
+template <typename InputType, int BIT_RATE>
+void FloatOrHalfToFusedNBitRowwiseQuantizedSBHalfAvx2(
+    const InputType* input,
+    int input_rows,
+    int input_columns,
+    std::uint8_t* output);
+
+template <typename InputType>
+void FloatOrHalfToFused8BitRowwiseQuantizedSBFloatAvx2(
+    const InputType* input,
+    int input_rows,
+    int input_columns,
+    std::uint8_t* output);
+
+template <typename OutputType, int BIT_RATE>
+void FusedNBitRowwiseQuantizedSBHalfToFloatOrHalfAvx2(
+    const std::uint8_t* input,
+    int input_rows,
+    int input_columns,
+    OutputType* output);
+
+template <typename OutputType>
+void Fused8BitRowwiseQuantizedSBFloatToFloatOrHalfAvx2(
+    const std::uint8_t* input,
+    int input_rows,
+    int input_columns,
+    OutputType* output);
 
 } // namespace fbgemm

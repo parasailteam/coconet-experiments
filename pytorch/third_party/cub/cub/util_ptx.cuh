@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,12 +90,8 @@ __device__ __forceinline__ unsigned int SHR_ADD(
     unsigned int addend)
 {
     unsigned int ret;
-#if CUB_PTX_ARCH >= 200
     asm ("vshr.u32.u32.u32.clamp.add %0, %1, %2, %3;" :
         "=r"(ret) : "r"(x), "r"(shift), "r"(addend));
-#else
-    ret = (x >> shift) + addend;
-#endif
     return ret;
 }
 
@@ -109,12 +105,8 @@ __device__ __forceinline__ unsigned int SHL_ADD(
     unsigned int addend)
 {
     unsigned int ret;
-#if CUB_PTX_ARCH >= 200
     asm ("vshl.u32.u32.u32.clamp.add %0, %1, %2, %3;" :
         "=r"(ret) : "r"(x), "r"(shift), "r"(addend));
-#else
-    ret = (x << shift) + addend;
-#endif
     return ret;
 }
 
@@ -131,12 +123,7 @@ __device__ __forceinline__ unsigned int BFE(
     Int2Type<BYTE_LEN>      /*byte_len*/)
 {
     unsigned int bits;
-#if CUB_PTX_ARCH >= 200
     asm ("bfe.u32 %0, %1, %2, %3;" : "=r"(bits) : "r"((unsigned int) source), "r"(bit_start), "r"(num_bits));
-#else
-    const unsigned int MASK = (1 << num_bits) - 1;
-    bits = (source >> bit_start) & MASK;
-#endif
     return bits;
 }
 
@@ -180,15 +167,8 @@ __device__ __forceinline__ void BFI(
     unsigned int bit_start,
     unsigned int num_bits)
 {
-#if CUB_PTX_ARCH >= 200
     asm ("bfi.b32 %0, %1, %2, %3, %4;" :
         "=r"(ret) : "r"(y), "r"(x), "r"(bit_start), "r"(num_bits));
-#else
-    x <<= bit_start;
-    unsigned int MASK_X = ((1 << num_bits) - 1) << bit_start;
-    unsigned int MASK_Y = ~MASK_X;
-    ret = (y & MASK_Y) | (x & MASK_X);
-#endif
 }
 
 
@@ -197,11 +177,7 @@ __device__ __forceinline__ void BFI(
  */
 __device__ __forceinline__ unsigned int IADD3(unsigned int x, unsigned int y, unsigned int z)
 {
-#if CUB_PTX_ARCH >= 200
     asm ("vadd.u32.u32.u32.add %0, %1, %2, %3;" : "=r"(x) : "r"(x), "r"(y), "r"(z));
-#else
-    x = x + y + z;
-#endif
     return x;
 }
 
@@ -320,14 +296,14 @@ __device__  __forceinline__ int WARP_BALLOT(int predicate, unsigned int member_m
  * Warp synchronous shfl_up
  */
 __device__ __forceinline__ 
-unsigned int SHFL_UP_SYNC(unsigned int word, int src_offset, int first_lane, unsigned int member_mask)
+unsigned int SHFL_UP_SYNC(unsigned int word, int src_offset, int flags, unsigned int member_mask)
 {
 #ifdef CUB_USE_COOPERATIVE_GROUPS
     asm volatile("shfl.sync.up.b32 %0, %1, %2, %3, %4;"
-        : "=r"(word) : "r"(word), "r"(src_offset), "r"(first_lane), "r"(member_mask));
+        : "=r"(word) : "r"(word), "r"(src_offset), "r"(flags), "r"(member_mask));
 #else
     asm volatile("shfl.up.b32 %0, %1, %2, %3;"
-        : "=r"(word) : "r"(word), "r"(src_offset), "r"(first_lane));
+        : "=r"(word) : "r"(word), "r"(src_offset), "r"(flags));
 #endif
     return word;
 }
@@ -336,14 +312,14 @@ unsigned int SHFL_UP_SYNC(unsigned int word, int src_offset, int first_lane, uns
  * Warp synchronous shfl_down
  */
 __device__ __forceinline__ 
-unsigned int SHFL_DOWN_SYNC(unsigned int word, int src_offset, int last_lane, unsigned int member_mask)
+unsigned int SHFL_DOWN_SYNC(unsigned int word, int src_offset, int flags, unsigned int member_mask)
 {
 #ifdef CUB_USE_COOPERATIVE_GROUPS
     asm volatile("shfl.sync.down.b32 %0, %1, %2, %3, %4;"
-        : "=r"(word) : "r"(word), "r"(src_offset), "r"(last_lane), "r"(member_mask));
+        : "=r"(word) : "r"(word), "r"(src_offset), "r"(flags), "r"(member_mask));
 #else
     asm volatile("shfl.down.b32 %0, %1, %2, %3;"
-        : "=r"(word) : "r"(word), "r"(src_offset), "r"(last_lane));
+        : "=r"(word) : "r"(word), "r"(src_offset), "r"(flags));
 #endif
     return word;
 }
@@ -352,14 +328,14 @@ unsigned int SHFL_DOWN_SYNC(unsigned int word, int src_offset, int last_lane, un
  * Warp synchronous shfl_idx
  */
 __device__ __forceinline__ 
-unsigned int SHFL_IDX_SYNC(unsigned int word, int src_lane, int last_lane, unsigned int member_mask)
+unsigned int SHFL_IDX_SYNC(unsigned int word, int src_lane, int flags, unsigned int member_mask)
 {
 #ifdef CUB_USE_COOPERATIVE_GROUPS
     asm volatile("shfl.sync.idx.b32 %0, %1, %2, %3, %4;"
-        : "=r"(word) : "r"(word), "r"(src_lane), "r"(last_lane), "r"(member_mask));
+        : "=r"(word) : "r"(word), "r"(src_lane), "r"(flags), "r"(member_mask));
 #else
     asm volatile("shfl.idx.b32 %0, %1, %2, %3;"
-        : "=r"(word) : "r"(word), "r"(src_lane), "r"(last_lane));
+        : "=r"(word) : "r"(word), "r"(src_lane), "r"(flags));
 #endif
     return word;
 }
@@ -484,6 +460,9 @@ __device__ __forceinline__ unsigned int LaneMaskGe()
  * \brief Shuffle-up for any data type.  Each <em>warp-lane<sub>i</sub></em> obtains the value \p input contributed by <em>warp-lane</em><sub><em>i</em>-<tt>src_offset</tt></sub>.  For thread lanes \e i < src_offset, the thread's own \p input is returned to the thread. ![](shfl_up_logo.png)
  * \ingroup WarpModule
  *
+ * \tparam LOGICAL_WARP_THREADS     The number of threads per "logical" warp.  Must be a power-of-two <= 32.
+ * \tparam T                        <b>[inferred]</b> The input/output element type
+ *
  * \par
  * - Available only for SM3.0 or newer
  *
@@ -500,7 +479,7 @@ __device__ __forceinline__ unsigned int LaneMaskGe()
  *     double thread_data = ...
  *
  *     // Obtain item from two ranks below
- *     double peer_data = ShuffleUp(thread_data, 2, 0, 0xffffffff);
+ *     double peer_data = ShuffleUp<32>(thread_data, 2, 0, 0xffffffff);
  *
  * \endcode
  * \par
@@ -508,13 +487,20 @@ __device__ __forceinline__ unsigned int LaneMaskGe()
  * The corresponding output \p peer_data will be <tt>{1.0, 2.0, 1.0, 2.0, 3.0, ..., 30.0}</tt>.
  *
  */
-template <typename T>
+template <
+    int LOGICAL_WARP_THREADS,   ///< Number of threads per logical warp
+    typename T>
 __device__ __forceinline__ T ShuffleUp(
     T               input,              ///< [in] The value to broadcast
     int             src_offset,         ///< [in] The relative down-offset of the peer to read from
-    int             first_lane,         ///< [in] Index of first lane in segment (typically 0)
+    int             first_thread,       ///< [in] Index of first lane in logical warp (typically 0)
     unsigned int    member_mask)        ///< [in] 32-bit mask of participating warp lanes
 {
+    /// The 5-bit SHFL mask for logically splitting warps into sub-segments starts 8-bits up
+    enum {
+        SHFL_C = (32 - LOGICAL_WARP_THREADS) << 8
+    };
+
     typedef typename UnitWord<T>::ShuffleWord ShuffleWord;
 
     const int       WORDS           = (sizeof(T) + sizeof(ShuffleWord) - 1) / sizeof(ShuffleWord);
@@ -524,13 +510,13 @@ __device__ __forceinline__ T ShuffleUp(
     ShuffleWord     *input_alias    = reinterpret_cast<ShuffleWord *>(&input);
 
     unsigned int shuffle_word;
-    shuffle_word = SHFL_UP_SYNC((unsigned int)input_alias[0], src_offset, first_lane, member_mask);
+    shuffle_word = SHFL_UP_SYNC((unsigned int)input_alias[0], src_offset, first_thread | SHFL_C, member_mask);
     output_alias[0] = shuffle_word;
 
     #pragma unroll
     for (int WORD = 1; WORD < WORDS; ++WORD)
     {
-        shuffle_word       = SHFL_UP_SYNC((unsigned int)input_alias[WORD], src_offset, first_lane, member_mask);
+        shuffle_word       = SHFL_UP_SYNC((unsigned int)input_alias[WORD], src_offset, first_thread | SHFL_C, member_mask);
         output_alias[WORD] = shuffle_word;
     }
 
@@ -541,6 +527,9 @@ __device__ __forceinline__ T ShuffleUp(
 /**
  * \brief Shuffle-down for any data type.  Each <em>warp-lane<sub>i</sub></em> obtains the value \p input contributed by <em>warp-lane</em><sub><em>i</em>+<tt>src_offset</tt></sub>.  For thread lanes \e i >= WARP_THREADS, the thread's own \p input is returned to the thread.  ![](shfl_down_logo.png)
  * \ingroup WarpModule
+ *
+ * \tparam LOGICAL_WARP_THREADS     The number of threads per "logical" warp.  Must be a power-of-two <= 32.
+ * \tparam T                        <b>[inferred]</b> The input/output element type
  *
  * \par
  * - Available only for SM3.0 or newer
@@ -558,7 +547,7 @@ __device__ __forceinline__ T ShuffleUp(
  *     double thread_data = ...
  *
  *     // Obtain item from two ranks below
- *     double peer_data = ShuffleDown(thread_data, 2, 31, 0xffffffff);
+ *     double peer_data = ShuffleDown<32>(thread_data, 2, 31, 0xffffffff);
  *
  * \endcode
  * \par
@@ -566,13 +555,20 @@ __device__ __forceinline__ T ShuffleUp(
  * The corresponding output \p peer_data will be <tt>{3.0, 4.0, 5.0, 6.0, 7.0, ..., 32.0}</tt>.
  *
  */
-template <typename T>
+template <
+    int LOGICAL_WARP_THREADS,   ///< Number of threads per logical warp
+    typename T>
 __device__ __forceinline__ T ShuffleDown(
     T               input,              ///< [in] The value to broadcast
     int             src_offset,         ///< [in] The relative up-offset of the peer to read from
-    int             last_lane,          ///< [in] Index of first lane in segment (typically 31)
+    int             last_thread,        ///< [in] Index of last thread in logical warp (typically 31 for a 32-thread warp)
     unsigned int    member_mask)        ///< [in] 32-bit mask of participating warp lanes
 {
+    /// The 5-bit SHFL mask for logically splitting warps into sub-segments starts 8-bits up
+    enum {
+        SHFL_C = (32 - LOGICAL_WARP_THREADS) << 8
+    };
+
     typedef typename UnitWord<T>::ShuffleWord ShuffleWord;
 
     const int       WORDS           = (sizeof(T) + sizeof(ShuffleWord) - 1) / sizeof(ShuffleWord);
@@ -582,13 +578,13 @@ __device__ __forceinline__ T ShuffleDown(
     ShuffleWord     *input_alias    = reinterpret_cast<ShuffleWord *>(&input);
 
     unsigned int shuffle_word;
-    shuffle_word    = SHFL_DOWN_SYNC((unsigned int)input_alias[0], src_offset, last_lane, member_mask);
+    shuffle_word    = SHFL_DOWN_SYNC((unsigned int)input_alias[0], src_offset, last_thread | SHFL_C, member_mask);
     output_alias[0] = shuffle_word;
 
     #pragma unroll
     for (int WORD = 1; WORD < WORDS; ++WORD)
     {
-        shuffle_word       = SHFL_DOWN_SYNC((unsigned int)input_alias[WORD], src_offset, last_lane, member_mask);
+        shuffle_word       = SHFL_DOWN_SYNC((unsigned int)input_alias[WORD], src_offset, last_thread | SHFL_C, member_mask);
         output_alias[WORD] = shuffle_word;
     }
 
@@ -600,6 +596,9 @@ __device__ __forceinline__ T ShuffleDown(
  * \brief Shuffle-broadcast for any data type.  Each <em>warp-lane<sub>i</sub></em> obtains the value \p input
  * contributed by <em>warp-lane</em><sub><tt>src_lane</tt></sub>.  For \p src_lane < 0 or \p src_lane >= WARP_THREADS,
  * then the thread's own \p input is returned to the thread. ![](shfl_broadcast_logo.png)
+ *
+ * \tparam LOGICAL_WARP_THREADS     The number of threads per "logical" warp.  Must be a power-of-two <= 32.
+ * \tparam T                        <b>[inferred]</b> The input/output element type
  *
  * \ingroup WarpModule
  *
@@ -619,7 +618,7 @@ __device__ __forceinline__ T ShuffleDown(
  *     double thread_data = ...
  *
  *     // Obtain item from thread 0
- *     double peer_data = ShuffleIndex(thread_data, 0, 32, 0xffffffff);
+ *     double peer_data = ShuffleIndex<32>(thread_data, 0, 0xffffffff);
  *
  * \endcode
  * \par
@@ -627,13 +626,19 @@ __device__ __forceinline__ T ShuffleDown(
  * The corresponding output \p peer_data will be <tt>{1.0, 1.0, 1.0, 1.0, 1.0, ..., 1.0}</tt>.
  *
  */
-template <typename T>
+template <
+    int LOGICAL_WARP_THREADS,   ///< Number of threads per logical warp
+    typename T>
 __device__ __forceinline__ T ShuffleIndex(
     T               input,                  ///< [in] The value to broadcast
     int             src_lane,               ///< [in] Which warp lane is to do the broadcasting
-    int             logical_warp_threads,   ///< [in] Number of threads per logical warp
     unsigned int    member_mask)            ///< [in] 32-bit mask of participating warp lanes
 {
+    /// The 5-bit SHFL mask for logically splitting warps into sub-segments starts 8-bits up
+    enum {
+        SHFL_C = ((32 - LOGICAL_WARP_THREADS) << 8) | (LOGICAL_WARP_THREADS - 1)
+    };
+
     typedef typename UnitWord<T>::ShuffleWord ShuffleWord;
 
     const int       WORDS           = (sizeof(T) + sizeof(ShuffleWord) - 1) / sizeof(ShuffleWord);
@@ -645,7 +650,7 @@ __device__ __forceinline__ T ShuffleIndex(
     unsigned int shuffle_word;
     shuffle_word = SHFL_IDX_SYNC((unsigned int)input_alias[0],
                                  src_lane,
-                                 logical_warp_threads - 1,
+                                 SHFL_C,
                                  member_mask);
 
     output_alias[0] = shuffle_word;
@@ -655,7 +660,7 @@ __device__ __forceinline__ T ShuffleIndex(
     {
         shuffle_word = SHFL_IDX_SYNC((unsigned int)input_alias[WORD],
                                      src_lane,
-                                     logical_warp_threads - 1,
+                                     SHFL_C,
                                      member_mask);
 
         output_alias[WORD] = shuffle_word;

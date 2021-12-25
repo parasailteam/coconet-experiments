@@ -12,8 +12,8 @@ NCCL_API(ncclResult_t, ncclBroadcast, const void* sendbuff, void* recvbuff, size
 ncclResult_t ncclBroadcast(const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype, int root,
     ncclComm_t comm, cudaStream_t stream) {
   struct ncclInfo info = { ncclCollBroadcast, "Broadcast",
-    sendbuff, recvbuff, NULL, NULL, NULL, nullptr, nullptr, nullptr, nullptr, 0, 
-    /*ReduceScattered Params*/ nullptr, nullptr, nullptr, nullptr, 0, nullptr, count, datatype, ncclSum, root, comm, stream, /* Args */
+    sendbuff, recvbuff, NULL, NULL, NULL, nullptr,nullptr, nullptr, nullptr, nullptr, 0, 
+    /*ReduceScattered Params*/ nullptr, nullptr,nullptr, nullptr, nullptr, 0, nullptr, count, datatype, ncclSum, root, comm, stream, /* Args */
     BROADCAST_CHUNKSTEPS, BROADCAST_SLICESTEPS };
   return ncclEnqueueCheck(&info);
 }

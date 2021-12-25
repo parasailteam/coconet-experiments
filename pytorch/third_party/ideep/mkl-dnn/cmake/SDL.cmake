@@ -1,5 +1,6 @@
 #===============================================================================
-# Copyright 2017-2018 Intel Corporation
+# Copyright 2017-2021 Intel Corporation
+# Copyright 2021 FUJITSU LIMITED
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +44,11 @@ if(UNIX)
         append(CMAKE_SRC_CCXX_FLAGS "-Wmissing-field-initializers")
         append(CMAKE_EXAMPLE_CCXX_FLAGS "-Wmissing-field-initializers")
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        append(CMAKE_CCXX_FLAGS "-fstack-protector-all")
+        get_filename_component(CXX_CMD_NAME ${CMAKE_CXX_COMPILER} NAME)
+        # Fujitsu CXX compiler does not support "-fstack-protector-all".
+        if(NOT CXX_CMD_NAME STREQUAL "FCC")
+            append(CMAKE_CCXX_FLAGS "-fstack-protector-all")
+        endif()
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
         append(CMAKE_CXX_FLAGS "-fstack-protector")
     endif()
@@ -57,4 +62,6 @@ if(UNIX)
         append(CMAKE_SHARED_LINKER_FLAGS "-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now")
         append(CMAKE_EXE_LINKER_FLAGS "-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now")
     endif()
+elseif(MSVC AND ${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
+    set(CMAKE_CCXX_FLAGS "/guard:cf")
 endif()

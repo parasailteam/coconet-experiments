@@ -4,7 +4,6 @@
 #include <list>
 #include <unordered_map>
 #include "abstract_types.hpp"
-#include "utils.hpp"
 
 namespace ideep {
 namespace utils {
@@ -147,9 +146,9 @@ public:
   using iterator = typename lru_cache<key_t, value_t>::iterator;
 
 protected:
-  template <typename ...Ts>
-  static inline iterator create(const key_t& key, Ts&&... args) {
-    auto it = t_store().insert(std::make_pair(key,value_t(std::forward<Ts>(args)...)));
+  template <typename T>
+  static inline iterator create(const key_t& key, T&& args) {
+    auto it = t_store().insert(std::make_pair(key, std::forward<T>(args)));
     return it.first;
   }
 
@@ -170,9 +169,10 @@ protected:
   }
 
 public:
-  template <typename ...Ts>
-  static inline value_t& fetch_or_create(const key_t& key, Ts&&... args) {
-    return fetch(create(key, std::forward<Ts>(args)...));
+ static inline value_t& fetch_or_create(
+     const key_t& key, const std::function<value_t()>& callback) {
+    auto it = find(key);
+    return it == end() ? fetch(create((key), callback())) : fetch(it);
   }
 
   static inline void release(const key_t& key, const value_t& computation) {}
@@ -193,13 +193,6 @@ public:
     return t_store_;
   }
 };
-
-// Possible better performance, but use inside class scope only (private)
-#define fetch_or_create_m(op, key, ...)                 \
-    auto it = find(key);                                \
-    if (it == end()) { it = create(key, __VA_ARGS__); } \
-    auto op = fetch(it);
-
 }
 }
 #endif

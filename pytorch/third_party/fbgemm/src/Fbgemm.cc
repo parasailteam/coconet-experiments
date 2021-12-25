@@ -53,6 +53,7 @@ void fbgemmPacked(
   if ((!fbgemmHasAvx512VnniSupport() && !fbgemmHasAvx512Support() &&
        !fbgemmHasAvx2Support())) {
     assert(0 && "unknown architecure");
+    throw std::runtime_error("unknown architecure");
   }
 
   int MCB;
@@ -63,47 +64,47 @@ void fbgemmPacked(
     MCB = blocking_params->MCB;
     KCB = blocking_params->KCB;
     MR = blocking_params->MR;
-
   } else {
-    if (fbgemmHasAvx512VnniSupport()) {
-      MCB = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512_vnni>::MCB;
-      KCB = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512_vnni>::KCB;
-      MR = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512_vnni>::MR;
-    } else if (fbgemmHasAvx512Support()) {
-      MCB = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512>::MCB;
-      KCB = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512>::KCB;
-      MR = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx512>::MR;
-    } else {
-      MCB = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx2>::MCB;
-      KCB = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx2>::KCB;
-      MR = PackingTraits<
-          typename packingAMatrix::inpType,
-          typename packingAMatrix::accType,
-          inst_set_t::avx2>::MR;
+    const inst_set_t isa = fbgemmInstructionSet();
+    switch (isa) {
+      case inst_set_t::avx512_vnni:
+        std::tie(MCB, KCB, MR) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512_vnni>::getCacheBlockParams();
+        break;
+
+      case inst_set_t::avx512_vnni_ymm:
+        std::tie(MCB, KCB, MR) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512_vnni_ymm>::getCacheBlockParams();
+        break;
+
+      case inst_set_t::avx512:
+        std::tie(MCB, KCB, MR) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512>::getCacheBlockParams();
+        break;
+
+      case inst_set_t::avx512_ymm:
+        std::tie(MCB, KCB, MR) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx512_ymm>::getCacheBlockParams();
+        break;
+
+      case inst_set_t::avx2:
+        std::tie(MCB, KCB, MR) = PackingTraits<
+            typename packingAMatrix::inpType,
+            typename packingAMatrix::accType,
+            inst_set_t::avx2>::getCacheBlockParams();
+        break;
+
+      default:
+        assert(0 && "unknown architecure");
+        throw std::runtime_error("unknown architecure");
     }
   }
 
@@ -206,7 +207,9 @@ void fbgemmPacked(
 
 template <int SPATIAL_DIM>
 bool fbgemmOptimizedGConv(const conv_param_t<SPATIAL_DIM>& conv_p) {
-  static_assert(SPATIAL_DIM >= 2, "Unsupported spatial dims");
+  if (SPATIAL_DIM == 1)
+    return false;
+
   int C_per_G = conv_p.IC / conv_p.G;
   int K_per_G = conv_p.OC / conv_p.G;
 
@@ -244,9 +247,11 @@ bool fbgemmOptimizedGConv(const conv_param_t<SPATIAL_DIM>& conv_p) {
        std::all_of(
            conv_p.stride.begin() + SPATIAL_DIM - 2,
            conv_p.stride.end(),
-           std::bind(areEqual, std::placeholders::_1, 2)));
+           std::bind(areEqual, std::placeholders::_1, 2))) &&
+      !conv_p.transposed;
 }
 
+template FBGEMM_API bool fbgemmOptimizedGConv(const conv_param_t<1>& conv_p);
 template FBGEMM_API bool fbgemmOptimizedGConv(const conv_param_t<2>& conv_p);
 template FBGEMM_API bool fbgemmOptimizedGConv(const conv_param_t<3>& conv_p);
 
@@ -259,6 +264,7 @@ bool fbgemmSupportedCPU() {
 template class FBGEMM_API memCopy<std::int32_t, std::int32_t>;
 template class FBGEMM_API DoNothing<std::int32_t, std::int32_t>;
 template class FBGEMM_API DoNothing<float, float>;
+template class FBGEMM_API DoNothing<std::uint8_t, std::uint8_t>;
 template class FBGEMM_API
     ReQuantizeForFloat<false, QuantizationGranularity::TENSOR>;
 template class FBGEMM_API
@@ -274,19 +280,19 @@ template class FBGEMM_API
 
 #define INSTANTIATE_BASE(FNAME, RELU, Q_GRAN) \
   template class FBGEMM_API                   \
-      FNAME<std::uint8_t, std::int32_t, ReQuantizeOutput<RELU, Q_GRAN>>
+      FNAME<std::uint8_t, std::int32_t, ReQuantizeOutput<RELU, Q_GRAN>>;
 
 #define INSTANTIATE_Q_GRAN(FNAME, RELU)                           \
-  INSTANTIATE_BASE(FNAME, RELU, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BASE(FNAME, RELU, QuantizationGranularity::GROUP);  \
-  INSTANTIATE_BASE(FNAME, RELU, QuantizationGranularity::OUT_CHANNEL);
+  INSTANTIATE_BASE(FNAME, RELU, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BASE(FNAME, RELU, QuantizationGranularity::GROUP)   \
+  INSTANTIATE_BASE(FNAME, RELU, QuantizationGranularity::OUT_CHANNEL)
 
 #define INSTANTIATE_RELU(FNAME)     \
-  INSTANTIATE_Q_GRAN(FNAME, false); \
-  INSTANTIATE_Q_GRAN(FNAME, true);
+  INSTANTIATE_Q_GRAN(FNAME, false)  \
+  INSTANTIATE_Q_GRAN(FNAME, true)
 
-INSTANTIATE_RELU(DoSpmdmOnInpBuffer);
-INSTANTIATE_RELU(DoSConvOnInpBuffer);
+INSTANTIATE_RELU(DoSpmdmOnInpBuffer)
+INSTANTIATE_RELU(DoSConvOnInpBuffer)
 
 #undef INSTANTIATE_RELU
 #undef INSTANTIATE_Q_GRAN
@@ -305,12 +311,12 @@ template class FBGEMM_API DoSpmdmOnInpBuffer<
   INSTANTIATE_BASE(RELU, Q_GRAN, float)
 
 #define INSTANTIATE_Q_GRAN(RELU)                             \
-  INSTANTIATE_BIAS_T(RELU, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BIAS_T(RELU, QuantizationGranularity::GROUP);  \
-  INSTANTIATE_BIAS_T(RELU, QuantizationGranularity::OUT_CHANNEL);
+  INSTANTIATE_BIAS_T(RELU, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BIAS_T(RELU, QuantizationGranularity::GROUP)   \
+  INSTANTIATE_BIAS_T(RELU, QuantizationGranularity::OUT_CHANNEL)
 
-INSTANTIATE_Q_GRAN(false);
-INSTANTIATE_Q_GRAN(true);
+INSTANTIATE_Q_GRAN(false)
+INSTANTIATE_Q_GRAN(true)
 
 #undef INSTANTIATE_Q_GRAN
 #undef INSTANTIATE_BIAS_T
@@ -330,24 +336,24 @@ INSTANTIATE_Q_GRAN(true);
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, Q_GRAN) \
-  INSTANTIATE_BASE(PACK_A, ACC_T, RELU, Q_GRAN, float); \
-  INSTANTIATE_BASE(PACK_A, ACC_T, RELU, Q_GRAN, int32_t);
+  INSTANTIATE_BASE(PACK_A, ACC_T, RELU, Q_GRAN, float)  \
+  INSTANTIATE_BASE(PACK_A, ACC_T, RELU, Q_GRAN, int32_t)
 
 #define INSTANTIATE_Q_GRANS(PACK_A, ACC_T, RELU)                            \
-  INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, QuantizationGranularity::GROUP);  \
-  INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, QuantizationGranularity::OUT_CHANNEL);
+  INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, QuantizationGranularity::GROUP)   \
+  INSTANTIATE_BIAS_T(PACK_A, ACC_T, RELU, QuantizationGranularity::OUT_CHANNEL)
 
 #define INSTANTIATE_RELU(PACK_A, ACC_T)      \
-  INSTANTIATE_Q_GRANS(PACK_A, ACC_T, false); \
-  INSTANTIATE_Q_GRANS(PACK_A, ACC_T, true);
+  INSTANTIATE_Q_GRANS(PACK_A, ACC_T, false)  \
+  INSTANTIATE_Q_GRANS(PACK_A, ACC_T, true)
 
 #define INSTANTIATE_ACC_T(PACK_A)    \
-  INSTANTIATE_RELU(PACK_A, int32_t); \
-  INSTANTIATE_RELU(PACK_A, int16_t);
+  INSTANTIATE_RELU(PACK_A, int32_t)  \
+  INSTANTIATE_RELU(PACK_A, int16_t)
 
-INSTANTIATE_ACC_T(PackAMatrix);
-INSTANTIATE_ACC_T(PackAWithRowOffset);
+INSTANTIATE_ACC_T(PackAMatrix)
+INSTANTIATE_ACC_T(PackAWithRowOffset)
 
 #undef INSTANTIATE_ACC_T
 #undef INSTANTIATE_RELU
@@ -371,27 +377,28 @@ INSTANTIATE_ACC_T(PackAWithRowOffset);
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_BIAS_T(ACC_T, RELU, SPATIAL_DIM, Q_GRAN) \
-  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, Q_GRAN, float); \
-  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, Q_GRAN, int32_t);
+  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, Q_GRAN, float)  \
+  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, Q_GRAN, int32_t)
 
 #define INSTANTIATE_Q_GRANS(ACC_T, RELU, SPATIAL_DIM)             \
   INSTANTIATE_BIAS_T(                                             \
-      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::TENSOR); \
+      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::TENSOR)  \
   INSTANTIATE_BIAS_T(                                             \
-      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::GROUP);  \
+      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::GROUP)   \
   INSTANTIATE_BIAS_T(                                             \
-      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::OUT_CHANNEL);
+      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::OUT_CHANNEL)
 
 #define INSTANTIATE_SPATIAL_DIM(ACC_T, RELU) \
-  INSTANTIATE_Q_GRANS(ACC_T, RELU, 2);       \
-  INSTANTIATE_Q_GRANS(ACC_T, RELU, 3);
+  INSTANTIATE_Q_GRANS(ACC_T, RELU, 1)        \
+  INSTANTIATE_Q_GRANS(ACC_T, RELU, 2)        \
+  INSTANTIATE_Q_GRANS(ACC_T, RELU, 3)
 
 #define INSTANTIATE_RELU(ACC_T)          \
-  INSTANTIATE_SPATIAL_DIM(ACC_T, false); \
-  INSTANTIATE_SPATIAL_DIM(ACC_T, true);
+  INSTANTIATE_SPATIAL_DIM(ACC_T, false)  \
+  INSTANTIATE_SPATIAL_DIM(ACC_T, true)
 
-INSTANTIATE_RELU(int32_t);
-INSTANTIATE_RELU(int16_t);
+INSTANTIATE_RELU(int32_t)
+INSTANTIATE_RELU(int16_t)
 
 #undef INSTANTIATE_RELU
 #undef INSTANTIATE_SPATIAL_DIM
@@ -414,15 +421,15 @@ INSTANTIATE_RELU(int16_t);
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_Q_GRANS(PACK_A, RELU)                          \
-  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::GROUP);  \
-  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::OUT_CHANNEL);
+  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::GROUP)   \
+  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::OUT_CHANNEL)
 
 #define INSTANTIATE_RELU(PACK_A)      \
-  INSTANTIATE_Q_GRANS(PACK_A, false); \
-  INSTANTIATE_Q_GRANS(PACK_A, true);
+  INSTANTIATE_Q_GRANS(PACK_A, false)  \
+  INSTANTIATE_Q_GRANS(PACK_A, true)
 
-INSTANTIATE_RELU(PackAWithRowOffset);
+INSTANTIATE_RELU(PackAWithRowOffset)
 INSTANTIATE_RELU(PackAWithQuantRowOffset);
 
 #undef INSTANTIATE_RELU
@@ -445,21 +452,22 @@ INSTANTIATE_RELU(PackAWithQuantRowOffset);
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_Q_GRANS(ACC_T, RELU, SPATIAL_DIM)                          \
-  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::GROUP);  \
+  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BASE(ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::GROUP)   \
   INSTANTIATE_BASE(                                                            \
-      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::OUT_CHANNEL);
+      ACC_T, RELU, SPATIAL_DIM, QuantizationGranularity::OUT_CHANNEL)
 
 #define INSTANTIATE_SPATIAL_DIM(ACC_T, RELU) \
-  INSTANTIATE_Q_GRANS(ACC_T, RELU, 2);       \
-  INSTANTIATE_Q_GRANS(ACC_T, RELU, 3);
+  INSTANTIATE_Q_GRANS(ACC_T, RELU, 1)        \
+  INSTANTIATE_Q_GRANS(ACC_T, RELU, 2)        \
+  INSTANTIATE_Q_GRANS(ACC_T, RELU, 3)
 
 #define INSTANTIATE_RELU(ACC_T)          \
-  INSTANTIATE_SPATIAL_DIM(ACC_T, false); \
-  INSTANTIATE_SPATIAL_DIM(ACC_T, true);
+  INSTANTIATE_SPATIAL_DIM(ACC_T, false)  \
+  INSTANTIATE_SPATIAL_DIM(ACC_T, true)
 
-INSTANTIATE_RELU(int32_t);
-INSTANTIATE_RELU(int16_t);
+INSTANTIATE_RELU(int32_t)
+INSTANTIATE_RELU(int16_t)
 
 #undef INSTANTIATE_RELU
 #undef INSTANTIATE_SPATIAL_DIM
@@ -495,16 +503,16 @@ template FBGEMM_API void fbgemmPacked(
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_Q_GRANS(PACK_A, RELU)                          \
-  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::GROUP);  \
-  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::OUT_CHANNEL);
+  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::GROUP)   \
+  INSTANTIATE_BASE(PACK_A, RELU, QuantizationGranularity::OUT_CHANNEL)
 
 #define INSTANTIATE_RELU(PACK_A)      \
-  INSTANTIATE_Q_GRANS(PACK_A, false); \
-  INSTANTIATE_Q_GRANS(PACK_A, true);
+  INSTANTIATE_Q_GRANS(PACK_A, false)  \
+  INSTANTIATE_Q_GRANS(PACK_A, true)
 
-INSTANTIATE_RELU(PackAMatrix);
-INSTANTIATE_RELU(PackAWithRowOffset);
+INSTANTIATE_RELU(PackAMatrix)
+INSTANTIATE_RELU(PackAWithRowOffset)
 
 #undef INSTANTIATE_Q_GRANS
 #undef INSTANTIATE_BASE
@@ -526,12 +534,12 @@ INSTANTIATE_RELU(PackAWithRowOffset);
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_Q_GRANS(RELU)                          \
-  INSTANTIATE_BASE(RELU, QuantizationGranularity::TENSOR); \
-  INSTANTIATE_BASE(RELU, QuantizationGranularity::GROUP);  \
-  INSTANTIATE_BASE(RELU, QuantizationGranularity::OUT_CHANNEL);
+  INSTANTIATE_BASE(RELU, QuantizationGranularity::TENSOR)  \
+  INSTANTIATE_BASE(RELU, QuantizationGranularity::GROUP)   \
+  INSTANTIATE_BASE(RELU, QuantizationGranularity::OUT_CHANNEL)
 
-INSTANTIATE_Q_GRANS(false);
-INSTANTIATE_Q_GRANS(true);
+INSTANTIATE_Q_GRANS(false)
+INSTANTIATE_Q_GRANS(true)
 
 #undef INSTANTIATE_Q_GRANS
 #undef INSTANTIATE_BASE
@@ -566,8 +574,8 @@ template FBGEMM_API void fbgemmPacked(
   INSTANTIATE_BASE(PACK_A, int32_t) \
   INSTANTIATE_BASE(PACK_A, int16_t)
 
-INSTANTIATE_ACC_T(PackAMatrix);
-INSTANTIATE_ACC_T(PackAWithRowOffset);
+INSTANTIATE_ACC_T(PackAMatrix)
+INSTANTIATE_ACC_T(PackAWithRowOffset)
 
 #undef INSTANTIATE_ACC_T
 #undef INSTANTIATE_BASE
@@ -588,11 +596,12 @@ INSTANTIATE_ACC_T(PackAWithRowOffset);
       const BlockingFactors* blocking_params);
 
 #define INSTANTIATE_SPATIAL_DIM(ACC_T) \
-  INSTANTIATE_BASE(ACC_T, 2);          \
-  INSTANTIATE_BASE(ACC_T, 3);
+  INSTANTIATE_BASE(ACC_T, 1)           \
+  INSTANTIATE_BASE(ACC_T, 2)           \
+  INSTANTIATE_BASE(ACC_T, 3)
 
-INSTANTIATE_SPATIAL_DIM(int32_t);
-INSTANTIATE_SPATIAL_DIM(int16_t);
+INSTANTIATE_SPATIAL_DIM(int32_t)
+INSTANTIATE_SPATIAL_DIM(int16_t)
 
 #undef INSTANTIATE_SPATIAL_DIM
 #undef INSTANTIATE_BASE

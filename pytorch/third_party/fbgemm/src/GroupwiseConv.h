@@ -21,6 +21,28 @@
 #include "fbgemm/Utils.h"
 /*#define FBGEMM_LOG_CODE 1*/
 
+#define GCONV_INST_AVX2_HEADER          \
+  template <inst_set_t ISET = INST_SET> \
+  typename std::enable_if<ISET == inst_set_t::avx2, void>::type
+
+#define GCONV_INST_AVX512_AND_VNNI_HEADER                            \
+  template <inst_set_t ISET = INST_SET>                              \
+  typename std::enable_if<                                           \
+      ISET == inst_set_t::avx512 || ISET == inst_set_t::avx512_vnni, \
+      void>::type
+
+#define GCONV_INST_DEF_AVX2_HEADER                \
+  template <int SPATIAL_DIM, inst_set_t INST_SET> \
+  template <inst_set_t ISET>                      \
+  typename std::enable_if<ISET == inst_set_t::avx2, void>::type
+
+#define GCONV_INST_DEF_AVX512_AND_VNNI_HEADER                        \
+  template <int SPATIAL_DIM, inst_set_t INST_SET>                    \
+  template <inst_set_t ISET>                                         \
+  typename std::enable_if<                                           \
+      ISET == inst_set_t::avx512 || ISET == inst_set_t::avx512_vnni, \
+      void>::type
+
 namespace fbgemm {
 
 namespace x86 = asmjit::x86;
@@ -182,12 +204,10 @@ class GenConvKernelBase {
 
 // Generic class
 template <int SPATIAL_DIM, inst_set_t INST_SET>
-class GenConvKernel : public GenConvKernelBase<SPATIAL_DIM, INST_SET> {};
+class FBGEMM_API GenConvKernel
+    : public GenConvKernelBase<SPATIAL_DIM, INST_SET> {
+  typedef typename simd_info<INST_SET>::vec_reg_t vec_reg_t;
 
-// Specialized for avx2
-template <int SPATIAL_DIM>
-class GenConvKernel<SPATIAL_DIM, inst_set_t::avx2>
-    : public GenConvKernelBase<SPATIAL_DIM, inst_set_t::avx2> {
  public:
   GenConvKernel(
       const conv_param_t<SPATIAL_DIM>& conv_param,
@@ -197,7 +217,7 @@ class GenConvKernel<SPATIAL_DIM, inst_set_t::avx2>
       bool isBottomEdgeIncluded,
       bool isTopBottomEdgeSame,
       bool accum)
-      : GenConvKernelBase<SPATIAL_DIM, inst_set_t::avx2>(
+      : GenConvKernelBase<SPATIAL_DIM, INST_SET>(
             conv_param,
             a_zero_point,
             needRowoffset,
@@ -205,25 +225,50 @@ class GenConvKernel<SPATIAL_DIM, inst_set_t::avx2>
             isBottomEdgeIncluded,
             isTopBottomEdgeSame,
             accum) {
-    constexpr int SIMD_WIDTH = simd_info<inst_set_t::avx2>::WIDTH_BYTES;
+    constexpr int SIMD_WIDTH = simd_info<INST_SET>::WIDTH_BYTES;
     GTogether_ = PackWeightMatrixForGConv<int8_t, int32_t, SPATIAL_DIM>::
         numOfGroupsTogether(conv_param);
     kLoopIters_ = this->K_per_G_ * this->C_per_G_ / SIMD_WIDTH;
-    // ymm0-8 are used for holding weights
-    zeroPTReg_V_ = x86::ymm10;
-    oneReg8Bit_V_ = x86::ymm10;
-    tmpReg1_V_ = x86::ymm11;
-    stPermReg_V_ = x86::ymm12;
-    actReg_V_ = x86::ymm13;
-    oneReg16Bit_V_ = x86::ymm15;
-    rowOffsetReg_V_ = x86::ymm14;
+    // y/zmm0-8 are used for holding weights
+    zeroPTReg_V_ = vec_reg_t(10);
+    tmpReg1_V_ = vec_reg_t(11);
+    stPermReg_V_ = vec_reg_t(12);
+    actReg_V_ = vec_reg_t(13);
+    oneReg16Bit_V_ = vec_reg_t(15);
+    rowOffsetReg_V_ = vec_reg_t(14);
   }
 
   jit_conv_kernel_fp getOrCreate();
 
-  void genForLoadingWeights(x86::Emitter* a);
+  GCONV_INST_AVX2_HEADER genForLoadingWeights(x86::Emitter* a);
 
-  void genConstForPermutations(x86::Emitter* a);
+  GCONV_INST_AVX512_AND_VNNI_HEADER genForLoadingWeights(x86::Emitter* a);
+
+  GCONV_INST_AVX2_HEADER genConstForPermutations(x86::Emitter* a);
+
+  GCONV_INST_AVX512_AND_VNNI_HEADER genConstForPermutations(x86::Emitter* a);
+
+  GCONV_INST_AVX2_HEADER genForSingleFilterPoint(
+      x86::Emitter* a,
+      int r,
+      int s,
+      int act_s,
+      bool use_zero_reg);
+
+  GCONV_INST_AVX512_AND_VNNI_HEADER genForSingleFilterPoint(
+      x86::Emitter* a,
+      int r,
+      int s,
+      int act_s,
+      bool use_zero_reg);
+
+  GCONV_INST_AVX2_HEADER storeResult(x86::Emitter* a);
+
+  GCONV_INST_AVX512_AND_VNNI_HEADER storeResult(x86::Emitter* a);
+
+  GCONV_INST_AVX2_HEADER storeOffset(x86::Emitter* a);
+
+  GCONV_INST_AVX512_AND_VNNI_HEADER storeOffset(x86::Emitter* a);
 
   void genForTopOrBottomEdge(x86::Emitter* a, bool isTop, bool isBottom);
 
@@ -231,21 +276,12 @@ class GenConvKernel<SPATIAL_DIM, inst_set_t::avx2>
 
   void genCoreInsts(x86::Emitter* a);
 
-  void genForSingleFilterPoint(
-      x86::Emitter* a,
-      int r,
-      int s,
-      int act_s,
-      bool use_zero_reg);
   void genForSingleOutput(
       x86::Emitter* a,
       bool isLeft,
       bool isRight,
       bool isTop,
       bool isBottom);
-
-  void storeResult(x86::Emitter* a);
-  void storeOffset(x86::Emitter* a);
 
  private:
   int GTogether_;
@@ -256,14 +292,14 @@ class GenConvKernel<SPATIAL_DIM, inst_set_t::avx2>
   int kLoopIters_;
   asmjit::FuncDetail func_;
   asmjit::FuncFrame frame_;
-  x86::Ymm zeroPTReg_V_;
-  x86::Ymm tmpReg1_V_;
-  x86::Ymm stPermReg_V_;
-  x86::Ymm actReg_V_;
-  x86::Ymm resultReg_V_;
-  x86::Ymm oneReg8Bit_V_;
-  x86::Ymm oneReg16Bit_V_;
-  x86::Ymm rowOffsetReg_V_;
+  vec_reg_t zeroPTReg_V_;
+  vec_reg_t tmpReg1_V_;
+  vec_reg_t stPermReg_V_;
+  vec_reg_t actReg_V_;
+  vec_reg_t resultReg_V_;
+  vec_reg_t oneReg8Bit_V_;
+  vec_reg_t oneReg16Bit_V_;
+  vec_reg_t rowOffsetReg_V_;
 
   // arguments to the function created
   x86::Gp in_acts_R_;

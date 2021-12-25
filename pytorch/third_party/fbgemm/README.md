@@ -1,6 +1,7 @@
 # FBGEMM
 
-## Linux Build: [![CircleCI](https://circleci.com/gh/pytorch/FBGEMM.svg?style=svg)](https://circleci.com/gh/pytorch/FBGEMM)
+[![FBGEMMCI](https://github.com/pytorch/FBGEMM/actions/workflows/fbgemmci.yml/badge.svg)](https://github.com/pytorch/FBGEMM/actions/workflows/fbgemmci.yml)
+[![CircleCI](https://circleci.com/gh/pytorch/FBGEMM.svg?style=shield)](https://circleci.com/gh/pytorch/FBGEMM)
 
 FBGEMM (Facebook GEneral Matrix Multiplication) is a low-precision,
 high-performance matrix-matrix multiplications and convolution library for
@@ -94,6 +95,24 @@ parts of FBGEMM please see [our blog][4].
 We have extensively used comments in our source files. The best and up-do-date
 documentation is available in the source files.
 
+You can also turn on the option to generate the documentation (using [Doxygen][5]
+and [Sphinx][6] by setting FBGEMM\_BUILD\_DOCS to ON, and then follow the above
+cmake build process.
+
+## Citation
+For those looking for the appropriate article to cite regarding FBGEMM, we
+recommend citing our
+[paper](https://arxiv.org/pdf/2101.05615.pdf):
+
+```
+@article{fbgemm,
+  title={FBGEMM: Enabling High-Performance Low-Precision Deep Learning Inference},
+  author={Khudia, Daya and Huang, Jianyu and Basu, Protonu and Deng, Summer and Liu, Haixin and Park, Jongsoo and Smelyanskiy, Mikhail},
+  journal={arXiv preprint arXiv:2101.05615},
+  year={2021}
+}
+```
+
 ## Join the FBGEMM community
 See the [`CONTRIBUTING`](CONTRIBUTING.md) file for how to help out.
 
@@ -105,3 +124,5 @@ FBGEMM is BSD licensed, as found in the [`LICENSE`](LICENSE) file.
 [2]:https://github.com/pytorch/cpuinfo
 [3]:https://github.com/google/googletest
 [4]:https://code.fb.com/ml-applications/fbgemm
+[5]:https://www.doxygen.nl/index.html
+[6]:https://www.sphinx-doc.org/en/master/

@@ -1,5 +1,5 @@
 #===============================================================================
-# Copyright 2016-2018 Intel Corporation
+# Copyright 2016-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,10 @@ if(Doxygen_cmake_included)
 endif()
 set(Doxygen_cmake_included true)
 
+if(NOT DNNL_IS_MAIN_PROJECT)
+    return()
+endif()
+
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
     set(DOXYGEN_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/reference)
@@ -34,24 +38,37 @@ if(DOXYGEN_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/doc/header.html.in
         ${CMAKE_CURRENT_BINARY_DIR}/header.html
         @ONLY)
+    file(COPY
+        ${CMAKE_CURRENT_SOURCE_DIR}/doc/footer.html
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+        )
+    file(COPY
+        ${CMAKE_CURRENT_SOURCE_DIR}/doc/dnnl.js
+        DESTINATION ${DOXYGEN_OUTPUT_DIR}/html/assets/mathjax/config/
+        )
     file(GLOB_RECURSE HEADERS
-        ${PROJECT_SOURCE_DIR}/include/*.h
-        ${PROJECT_SOURCE_DIR}/include/*.hpp
+        ${PROJECT_SOURCE_DIR}/include/oneapi/dnnl/*.h
+        ${PROJECT_SOURCE_DIR}/include/oneapi/dnnl/*.hpp
         )
     file(GLOB_RECURSE DOX
         ${PROJECT_SOURCE_DIR}/doc/*
         )
+    file(GLOB_RECURSE EXAMPLES
+        ${PROJECT_SOURCE_DIR}/examples/*
+        )
     add_custom_command(
         OUTPUT ${DOXYGEN_STAMP_FILE}
-        DEPENDS ${HEADERS} ${DOX}
+        DEPENDS ${HEADERS} ${DOX} ${EXAMPLES}
         COMMAND ${DOXYGEN_EXECUTABLE} Doxyfile
-        COMMAND cmake -E touch ${DOXYGEN_STAMP_FILE}
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/doc/assets ${DOXYGEN_OUTPUT_DIR}/html/assets
+        COMMAND ${CMAKE_COMMAND} -E touch ${DOXYGEN_STAMP_FILE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating API documentation with Doxygen" VERBATIM)
     add_custom_target(doc DEPENDS ${DOXYGEN_STAMP_FILE})
-    install(
-        DIRECTORY ${DOXYGEN_OUTPUT_DIR}
-        DESTINATION share/doc/${LIB_NAME} OPTIONAL)
+
+    if(NOT DNNL_INSTALL_MODE STREQUAL "BUNDLE")
+        install(
+            DIRECTORY ${DOXYGEN_OUTPUT_DIR}
+            DESTINATION share/doc/${LIB_NAME} OPTIONAL)
+    endif()
 endif(DOXYGEN_FOUND)
-
-

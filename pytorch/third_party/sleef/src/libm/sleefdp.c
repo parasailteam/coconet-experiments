@@ -1,4 +1,4 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -20,7 +20,7 @@
 
 #include "misc.h"
 
-extern const double rempitabdp[];
+extern const double Sleef_rempitabdp[];
 
 #ifdef DORENAME
 #include "rename.h"
@@ -53,15 +53,15 @@ static INLINE CONST double longBitsToDouble(int64_t i) {
 }
 
 static INLINE CONST double fabsk(double x) {
-  return longBitsToDouble(0x7fffffffffffffffLL & doubleToRawLongBits(x));
+  return longBitsToDouble(INT64_C(0x7fffffffffffffff) & doubleToRawLongBits(x));
 }
 
 static INLINE CONST double mulsign(double x, double y) {
-  return longBitsToDouble(doubleToRawLongBits(x) ^ (doubleToRawLongBits(y) & (1LL << 63)));
+  return longBitsToDouble(doubleToRawLongBits(x) ^ (doubleToRawLongBits(y) & (INT64_C(1) << 63)));
 }
 
 static INLINE CONST double copysignk(double x, double y) {
-  return longBitsToDouble((doubleToRawLongBits(x) & ~(1LL << 63)) ^ (doubleToRawLongBits(y) & (1LL << 63)));
+  return longBitsToDouble((doubleToRawLongBits(x) & ~(INT64_C(1) << 63)) ^ (doubleToRawLongBits(y) & (INT64_C(1) << 63)));
 }
 
 static INLINE CONST double sign(double d) { return mulsign(1, d); }
@@ -80,13 +80,13 @@ static INLINE CONST int xisnegzero(double x) { return doubleToRawLongBits(x) == 
 static INLINE CONST int xisnumber(double x) { return !xisinf(x) && !xisnan(x); }
 
 static INLINE CONST int xisint(double d) {
-  double x = d - (double)(1LL << 31) * (int)(d * (1.0 / (1LL << 31)));
-  return (x == (int)x) || (fabsk(d) >= (double)(1LL << 53));
+  double x = d - (double)(INT64_C(1) << 31) * (int)(d * (1.0 / (INT64_C(1) << 31)));
+  return (x == (int)x) || (fabsk(d) >= (double)(INT64_C(1) << 53));
 }
 
 static INLINE CONST int xisodd(double d) {
-  double x = d - (double)(1LL << 31) * (int)(d * (1.0 / (1LL << 31)));
-  return (1 & (int)x) != 0 && fabsk(d) < (double)(1LL << 53);
+  double x = d - (double)(INT64_C(1) << 31) * (int)(d * (1.0 / (INT64_C(1) << 31)));
+  return (1 & (int)x) != 0 && fabsk(d) < (double)(INT64_C(1) << 53);
 }
 
 static INLINE CONST double pow2i(int q) {
@@ -163,7 +163,7 @@ static int checkfp(double x) {
 #endif
 
 static INLINE CONST double upper(double d) {
-  return longBitsToDouble(doubleToRawLongBits(d) & 0xfffffffff8000000LL);
+  return longBitsToDouble(doubleToRawLongBits(d) & INT64_C(0xfffffffff8000000));
 }
 
 static INLINE CONST Sleef_double2 dd(double h, double l) {
@@ -655,7 +655,7 @@ static Sleef_double2 atan2k_u1(Sleef_double2 y, Sleef_double2 x) {
 }
 
 EXPORT CONST double xatan2_u1(double y, double x) {
-  if (fabsk(x) < 5.5626846462680083984e-309) { y *= (1ULL << 53); x *= (1ULL << 53); } // nexttoward((1.0 / DBL_MAX), 1)
+  if (fabsk(x) < 5.5626846462680083984e-309) { y *= (UINT64_C(1) << 53); x *= (UINT64_C(1) << 53); } // nexttoward((1.0 / DBL_MAX), 1)
   Sleef_double2 d = atan2k_u1(dd(fabsk(y), 0), dd(x, 0));
   double r = d.x + d.y;
 
@@ -746,17 +746,19 @@ typedef struct {
   int32_t i;
 } ddi_t;
 
+static INLINE CONST double orsign(double x, double y) {
+  return longBitsToDouble(doubleToRawLongBits(x) | (doubleToRawLongBits(y) & (INT64_C(1) << 63)));
+}
+
 static CONST di_t rempisub(double x) {
   // This function is equivalent to :
-  // di_t ret = { x - round(4 * x) * 0.25, (int32_t)(round(4 * x) - round(x) * 4) };
+  // di_t ret = { x - rint(4 * x) * 0.25, (int32_t)(rint(4 * x) - rint(x) * 4) };
   di_t ret;
-  double fr = x - (double)(1LL << 28) * (int32_t)(x * (1.0 / (1LL << 28)));
-  ret.i = ((7 & ((x > 0 ? 4 : 3) + (int32_t)(fr * 8))) - 3) >> 1;
-  fr = fr - 0.25 * (int32_t)(fr * 4 + mulsign(0.5, x));
-  fr = fabsk(fr) > 0.25 ? (fr - mulsign(0.5, x)) : fr;
-  fr = fabsk(fr) > 1e+10 ? 0 : fr;
-  if (fabsk(x) == 0.12499999999999998612) { fr = x; ret.i = 0; }
-  ret.d = fr;
+  double c = mulsign(INT64_C(1) << 52, x);
+  double rint4x = fabsk(4*x) > INT64_C(1) << 52 ? (4*x) : orsign(mla(4, x, c) - c, x);
+  double rintx  = fabsk(  x) > INT64_C(1) << 52 ?   x   : orsign(x + c - c       , x);
+  ret.d = mla(-0.25, rint4x,      x);
+  ret.i = mla(-4   , rintx , rint4x);
   return ret;
 }
 
@@ -769,18 +771,18 @@ static CONST ddi_t rempi(double a) {
   a = ldexp3k(a, q);
   if (ex < 0) ex = 0;
   ex *= 4;
-  x = ddmul_d2_d_d(a, rempitabdp[ex]);
+  x = ddmul_d2_d_d(a, Sleef_rempitabdp[ex]);
   di = rempisub(x.x);
   q = di.i;
   x.x = di.d;
   x = ddnormalize_d2_d2(x);
-  y = ddmul_d2_d_d(a, rempitabdp[ex+1]);
+  y = ddmul_d2_d_d(a, Sleef_rempitabdp[ex+1]);
   x = ddadd2_d2_d2_d2(x, y);
   di = rempisub(x.x);
   q += di.i;
   x.x = di.d;
   x = ddnormalize_d2_d2(x);
-  y = ddmul_d2_d2_d(dd(rempitabdp[ex+2], rempitabdp[ex+3]), a);
+  y = ddmul_d2_d2_d(dd(Sleef_rempitabdp[ex+2], Sleef_rempitabdp[ex+3]), a);
   x = ddadd2_d2_d2_d2(x, y);
   x = ddnormalize_d2_d2(x);
   x = ddmul_d2_d2_d2(x, dd(3.141592653589793116*2, 1.2246467991473532072e-16*2));
@@ -903,8 +905,8 @@ EXPORT CONST double xcos(double d) {
     d = mla(ql, -PI_A2*0.5, d);
     d = mla(ql, -PI_B2*0.5, d);
   } else if (fabsk(d) < TRIGRANGEMAX) {
-    double dqh = trunck(d * (M_1_PI / (1LL << 23)) - 0.5 * (M_1_PI / (1LL << 23)));
-    ql = 2*rintk(d * M_1_PI - 0.5 - dqh * (double)(1LL << 23))+1;
+    double dqh = trunck(d * (M_1_PI / (INT64_C(1) << 23)) - 0.5 * (M_1_PI / (INT64_C(1) << 23)));
+    ql = 2*rintk(d * M_1_PI - 0.5 - dqh * (double)(INT64_C(1) << 23))+1;
     dqh *= 1 << 24;
 
     d = mla(dqh, -PI_A*0.5, d);
@@ -958,8 +960,8 @@ EXPORT CONST double xcos_u1(double d) {
     s = ddadd2_d2_d_d(d, ql * (-PI_A2*0.5));
     s = ddadd_d2_d2_d(s, ql * (-PI_B2*0.5));
   } else if (d < TRIGRANGEMAX) {
-    double dqh = trunck(d * (M_1_PI / (1LL << 23)) - 0.5 * (M_1_PI / (1LL << 23)));
-    ql = 2*rintk(d * M_1_PI - 0.5 - dqh * (double)(1LL << 23))+1;
+    double dqh = trunck(d * (M_1_PI / (INT64_C(1) << 23)) - 0.5 * (M_1_PI / (INT64_C(1) << 23)));
+    ql = 2*rintk(d * M_1_PI - 0.5 - dqh * (double)(INT64_C(1) << 23))+1;
     dqh *= 1 << 24;
 
     u = mla(dqh, -PI_A*0.5, d);
@@ -1438,7 +1440,7 @@ EXPORT CONST double xlog(double d) {
   int e;
 
   int o = d < DBL_MIN;
-  if (o) d *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) d *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
   
   e = ilogb2k(d * (1.0/0.75));
   m = ldexp3k(d, -e);
@@ -1531,7 +1533,7 @@ static INLINE CONST Sleef_double2 logk(double d) {
   int e;
 
   int o = d < DBL_MIN;
-  if (o) d *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) d *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
   
   e = ilogb2k(d * (1.0/0.75));
   m = ldexp3k(d, -e);
@@ -1570,7 +1572,7 @@ EXPORT CONST double xlog_u1(double d) {
   int e;
 
   int o = d < DBL_MIN;
-  if (o) d *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) d *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
       
   e = ilogb2k(d * (1.0/0.75));
   m = ldexp3k(d, -e);
@@ -2039,7 +2041,7 @@ EXPORT CONST double xlog10(double d) {
   int e;
 
   int o = d < DBL_MIN;
-  if (o) d *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) d *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
       
   e = ilogb2k(d * (1.0/0.75));
   m = ldexp3k(d, -e);
@@ -2078,7 +2080,7 @@ EXPORT CONST double xlog2(double d) {
   int e;
 
   int o = d < DBL_MIN;
-  if (o) d *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) d *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
       
   e = ilogb2k(d * (1.0/0.75));
   m = ldexp3k(d, -e);
@@ -2115,7 +2117,7 @@ EXPORT CONST double xlog2_u35(double d) {
   int e;
 
   int o = d < DBL_MIN;
-  if (o) d *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) d *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
       
   e = ilogb2k(d * (1.0/0.75));
   m = ldexp3k(d, -e);
@@ -2151,7 +2153,7 @@ EXPORT CONST double xlog1p(double d) {
   double dp1 = d + 1;
   
   int o = dp1 < DBL_MIN;
-  if (o) dp1 *= (double)(1LL << 32) * (double)(1LL << 32);
+  if (o) dp1 *= (double)(INT64_C(1) << 32) * (double)(INT64_C(1) << 32);
       
   e = ilogb2k(dp1 * (1.0/0.75));
 
@@ -2192,14 +2194,14 @@ EXPORT CONST double xlog1p(double d) {
 EXPORT CONST double xfma(double x, double y, double z) {
   double h2 = x * y + z, q = 1;
   if (fabsk(h2) < 1e-300) {
-    const double c0 = 1ULL << 54, c1 = c0 * c0, c2 = c1 * c1;
+    const double c0 = UINT64_C(1) << 54, c1 = c0 * c0, c2 = c1 * c1;
     x *= c1;
     y *= c1;
     z *= c2;
     q = 1.0 / c2;
   }
   if (fabsk(h2) > 1e+299) {
-    const double c0 = 1ULL << 54, c1 = c0 * c0, c2 = c1 * c1;
+    const double c0 = UINT64_C(1) << 54, c1 = c0 * c0, c2 = c1 * c1;
     x *= 1.0 / c1;
     y *= 1.0 / c1;
     z *= 1. / c2;
@@ -2266,43 +2268,38 @@ EXPORT CONST double xfdim(double x, double y) {
 }
 
 EXPORT CONST double xtrunc(double x) {
-  double fr = x - (double)(1LL << 31) * (int32_t)(x * (1.0 / (1LL << 31)));
+  double fr = x - (double)(INT64_C(1) << 31) * (int32_t)(x * (1.0 / (INT64_C(1) << 31)));
   fr = fr - (int32_t)fr;
-  return (xisinf(x) || fabsk(x) >= (double)(1LL << 52)) ? x : copysignk(x - fr, x);
+  return (xisinf(x) || fabsk(x) >= (double)(INT64_C(1) << 52)) ? x : copysignk(x - fr, x);
 }
 
 EXPORT CONST double xfloor(double x) {
-  double fr = x - (double)(1LL << 31) * (int32_t)(x * (1.0 / (1LL << 31)));
+  double fr = x - (double)(INT64_C(1) << 31) * (int32_t)(x * (1.0 / (INT64_C(1) << 31)));
   fr = fr - (int32_t)fr;
   fr = fr < 0 ? fr+1.0 : fr;
-  return (xisinf(x) || fabsk(x) >= (double)(1LL << 52)) ? x : copysignk(x - fr, x);
+  return (xisinf(x) || fabsk(x) >= (double)(INT64_C(1) << 52)) ? x : copysignk(x - fr, x);
 }
 
 EXPORT CONST double xceil(double x) {
-  double fr = x - (double)(1LL << 31) * (int32_t)(x * (1.0 / (1LL << 31)));
+  double fr = x - (double)(INT64_C(1) << 31) * (int32_t)(x * (1.0 / (INT64_C(1) << 31)));
   fr = fr - (int32_t)fr;
   fr = fr <= 0 ? fr : fr-1.0;
-  return (xisinf(x) || fabsk(x) >= (double)(1LL << 52)) ? x : copysignk(x - fr, x);
+  return (xisinf(x) || fabsk(x) >= (double)(INT64_C(1) << 52)) ? x : copysignk(x - fr, x);
 }
 
 EXPORT CONST double xround(double d) {
   double x = d + 0.5;
-  double fr = x - (double)(1LL << 31) * (int32_t)(x * (1.0 / (1LL << 31)));
+  double fr = x - (double)(INT64_C(1) << 31) * (int32_t)(x * (1.0 / (INT64_C(1) << 31)));
   fr = fr - (int32_t)fr;
   if (fr == 0 && x <= 0) x--;
   fr = fr < 0 ? fr+1.0 : fr;
   x = d == 0.49999999999999994449 ? 0 : x;  // nextafter(0.5, 0)
-  return (xisinf(d) || fabsk(d) >= (double)(1LL << 52)) ? d : copysignk(x - fr, d);
+  return (xisinf(d) || fabsk(d) >= (double)(INT64_C(1) << 52)) ? d : copysignk(x - fr, d);
 }
 
 EXPORT CONST double xrint(double d) {
-  double x = d + 0.5;
-  double fr = x - (double)(1LL << 31) * (int32_t)(x * (1.0 / (1LL << 31)));
-  int32_t isodd = (1 & (int32_t)fr) != 0;
-  fr = fr - (int32_t)fr;
-  fr = (fr < 0 || (fr == 0 && isodd)) ? fr+1.0 : fr;
-  x = d == 0.50000000000000011102 ? 0 : x;  // nextafter(0.5, 1)
-  return (xisinf(d) || fabsk(d) >= (double)(1LL << 52)) ? d : copysignk(x - fr, d);
+  double c = mulsign(INT64_C(1) << 52, d);
+  return fabsk(d) > INT64_C(1) << 52 ? d : orsign(d + c - c, d);
 }
 
 EXPORT CONST double xhypot_u05(double x, double y) {
@@ -2311,7 +2308,7 @@ EXPORT CONST double xhypot_u05(double x, double y) {
   double min = fmink(x, y), n = min;
   double max = fmaxk(x, y), d = max;
 
-  if (max < DBL_MIN) { n *= 1ULL << 54; d *= 1ULL << 54; }
+  if (max < DBL_MIN) { n *= UINT64_C(1) << 54; d *= UINT64_C(1) << 54; }
   Sleef_double2 t = dddiv_d2_d2_d2(dd(n, 0), dd(d, 0));
   t = ddmul_d2_d2_d(ddsqrt_d2_d2(ddadd2_d2_d2_d(ddsqu_d2_d2(t), 1)), max);
   double ret = t.x + t.y;
@@ -2345,11 +2342,11 @@ EXPORT CONST double xnextafter(double x, double y) {
   x = x == 0 ? mulsign(0, y) : x;
   cx.f = x;
   int c = (cx.i < 0) == (y < x);
-  if (c) cx.i = -(cx.i ^ (1ULL << 63));
+  if (c) cx.i = -(cx.i ^ (UINT64_C(1) << 63));
 
   if (x != y) cx.i--;
 
-  if (c) cx.i = -(cx.i ^ (1ULL << 63));
+  if (c) cx.i = -(cx.i ^ (UINT64_C(1) << 63));
 
   if (cx.f == 0 && x != 0) cx.f = mulsign(0, x);
   if (x == 0 && y == 0) cx.f = y;
@@ -2364,11 +2361,11 @@ EXPORT CONST double xfrfrexp(double x) {
     uint64_t u;
   } cx;
 
-  if (fabsk(x) < DBL_MIN) x *= (1ULL << 63);
+  if (fabsk(x) < DBL_MIN) x *= (UINT64_C(1) << 63);
   
   cx.f = x;
-  cx.u &= ~0x7ff0000000000000ULL;
-  cx.u |=  0x3fe0000000000000ULL;
+  cx.u &= ~UINT64_C(0x7ff0000000000000);
+  cx.u |=  UINT64_C(0x3fe0000000000000);
 
   if (xisinf(x)) cx.f = mulsign(SLEEF_INFINITY, x);
   if (x == 0) cx.f = x;
@@ -2384,7 +2381,7 @@ EXPORT CONST int xexpfrexp(double x) {
 
   int ret = 0;
   
-  if (fabsk(x) < DBL_MIN) { x *= (1ULL << 63); ret = -63; }
+  if (fabsk(x) < DBL_MIN) { x *= (UINT64_C(1) << 63); ret = -63; }
   
   cx.f = x;
   ret += (int32_t)(((cx.u >> 52) & 0x7ff)) - 0x3fe;
@@ -2399,39 +2396,72 @@ static INLINE CONST double toward0(double d) {
 }
 
 static INLINE CONST double removelsb(double d) {
-  return longBitsToDouble(doubleToRawLongBits(d) & 0xfffffffffffffffeLL);
+  return longBitsToDouble(doubleToRawLongBits(d) & INT64_C(0xfffffffffffffffe));
 }
 
 static INLINE CONST double ptrunc(double x) {
-  double fr = mla(-(double)(1LL << 31), (int32_t)(x * (1.0 / (1LL << 31))), x);
-  return fabsk(x) >= (double)(1LL << 52) ? x : (x - (fr - (int32_t)fr));
+  double fr = mla(-(double)(INT64_C(1) << 31), (int32_t)(x * (1.0 / (INT64_C(1) << 31))), x);
+  return fabsk(x) >= (double)(INT64_C(1) << 52) ? x : (x - (fr - (int32_t)fr));
 }
 
 EXPORT CONST double xfmod(double x, double y) {
-  double nu = fabsk(x), de = fabsk(y), s = 1, q;
-  if (de < DBL_MIN) { nu *= 1ULL << 54; de *= 1ULL << 54; s = 1.0 / (1ULL << 54); }
-  Sleef_double2 r = dd(nu, 0);
-  double rde = toward0(1.0 / de);
+  double n = fabsk(x), d = fabsk(y), s = 1, q;
+  if (d < DBL_MIN) { n *= UINT64_C(1) << 54; d *= UINT64_C(1) << 54; s = 1.0 / (UINT64_C(1) << 54); }
+  Sleef_double2 r = dd(n, 0);
+  double rd = toward0(1.0 / d);
   
-  for(int i=0;i < 21;i++) { // ceil(log2(DBL_MAX) / 51) + 1
-    q = (de+de > r.x && r.x >= de) ? 1 : (toward0(r.x) * rde);
-    r = ddnormalize_d2_d2(ddadd2_d2_d2_d2(r, ddmul_d2_d_d(removelsb(ptrunc(q)), -de)));
-    if (r.x < de) break;
+  for(int i=0;i < 21;i++) { // ceil(log2(DBL_MAX) / 52)
+    q = removelsb(ptrunc(toward0(r.x) * rd));
+    q = (3*d > r.x && r.x > d) ? 2 : q;
+    q = (2*d > r.x && r.x > d) ? 1 : q;
+    q = r.x == d ? (r.y >= 0 ? 1 : 0) : q;
+    r = ddnormalize_d2_d2(ddadd2_d2_d2_d2(r, ddmul_d2_d_d(q, -d)));
+    if (r.x < d) break;
   }
   
   double ret = r.x * s;
-  if (r.x + r.y == de) ret = 0;
+  if (r.x + r.y == d) ret = 0;
   ret = mulsign(ret, x);
-  if (nu < de) ret = x;
-  if (de == 0) ret = SLEEF_NAN;
+  if (n < d) ret = x;
+  if (d == 0) ret = SLEEF_NAN;
   
   return ret;
 }
 
+static INLINE CONST double rintk2(double d) {
+  double c = mulsign(INT64_C(1) << 52, d);
+  return fabsk(d) > INT64_C(1) << 52 ? d : orsign(d + c - c, d);
+}
+
+EXPORT CONST double xremainder(double x, double y) {
+  double n = fabsk(x), d = fabsk(y), s = 1, q;
+  if (d < DBL_MIN*2) { n *= UINT64_C(1) << 54; d *= UINT64_C(1) << 54; s = 1.0 / (UINT64_C(1) << 54); }
+  double rd = 1.0 / d;
+  Sleef_double2 r = dd(n, 0);
+  int qisodd = 0;
+  
+  for(int i=0;i < 21;i++) { // ceil(log2(DBL_MAX) / 52)
+    q = removelsb(rintk2(r.x * rd));
+    if (fabsk(r.x) < 1.5 * d) q = r.x < 0 ? -1 : 1;
+    if (fabsk(r.x) < 0.5 * d || (fabsk(r.x) == 0.5 * d && !qisodd)) q = 0;
+    if (q == 0) break;
+    if (xisinf(q * -d)) q = q + mulsign(-1, r.x);
+    qisodd ^= xisodd(q);
+    r = ddnormalize_d2_d2(ddadd2_d2_d2_d2(r, ddmul_d2_d_d(q, -d)));
+  }
+  
+  double ret = r.x * s;
+  ret = mulsign(ret, x);
+  if (xisinf(y)) ret = xisinf(x) ? SLEEF_NAN : x;
+  if (d == 0) ret = SLEEF_NAN;
+
+  return ret;
+}
+
 EXPORT CONST Sleef_double2 xmodf(double x) {
-  double fr = x - (double)(1LL << 31) * (int32_t)(x * (1.0 / (1LL << 31)));
+  double fr = x - (double)(INT64_C(1) << 31) * (int32_t)(x * (1.0 / (INT64_C(1) << 31)));
   fr = fr - (int32_t)fr;
-  fr = fabsk(x) >= (double)(1LL << 52) ? 0 : fr;
+  fr = fabsk(x) >= (double)(INT64_C(1) << 52) ? 0 : fr;
   Sleef_double2 ret = { copysignk(fr, x), copysignk(x - fr, x) };
   return ret;
 }
@@ -2503,9 +2533,9 @@ static CONST dd2 gammak(double a) {
     (oref ? ddadd2_d2_d2_d2(dd(1.1447298858494001639, 1.026595116270782638e-17), ddneg_d2_d2(clc)) : clc); // log(M_PI)
   clln = otiny ? dd(1, 0) : (oref ? clln : clld);
 
-  if (oref) x = ddmul_d2_d2_d2(clld, sinpik(a - (double)(1LL << 28) * (int32_t)(a * (1.0 / (1LL << 28)))));
+  if (oref) x = ddmul_d2_d2_d2(clld, sinpik(a - (double)(INT64_C(1) << 28) * (int32_t)(a * (1.0 / (INT64_C(1) << 28)))));
 
-  clld = otiny ? dd(a*((1LL << 60)*(double)(1LL << 60)), 0) : (oref ? x : y);
+  clld = otiny ? dd(a*((INT64_C(1) << 60)*(double)(INT64_C(1) << 60)), 0) : (oref ? x : y);
 
   dd2 ret = { clc, dddiv_d2_d2_d2(clln, clld) };
 
@@ -2529,42 +2559,90 @@ EXPORT CONST double xlgamma_u1(double a) {
   return r;
 }
 
-EXPORT CONST double xerf_u1(double a) {
-  double s = a, t, u;
-  Sleef_double2 d;
+static INLINE CONST Sleef_double2 ddmla(double x, Sleef_double2 y, Sleef_double2 z) {
+  return ddadd2_d2_d2_d2(z, ddmul_d2_d2_d(y, x));
+}
+static INLINE CONST Sleef_double2 poly2dd_b(double x, Sleef_double2 c1, Sleef_double2 c0) { return ddmla(x, c1, c0); }
+static INLINE CONST Sleef_double2 poly2dd(double x, double c1, Sleef_double2 c0) { return ddmla(x, dd(c1, 0), c0); }
+static INLINE CONST Sleef_double2 poly4dd(double x, double c3, Sleef_double2 c2, Sleef_double2 c1, Sleef_double2 c0) {
+  return ddmla(x*x, poly2dd(x, c3, c2), poly2dd_b(x, c1, c0));
+}
 
-  a = fabsk(a);
-  int o0 = a < 1.0, o1 = a < 3.7, o2 = a < 6.0;
-  u = o0 ? (a*a) : a;
-  
-  t = o0 ? +0.6801072401395392157e-20 : o1 ? +0.2830954522087717660e-13 : -0.5846750404269610493e-17;
-  t = mla(t, u, o0 ? -0.2161766247570056391e-18 : o1 ? -0.1509491946179481940e-11 : +0.6076691048812607898e-15);
-  t = mla(t, u, o0 ? +0.4695919173301598752e-17 : o1 ? +0.3827857177807173152e-10 : -0.3007518609604893831e-13);
-  t = mla(t, u, o0 ? -0.9049140419888010819e-16 : o1 ? -0.6139733921558987241e-09 : +0.9427906260824646063e-12);
-  t = mla(t, u, o0 ? +0.1634018903557411517e-14 : o1 ? +0.6985387934608038824e-08 : -0.2100110908269393629e-10);
-  t = mla(t, u, o0 ? -0.2783485786333455216e-13 : o1 ? -0.5988224513034371474e-07 : +0.3534639523461223473e-09);
-  t = mla(t, u, o0 ? +0.4463221276786412722e-12 : o1 ? +0.4005716952355346640e-06 : -0.4664967728285395926e-08);
-  t = mla(t, u, o0 ? -0.6711366622850138987e-11 : o1 ? -0.2132190104575784400e-05 : +0.4943823283769000532e-07);
-  t = mla(t, u, o0 ? +0.9422759050232658346e-10 : o1 ? +0.9092461304042630325e-05 : -0.4271203394761148254e-06);
-  t = mla(t, u, o0 ? -0.1229055530100228477e-08 : o1 ? -0.3079188080966205457e-04 : +0.3034067677404915895e-05);
-  t = mla(t, u, o0 ? +0.1480719281585085023e-07 : o1 ? +0.7971413443082370762e-04 : -0.1776295289066871135e-04);
-  t = mla(t, u, o0 ? -0.1636584469123402714e-06 : o1 ? -0.1387853215225442864e-03 : +0.8524547630559505050e-04);
-  t = mla(t, u, o0 ? +0.1646211436588923363e-05 : o1 ? +0.6469678026257590965e-04 : -0.3290582944961784398e-03);
-  t = mla(t, u, o0 ? -0.1492565035840624866e-04 : o1 ? +0.4996645280372945860e-03 : +0.9696966068789101157e-03);
-  t = mla(t, u, o0 ? +0.1205533298178966496e-03 : o1 ? -0.1622802482842520535e-02 : -0.1812527628046986137e-02);
-  t = mla(t, u, o0 ? -0.8548327023450851166e-03 : o1 ? +0.1615320557049377171e-03 : -0.4725409828123619017e-03);
-  t = mla(t, u, o0 ? +0.5223977625442188799e-02 : o1 ? +0.1915262325574875607e-01 : +0.2090315427924229266e-01);
-  t = mla(t, u, o0 ? -0.2686617064513125569e-01 : o1 ? -0.1027818298486033455e+00 : -0.1052041921842776645e+00);
-  t = mla(t, u, o0 ? +0.1128379167095512753e+00 : o1 ? -0.6366172819842503827e+00 : -0.6345351808766568347e+00);
-  t = mla(t, u, o0 ? -0.3761263890318375380e+00 : o1 ? -0.1128379590648910469e+01 : -0.1129442929103524396e+01);
-  d = ddmul_d2_d_d(t, u);
-  d = ddadd2_d2_d2_d2(d, o0 ? dd(1.1283791670955125586, 1.5335459613165822674e-17) :
-		      o1 ? dd(3.4110644736196137587e-08, -2.4875650708323294246e-24) :
-		      dd(0.00024963035690526438285, -5.4362665034856259795e-21));
-  d = o0 ? ddmul_d2_d2_d(d, a) : ddadd_d2_d_d2(1.0, ddneg_d2_d2(expk2(d)));
-  u = mulsign(o2 ? (d.x + d.y) : 1, s);
-  u = xisnan(a) ? SLEEF_NAN : u;
-  return u;
+EXPORT CONST double xerf_u1(double a) {
+  double t, x = fabsk(a);
+  Sleef_double2 t2;
+  double x2 = x * x, x4 = x2 * x2, x8 = x4 * x4, x16 = x8 * x8;
+
+  if (x < 2.5) {
+    // Abramowitz and Stegun
+    t = POLY21(x, x2, x4, x8, x16,
+	       -0.2083271002525222097e-14,
+	       +0.7151909970790897009e-13,
+	       -0.1162238220110999364e-11,
+	       +0.1186474230821585259e-10,
+	       -0.8499973178354613440e-10,
+	       +0.4507647462598841629e-9,
+	       -0.1808044474288848915e-8,
+	       +0.5435081826716212389e-8,
+	       -0.1143939895758628484e-7,
+	       +0.1215442362680889243e-7,
+	       +0.1669878756181250355e-7,
+	       -0.9808074602255194288e-7,
+	       +0.1389000557865837204e-6,
+	       +0.2945514529987331866e-6,
+	       -0.1842918273003998283e-5,
+	       +0.3417987836115362136e-5,
+	       +0.3860236356493129101e-5,
+	       -0.3309403072749947546e-4,
+	       +0.1060862922597579532e-3,
+	       +0.2323253155213076174e-3,
+	       +0.1490149719145544729e-3);
+    t2 = poly4dd(x, t,
+		 dd(0.0092877958392275604405, 7.9287559463961107493e-19),
+		 dd(0.042275531758784692937, 1.3785226620501016138e-19),
+		 dd(0.07052369794346953491, 9.5846628070792092842e-19));
+    t2 = ddadd_d2_d_d2(1, ddmul_d2_d2_d(t2, x));
+    t2 = ddsqu_d2_d2(t2);
+    t2 = ddsqu_d2_d2(t2);
+    t2 = ddsqu_d2_d2(t2);
+    t2 = ddsqu_d2_d2(t2);
+    t2 = ddrec_d2_d2(t2);
+  } else if (x > 6.0) {
+    t2 = dd(0, 0);
+  } else {
+    t = POLY21(x, x2, x4, x8, x16,
+	       -0.4024015130752621932e-18,
+	       +0.3847193332817048172e-16,
+	       -0.1749316241455644088e-14,
+	       +0.5029618322872872715e-13,
+	       -0.1025221466851463164e-11,
+	       +0.1573695559331945583e-10,
+	       -0.1884658558040203709e-9,
+	       +0.1798167853032159309e-8,
+	       -0.1380745342355033142e-7,
+	       +0.8525705726469103499e-7,
+	       -0.4160448058101303405e-6,
+	       +0.1517272660008588485e-5,
+	       -0.3341634127317201697e-5,
+	       -0.2515023395879724513e-5,
+	       +0.6539731269664907554e-4,
+	       -0.3551065097428388658e-3,
+	       +0.1210736097958368864e-2,
+	       -0.2605566912579998680e-2,
+	       +0.1252823202436093193e-2,
+	       +0.1820191395263313222e-1,
+	       -0.1021557155453465954e+0);
+    t2 = poly4dd(x, t,
+		 dd(-0.63691044383641748361, -2.4249477526539431839e-17),
+		 dd(-1.1282926061803961737, -6.2970338860410996505e-17),
+		 dd(-1.2261313785184804967e-05, -5.5329707514490107044e-22));
+    t2 = dd(expk(t2), 0);
+  }
+
+  t2 = ddadd2_d2_d2_d(t2, -1);
+
+  if (x < 1e-8) t2 = dd(-1.12837916709551262756245475959 * x, 0);
+  return mulsign(a == 0 ? 0 : (xisinf(a) ? 1 : (-t2.x - t2.y)), a);
 }
 
 EXPORT CONST double xerfc_u15(double a) {

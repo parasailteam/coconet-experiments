@@ -179,11 +179,11 @@ class ncclLLPrimitives {
           const uint64_t old_v = *(secondMomentPack+offset);
 
           //m[t] = beta1 * m[t-1] + (1-beta1)*g
-          const uint64_t new_m = MULTI<FuncFirstMomentUpdate<T>, T>()(old_m, val, beta1);
+          const uint64_t new_m = 0;//MULTI<FuncFirstMomentUpdate<T>, T>()(old_m, val, beta1);
           storeAL(firstMomentPack+offset, new_m, sizeof(uint64_t));
 
           //v[t] = beta2 * v[t-1] + (1-beta2)*g*g
-          const uint64_t new_v = MULTI<FuncSecondMomentUpdate<T>, T>()(old_v, val, beta2);
+          const uint64_t new_v = 0;//MULTI<FuncSecondMomentUpdate<T>, T>()(old_v, val, beta2);
           storeAL(secondMomentPack+offset, new_v, sizeof(uint64_t));
 
           //m_[t] = m[t]/(1-beta1^t)

@@ -150,7 +150,8 @@ struct HasJniRefRepr<T, typename std::enable_if<!std::is_same<typename T::JniRef
 
 template <typename T>
 struct RefReprType<T*> {
-  using type = typename std::conditional<HasJniRefRepr<T>::value, typename HasJniRefRepr<T>::type, JObjectWrapper<T*>>::type;
+  static_assert(HasJniRefRepr<T>::value, "Repr type missing JniRefRepr.");
+  using type = typename HasJniRefRepr<T>::type;
   static_assert(IsJavaClassType<type>(),
       "Repr type missing JObject base.");
   static_assert(std::is_same<type, typename RefReprType<type>::type>::value,
@@ -169,15 +170,6 @@ struct RefReprType<T, typename std::enable_if<IsJavaClassType<T>(), void>::type>
 template <typename T>
 struct JavaObjectType {
   using type = typename RefReprType<T>::type::javaobject;
-  static_assert(IsPlainJniReference<type>(),
-      "JavaObjectType<T> not a plain jni reference");
-  static_assert(std::is_same<type, typename JavaObjectType<type>::type>::value,
-      "JavaObjectType<T> not idempotent");
-};
-
-template <typename T>
-struct JavaObjectType<JObjectWrapper<T>> {
-  using type = T;
   static_assert(IsPlainJniReference<type>(),
       "JavaObjectType<T> not a plain jni reference");
   static_assert(std::is_same<type, typename JavaObjectType<type>::type>::value,
@@ -231,13 +223,14 @@ struct ReprStorage {
   JniType<Repr> jobj() const noexcept;
 
   void swap(ReprStorage& other) noexcept;
- private:
+
   ReprStorage() = delete;
   ReprStorage(const ReprStorage&) = delete;
   ReprStorage(ReprStorage&&) = delete;
   ReprStorage& operator=(const ReprStorage&) = delete;
   ReprStorage& operator=(ReprStorage&&) = delete;
 
+ private:
   using Storage = typename std::aligned_storage<sizeof(JObjectBase), alignof(JObjectBase)>::type;
   Storage storage_;
 };
@@ -368,7 +361,7 @@ class base_owned_ref {
 
   void reset(javaobject reference) noexcept;
 
-  friend javaobject jni::getPlainJniReference<>(const base_owned_ref& ref);
+  friend javaobject jni::getPlainJniReference<>(const base_owned_ref<T, Alloc>& ref);
 
   template<typename U, typename UAlloc>
   friend class base_owned_ref;
@@ -413,6 +406,10 @@ class weak_ref : public base_owned_ref<T, WeakGlobalReferenceAllocator> {
   weak_ref(weak_ref&& other) noexcept
     : base_owned_ref<T, Allocator>{std::move(other)} {}
 
+  // Move from ref to compatible type.
+  template<typename U>
+  weak_ref(weak_ref<U>&& other)
+      : base_owned_ref<T, Allocator>{std::move(other)} {}
 
   /// Assignment operator (note creates a new reference)
   weak_ref& operator=(const weak_ref& other);
@@ -478,6 +475,11 @@ class basic_strong_ref : public base_owned_ref<T, Alloc> {
   basic_strong_ref(const basic_strong_ref<U, Alloc>& other)
     : base_owned_ref<T, Alloc>{other} {}
 
+  // Move from ref to compatible type.
+  template<typename U>
+  basic_strong_ref(basic_strong_ref<U, Alloc>&& other)
+    : base_owned_ref<T, Alloc>{std::move(other)} {}
+
   /// Transfers ownership of an underlying reference from one unique reference to another
   basic_strong_ref(basic_strong_ref&& other) noexcept
     : base_owned_ref<T, Alloc>{std::move(other)} {}
@@ -536,11 +538,10 @@ template<typename T>
 void swap(alias_ref<T>& a, alias_ref<T>& b) noexcept;
 
 /**
- * A non-owning variant of the smart references (a dumb reference). These references still provide
- * access to the functionality of the @ref JObjectWrapper specializations including exception
- * handling and ease of use. Use this representation when you don't want to claim ownership of the
- * underlying reference (compare to using raw pointers instead of smart pointers.) For symmetry use
- * @ref alias_ref instead of this class.
+ * A non-owning variant of the smart references (a dumb
+ * reference). Use this representation when you don't want to claim
+ * ownership of the underlying reference (compare to using raw
+ * pointers instead of smart pointers.)
  */
 template<typename T>
 class alias_ref {

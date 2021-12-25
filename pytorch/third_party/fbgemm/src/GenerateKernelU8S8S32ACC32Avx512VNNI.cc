@@ -12,24 +12,12 @@ namespace fbgemm {
 namespace x86 = asmjit::x86;
 
 /**
- * Generate AVX512 instructions for initializing the C registers to 0 in 32-bit
- * Accumulation kernel.
- */
-template <>
-template <>
-void CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::initCRegs<
-    inst_set_t::avx512_vnni>(x86::Emitter* a, int rowRegs, int colRegs) {
-  initCRegs<inst_set_t::avx512>(a, rowRegs, colRegs);
-}
-
-/**
  * Generate AVX512 instructions for computing block in the rank-k update of
  * 32-bit Accmulation kernel.
  */
 template <>
-template <>
-void CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::genComputeBlock<
-    inst_set_t::avx512_vnni>(
+template <inst_set_t instSet>
+void CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::genComputeBlock(
     x86::Emitter* a,
     x86::Gp buffer_A,
     x86::Gp buffer_B,
@@ -37,42 +25,24 @@ void CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::genComputeBlock<
     int rowRegs,
     int colRegs,
     int lda) {
+  assert(colRegs * (rowRegs + 1) <= 31);
+  using VecRegT = typename simd_info<instSet>::vec_reg_t;
+  static constexpr int vectorLen = simd_info<instSet>::WIDTH_BYTES;
+
   // used for matrix A
-  x86::Zmm AReg = x86::zmm31;
-
-  // used for matrix B
-  x86::Zmm BReg = x86::zmm30;
-
-  using CRegs = x86::Zmm;
-
+  VecRegT AReg(31);
   for (int j = 0; j < colRegs; ++j) {
-    // load B
-    a->vmovaps(BReg, x86::dword_ptr(buffer_B, j * VLEN_ * sizeof(int8_t)));
-    // load A, broadcast and fmas
-    for (int i = 0; i < rowRegs; ++i) {
-      a->vpbroadcastd(
-          AReg, x86::dword_ptr(buffer_A, (i * lda) * sizeof(uint8_t)));
-      a->vpdpbusd(CRegs(i * colRegs + j), AReg, BReg);
-    }
-    a->prefetcht0(x86::dword_ptr(B_pf, j * VLEN_ * sizeof(int8_t)));
+    a->vmovdqa32(
+        VecRegT(30 - j), x86::dword_ptr(buffer_B, j * vectorLen * sizeof(int8_t)));
   }
-}
 
-/**
- * Generate AVX512 instructions for storing the C registers back to the memory
- * in 32-bit Accumulation kernel.
- */
-template <>
-template <>
-void CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::storeCRegs<
-    inst_set_t::avx512_vnni>(
-    x86::Emitter* a,
-    int rowRegs,
-    int colRegs,
-    x86::Gp C_Offset,
-    x86::Gp ldcReg,
-    bool accum) {
-  storeCRegs<inst_set_t::avx512>(a, rowRegs, colRegs, C_Offset, ldcReg, accum);
+  for (int i = 0; i < rowRegs; i++) {
+    a->vpbroadcastd(
+      AReg, x86::dword_ptr(buffer_A, (i * lda) * sizeof(uint8_t)));
+    for (int j = 0; j < colRegs; ++j) {
+      a->vpdpbusd(VecRegT(i * colRegs + j), AReg, VecRegT(30-j));
+    }
+  }
 }
 
 /**
@@ -80,10 +50,15 @@ void CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::storeCRegs<
  *
  */
 template <>
-template <>
+template <inst_set_t instSet>
 CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::jit_micro_kernel_fp
-CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
-    inst_set_t::avx512_vnni>(bool accum, int32_t mc, int32_t nc, int32_t kc) {
+CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate(
+    bool accum, int32_t mc, int32_t nc, int32_t kc) {
+  static constexpr int vectorLen = simd_info<instSet>::WIDTH_BYTES;
+  static constexpr inst_set_t storeInstType = simd_info<instSet>::WIDTH_BITS == 512
+      ? inst_set_t::avx512
+      : inst_set_t::avx512_ymm;
+
   std::tuple<bool, int, int, int, int, int, int> kernelSig;
   int kBlock;
   int nBlock;
@@ -100,16 +75,12 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
     nRegBlockSizeMin = blocking_params->NR_MIN;
     row_interleave = blocking_params->ROW_INTERLEAVE;
   } else {
-    kBlock = PackingTraits<uint8_t, int32_t, inst_set_t::avx512_vnni>::KCB;
-    nBlock = PackingTraits<uint8_t, int32_t, inst_set_t::avx512_vnni>::NCB;
-    mRegBlockSize =
-        PackingTraits<uint8_t, int32_t, inst_set_t::avx512_vnni>::MR;
-    nRegBlockSize =
-        PackingTraits<uint8_t, int32_t, inst_set_t::avx512_vnni>::NR;
-    nRegBlockSizeMin =
-        PackingTraits<uint8_t, int32_t, inst_set_t::avx512_vnni>::NR_MIN;
-    row_interleave = PackingTraits<uint8_t, int32_t, inst_set_t::avx512_vnni>::
-        ROW_INTERLEAVE;
+    kBlock = PackingTraits<uint8_t, int32_t, instSet>::KCB;
+    nBlock = PackingTraits<uint8_t, int32_t, instSet>::NCB;
+    mRegBlockSize = PackingTraits<uint8_t, int32_t, instSet>::MR;
+    nRegBlockSize = PackingTraits<uint8_t, int32_t, instSet>::NR;
+    nRegBlockSizeMin = PackingTraits<uint8_t, int32_t, instSet>::NR_MIN;
+    row_interleave = PackingTraits<uint8_t, int32_t, instSet>::ROW_INTERLEAVE;
   }
 
   kernelSig = std::make_tuple(
@@ -117,21 +88,15 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
 
   return codeCache_.getOrCreate(kernelSig, [&]() -> jit_micro_kernel_fp {
     asmjit::CodeHolder code;
-    code.init(runtime().codeInfo());
+    code.init(runtime().environment());
     x86::Assembler assembler(&code);
     x86::Emitter* a = assembler.as<x86::Emitter>();
 
 #if defined(FBGEMM_LOG_CODE)
     // generated code logging
     FILE* codeLogfile = fopen(
-        getCodeLoggingFile<inst_set_t::avx512_vnni>(
-            accum,
-            mc,
-            nc,
-            nBlock,
-            kBlock,
-            mRegBlockSize,
-            nRegBlockSize)
+        getCodeLoggingFile<instSet>(
+            accum, mc, nc, nBlock, kBlock, mRegBlockSize, nRegBlockSize)
             .c_str(),
         "w");
     asmjit::FileLogger* codeLogger = new asmjit::FileLogger(codeLogfile);
@@ -143,8 +108,9 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
     assert(
         kc % row_interleave == 0 && "kc must be a multiple of row_interleave");
     assert(nc % nRegBlockSizeMin == 0 && "nc must be a multiple of NR_MIN");
-    int maxMRegs = mRegBlockSize;
-    int maxNRegs = nRegBlockSize * row_interleave / VLEN_;
+    const int maxMRegs = mRegBlockSize;
+    const int maxNRegs = nRegBlockSize * row_interleave / vectorLen;
+    (void)maxMRegs; // Suppress unused variable warning
     assert(
         maxMRegs * maxNRegs <= 30 &&
         "MR*(NR*ROW_INTERLEAVE*8/512) \
@@ -162,14 +128,16 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
     x86::Gp ldcReg = a->gpz(9);
 
     asmjit::FuncDetail func;
-    func.init(asmjit::FuncSignatureT<
-              void,
-              uint8_t*,
-              int8_t*,
-              int8_t*,
-              int32_t*,
-              int,
-              int>(asmjit::CallConv::kIdHost));
+    func.init(
+        asmjit::FuncSignatureT<
+            void,
+            uint8_t*,
+            int8_t*,
+            int8_t*,
+            int32_t*,
+            int,
+            int>(asmjit::CallConv::kIdHost),
+        a->environment());
 
     asmjit::FuncFrame frame;
     frame.init(func);
@@ -218,7 +186,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
     a->mov(buffer_B_saved, buffer_B);
     a->mov(B_pf_saved, B_pf);
 
-    int currColRegs = nc * row_interleave / VLEN_;
+    int currColRegs = nc * row_interleave / vectorLen;
     int colRegs = std::min(currColRegs, maxNRegs);
     if (mRegBlocks > 0) {
       // move 0 to iteration variables
@@ -234,7 +202,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
       int rowRegs = mRegBlockSize;
 
       // init C registers
-      initCRegs<inst_set_t::avx512_vnni>(a, rowRegs, colRegs);
+      initCRegs(a, rowRegs, colRegs);
 
       // init k loop index
       a->xor_(kIdx.r32(), kIdx.r32());
@@ -243,7 +211,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
       // k is incremented by row_interleave
       a->add(kIdx, static_cast<asmjit::Imm>(row_interleave));
 
-      genComputeBlock<inst_set_t::avx512_vnni>(
+      genComputeBlock<instSet>(
           a, buffer_A, buffer_B, B_pf, rowRegs, colRegs, kBlock);
 
       // update buffer_A address for next k iteration
@@ -264,8 +232,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
       a->jl(Loopk);
 
       // store C matrix
-      storeCRegs<inst_set_t::avx512_vnni>(
-          a, rowRegs, colRegs, C_Offset, ldcReg, accum);
+      storeCRegs<storeInstType>(a, rowRegs, colRegs, C_Offset, ldcReg, accum);
 
       // reset A
       a->sub(buffer_A, kSize);
@@ -321,7 +288,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
       a->inc(jIdx);
 
       // init C registers
-      initCRegs<inst_set_t::avx512_vnni>(a, rowRegs, colRegs);
+      initCRegs(a, rowRegs, colRegs);
 
       // init k loop index
       a->xor_(kIdx.r32(), kIdx.r32());
@@ -330,7 +297,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
       // k is incremented by row_interleave
       a->add(kIdx, static_cast<asmjit::Imm>(row_interleave));
 
-      genComputeBlock<inst_set_t::avx512_vnni>(
+      genComputeBlock<instSet>(
           a, buffer_A, buffer_B, B_pf, rowRegs, colRegs, kBlock);
 
       // update buffer_A address for next k iteration
@@ -363,8 +330,7 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
       a->add(B_pf, C_Offset);
 
       // store C matrix
-      storeCRegs<inst_set_t::avx512_vnni>(
-          a, rowRegs, colRegs, C_Offset, ldcReg, accum);
+      storeCRegs<storeInstType>(a, rowRegs, colRegs, C_Offset, ldcReg, accum);
 
       // increment C for next B block
       a->add(CBase, static_cast<asmjit::Imm>(nRegBlockSize * sizeof(int32_t)));
@@ -397,5 +363,24 @@ CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::getOrCreate<
     return fn;
   });
 }
+
+
+/**
+ * Instatiate the AVX512_VNNI instructions for 32-bit Accumulation macro-kernel.
+ *
+ */
+template
+CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::jit_micro_kernel_fp
+CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::
+getOrCreate<inst_set_t::avx512_vnni>(bool accum, int32_t mc, int32_t nc, int32_t kc);
+
+/**
+ * Instatiate the AVX512_VNNI_256 instructions for 32-bit Accumulation macro-kernel.
+ *
+ */
+template
+CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::jit_micro_kernel_fp
+CodeGenBase<uint8_t, int8_t, int32_t, int32_t>::
+getOrCreate<inst_set_t::avx512_vnni_ymm>(bool accum, int32_t mc, int32_t nc, int32_t kc);
 
 } // namespace fbgemm

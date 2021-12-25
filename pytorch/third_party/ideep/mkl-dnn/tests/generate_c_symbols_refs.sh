@@ -1,6 +1,6 @@
 #!/bin/sh
 #===============================================================================
-# Copyright 2016-2018 Intel Corporation
+# Copyright 2016-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,18 @@
 # limitations under the License.
 #===============================================================================
 
-mkldnn_root="$1"
-extra_include_dir="$2"
-output="$3"
+dnnl_root="$1"
+output="$2"
+shift 2
 
-echo -e '#include "mkldnn.h"' > "$output"
-echo -e "const void *c_functions[] = {" >> "$output"
-cpp -I"${extra_include_dir}" "${mkldnn_root}/include/mkldnn.h" \
-    | grep -o 'mkldnn_\w\+(' \
-    | sed 's/\(.*\)(/(void*)\1,/g' \
-    | sort -u >> "$output"
-echo -e "NULL};\nint main() { return 0; }" >> "$output"
+{
+    echo '#include "oneapi/dnnl/dnnl.h"'
+    echo "const void *c_functions[] = {"
+    # -xc++ to get rid of c++-style comments that are part of c99,
+    # but -xc -std=c99 doesn't work on macOS for whatever reason...
+    cpp -xc++ -w "${@/#/-I}" "${dnnl_root}/include/oneapi/dnnl/dnnl.h" \
+        | grep -o 'dnnl_\w\+(' \
+        | sed 's/\(.*\)(/(void*)\1,/g' \
+        | sort -u
+    printf 'NULL};\nint main() { return 0; }\n'
+} > "$output"

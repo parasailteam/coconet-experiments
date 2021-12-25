@@ -1,4 +1,4 @@
-//          Copyright Naoki Shibata 2010 - 2019.
+//   Copyright Naoki Shibata and contributors 2010 - 2020.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,14 +10,6 @@
 #include <time.h>
 #include <float.h>
 #include <limits.h>
-
-#if defined(POWER64_UNDEF_USE_EXTERN_INLINES)
-// This is a workaround required to cross compile for PPC64 binaries
-#include <features.h>
-#ifdef __USE_EXTERN_INLINES
-#undef __USE_EXTERN_INLINES
-#endif
-#endif
 
 #include <math.h>
 
@@ -31,6 +23,10 @@
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <unistd.h>
+#endif
+
+#if defined(_MSC_VER)
+#include <io.h>
 #endif
 
 #include "misc.h"
@@ -88,7 +84,7 @@ int readln(int fd, char *buf, int cnt) {
 static uint64_t xseed;
 
 uint64_t xrand() {
-  xseed = xseed * 6364136223846793005ULL + 1;
+  xseed = xseed * UINT64_C(6364136223846793005) + 1;
   return xseed;
 }
 

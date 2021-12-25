@@ -1,10 +1,10 @@
-if (NOT __NCCL_INCLUDED)
+if(NOT __NCCL_INCLUDED)
   set(__NCCL_INCLUDED TRUE)
 
-  if (USE_SYSTEM_NCCL)
+  if(USE_SYSTEM_NCCL)
     # NCCL_ROOT, NCCL_LIB_DIR, NCCL_INCLUDE_DIR will be accounted in the following line.
     find_package(NCCL REQUIRED)
-    if (NCCL_FOUND)
+    if(NCCL_FOUND)
       add_library(__caffe2_nccl INTERFACE)
       target_link_libraries(__caffe2_nccl INTERFACE ${NCCL_LIBRARIES})
       target_include_directories(__caffe2_nccl INTERFACE ${NCCL_INCLUDE_DIRS})
@@ -34,16 +34,17 @@ if (NOT __NCCL_INCLUDED)
         "BUILDDIR=${__NCCL_BUILD_DIR}"
         "VERBOSE=0"
         "-j"
+        $ENV{MAX_JOBS}
         BUILD_BYPRODUCTS "${__NCCL_BUILD_DIR}/lib/libnccl_static.a"
       INSTALL_COMMAND ""
       )
 
     # Detect objcopy version
-    execute_process (COMMAND "${CMAKE_OBJCOPY}" "--version" OUTPUT_VARIABLE OBJCOPY_VERSION_STR)
+    execute_process(COMMAND "${CMAKE_OBJCOPY}" "--version" OUTPUT_VARIABLE OBJCOPY_VERSION_STR)
     string(REGEX REPLACE "GNU objcopy version ([0-9])\\.([0-9]+).*" "\\1" OBJCOPY_VERSION_MAJOR ${OBJCOPY_VERSION_STR})
     string(REGEX REPLACE "GNU objcopy version ([0-9])\\.([0-9]+).*" "\\2" OBJCOPY_VERSION_MINOR ${OBJCOPY_VERSION_STR})
 
-    if ((${OBJCOPY_VERSION_MAJOR} GREATER 2) OR ((${OBJCOPY_VERSION_MAJOR} EQUAL 2) AND (${OBJCOPY_VERSION_MINOR} GREATER 27)))
+    if((${OBJCOPY_VERSION_MAJOR} GREATER 2) OR ((${OBJCOPY_VERSION_MAJOR} EQUAL 2) AND (${OBJCOPY_VERSION_MINOR} GREATER 27)))
       message(WARNING "Enabling NCCL library slimming")
       add_custom_command(
         OUTPUT "${__NCCL_BUILD_DIR}/lib/libnccl_slim_static.a"
@@ -57,16 +58,15 @@ if (NOT __NCCL_INCLUDED)
         COMMAND "${CMAKE_COMMAND}" -E remove_directory "${__NCCL_BUILD_DIR}/objects"
         WORKING_DIRECTORY "${__NCCL_BUILD_DIR}"
         COMMENT "Slimming NCCL"
-      )
-    add_custom_target(nccl_slim_external DEPENDS "${__NCCL_BUILD_DIR}/lib/libnccl_slim_static.a")
-    set(__NCCL_LIBRARY_DEP nccl_slim_external)
-    set(NCCL_LIBRARIES ${__NCCL_BUILD_DIR}/lib/libnccl_slim_static.a)
-  else()
-    message(WARNING "Objcopy version is too old to support NCCL library slimming")
-    set(__NCCL_LIBRARY_DEP nccl_external)
-    set(NCCL_LIBRARIES ${__NCCL_BUILD_DIR}/lib/libnccl_static.a)
-  endif()
-
+        )
+      add_custom_target(nccl_slim_external DEPENDS "${__NCCL_BUILD_DIR}/lib/libnccl_slim_static.a")
+      set(__NCCL_LIBRARY_DEP nccl_slim_external)
+      set(NCCL_LIBRARIES ${__NCCL_BUILD_DIR}/lib/libnccl_slim_static.a)
+    else()
+      message(WARNING "Objcopy version is too old to support NCCL library slimming")
+      set(__NCCL_LIBRARY_DEP nccl_external)
+      set(NCCL_LIBRARIES ${__NCCL_BUILD_DIR}/lib/libnccl_static.a)
+    endif()
 
     set(NCCL_FOUND TRUE)
     add_library(__caffe2_nccl INTERFACE)
@@ -76,5 +76,9 @@ if (NOT __NCCL_INCLUDED)
     add_dependencies(__caffe2_nccl ${__NCCL_LIBRARY_DEP})
     target_link_libraries(__caffe2_nccl INTERFACE ${NCCL_LIBRARIES})
     target_include_directories(__caffe2_nccl INTERFACE ${NCCL_INCLUDE_DIRS})
+    # nccl includes calls to shm_open/shm_close and therefore must depend on librt on Linux
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      target_link_libraries(__caffe2_nccl INTERFACE rt)
+    endif()
   endif()
 endif()

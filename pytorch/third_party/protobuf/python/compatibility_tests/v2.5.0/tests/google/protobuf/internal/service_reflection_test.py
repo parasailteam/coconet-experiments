@@ -80,7 +80,7 @@ class FooUnitTest(unittest.TestCase):
     self.assertEqual('Method Bar not implemented.',
                      rpc_controller.failure_message)
     self.assertEqual(None, self.callback_response)
-    
+
     class MyServiceImpl(unittest_pb2.TestService):
       def Foo(self, rpc_controller, request, done):
         self.foo_called = True
@@ -118,7 +118,7 @@ class FooUnitTest(unittest.TestCase):
     rpc_controller = 'controller'
     request = 'request'
 
-    # GetDescriptor now static, still works as instance method for compatability
+    # GetDescriptor now static, still works as instance method for compatibility
     self.assertEqual(unittest_pb2.TestService_Stub.GetDescriptor(),
                      stub.GetDescriptor())
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2018 Intel Corporation
+* Copyright 2018-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,58 +14,60 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef _CONV_COMMON_HPP
-#define _CONV_COMMON_HPP
+#ifndef CONV_COMMON_HPP
+#define CONV_COMMON_HPP
 
-#include <stdint.h>
-#include <limits.h>
 #include <assert.h>
+#include <limits.h>
+#include <stdint.h>
+
+#include <iostream>
 
 #include "common.hpp"
 #include "dnn_types.hpp"
-#include "mkldnn_common.hpp"
-#include "mkldnn_memory.hpp"
-
-namespace deconv {
-/* some extra control parameters which shouldn't be placed in prb_t */
-extern const char *skip_impl; /* NULL or "" means do not skip anything */
-extern bool allow_unimpl; /* true means do not treat unimplemented as error */
-extern const char *perf_template; /* performance output template */
-}
+#include "dnnl_common.hpp"
+#include "dnnl_memory.hpp"
+#include "perf_report.hpp"
 
 namespace conv {
 
 enum alg_t { DIRECT, WINO, AUTO };
 alg_t str2alg(const char *str);
 const char *alg2str(alg_t alg);
-alg_t alg_kind2alg(mkldnn_alg_kind_t alg);
+alg_t alg_kind2alg(dnnl_alg_kind_t alg);
 
 struct desc_t {
-    int g, mb;
-    int ic, id, ih, iw;
-    int oc, od, oh, ow;
-    int kd, kh, kw;
-    int sd, sh, sw;
-    int pd, ph, pw;
-    int dd, dh, dw;
+    int64_t g, mb;
+    int64_t ic, id, ih, iw;
+    int64_t oc, od, oh, ow;
+    int64_t kd, kh, kw;
+    int64_t sd, sh, sw;
+    int64_t pd, ph, pw;
+    int64_t pd_r, ph_r, pw_r; // End side padding for each dimension
+    int64_t dd, dh, dw;
     bool has_groups;
 
     const char *name;
+    int ndims;
+
+    // Initialize dependent opposite-side paddings values
+    // from the shape parameters
+    void init_pad_r(bool is_deconv) {
+        pw_r = opp_pad(is_deconv, iw, ow, kw, sw, pw, dw);
+        ph_r = opp_pad(is_deconv, ih, oh, kh, sh, ph, dh);
+        pd_r = opp_pad(is_deconv, id, od, kd, sd, pd, dd);
+    }
+
+private:
+    int64_t opp_pad(bool is_deconv, int64_t i, int64_t o, int64_t k, int64_t s,
+            int64_t p, int64_t d) {
+        return is_deconv ? (i - 1) * s - o + ((k - 1) * (d + 1) + 1) - p
+                         : (o - 1) * s - i + ((k - 1) * (d + 1) + 1) - p;
+    }
 };
 
-inline bool is_problem_3d(const desc_t *p) {
-    const auto id_p = p->id + p->pd;
-    return id_p > 1 || p->kd > 1 || p-> od > 1;
-}
-
-inline bool is_problem_1d(const desc_t *p) {
-    const auto ih_p = p->ih + p->ph;
-    return !is_problem_3d(p) && ih_p == 1 && p->kh == 1 && p->oh == 1;
-}
-
-const size_t max_desc_len = 196;
 int str2desc(desc_t *desc, const char *str, bool is_deconv);
-void desc2str(const desc_t *d, char *buffer, bool canonical = false);
+std::ostream &operator<<(std::ostream &s, const desc_t &d);
 
 /** configuration structure, that controls initial data filling + error check
  *
@@ -83,7 +85,7 @@ void desc2str(const desc_t *d, char *buffer, bool canonical = false);
  * relative difference should not exceed eps
  */
 typedef struct dt_conf_t {
-    mkldnn_data_type_t dt;
+    dnnl_data_type_t dt;
     double min, max; /* representative */
     int f_min, f_max; /* fill range */
     int f_base; /* fill base, use 0 */
@@ -93,182 +95,301 @@ typedef struct dt_conf_t {
 } _dt_conf_t[DAT_TOTAL];
 
 extern const _dt_conf_t conf_f32;
-extern const _dt_conf_t conf_f32_full;
-extern const _dt_conf_t conf_f32_wino;
-extern const _dt_conf_t conf_s16s16s32s32;
-extern const _dt_conf_t conf_s32s16s16s32;
-extern const _dt_conf_t conf_s16s32s16s32;
-extern const _dt_conf_t conf_u8s8s32s32;
-extern const _dt_conf_t conf_u8s8s8s32;
-extern const _dt_conf_t conf_u8s8u8s32;
-extern const _dt_conf_t conf_s8s8s32s32;
-extern const _dt_conf_t conf_s8s8s8s32;
-extern const _dt_conf_t conf_s8s8u8s32;
-extern const _dt_conf_t conf_u8s8f32s32_wino;
-extern const _dt_conf_t conf_u8s8s32s32_wino;
-extern const _dt_conf_t conf_u8s8s8s32_wino;
-extern const _dt_conf_t conf_u8s8u8s32_wino;
-extern const _dt_conf_t conf_bf16bf16f32;
-extern const _dt_conf_t conf_bf16bf16bf16;
-extern const _dt_conf_t conf_f32bf16bf16;
-extern const _dt_conf_t conf_bf16f32bf16;
 
 const dt_conf_t *str2cfg(const char *str);
-const char *cfg2str(const dt_conf_t *cfg);
+std::ostream &operator<<(std::ostream &s, const dt_conf_t *cfg);
 const dt_conf_t *auto_cfg(const alg_t alg, const dt_conf_t *cfg);
 
-struct prb_t: public desc_t {
-    prb_t(const desc_t &desc, dir_t dir, const dt_conf_t *cfg, alg_t alg,
-            const attr_t &attr, int mb = 0, bool is_deconv = false)
-        : desc_t(desc), dir(dir), cfg(cfg), alg(alg), attr(attr)
-        , ops(0), scales(NULL), is_deconv(is_deconv) {
+struct settings_t {
+    settings_t() = default;
+
+    // ctor to save certain fields from resetting
+    settings_t(const char *perf_template) : settings_t() {
+        this->perf_template = perf_template;
+    }
+
+    desc_t desc {};
+
+    std::vector<dir_t> dir {FWD_B};
+    std::vector<const dt_conf_t *> cfg {conf_f32};
+    std::vector<std::string> stag {tag::any}, wtag {tag::any}, dtag {tag::any};
+    std::vector<int64_t> mb {0};
+    std::vector<alg_t> alg {DIRECT};
+    std::vector<attr_t::scale_t> oscale {attr_t::scale_t()};
+    std::vector<attr_t::zero_points_t> zero_points {attr_t::zero_points_t()};
+    std::vector<attr_t::post_ops_t> post_ops {attr_t::post_ops_t()};
+    std::vector<dnnl_scratchpad_mode_t> scratchpad_mode {
+            dnnl_scratchpad_mode_library};
+    attr_t attr = {};
+    const char *pattern = NULL;
+
+    const char *perf_template_csv
+            = "perf,%engine%,%impl%,%name%,%dir%,%cfg%,%alg%,%attr%,%DESC%,"
+              "%Gops%,%Gfreq%,%-time%,%-Gflops%,%0time%,%0Gflops%";
+    const char *perf_template_def
+            = "perf,%engine%,%impl%,%name%,%prb%,%Gops%,%Gfreq%,%-time%,%-"
+              "Gflops%,%0time%,%0Gflops%";
+    const char *perf_template = perf_template_def;
+
+    void reset() { *this = settings_t(perf_template); }
+};
+
+// moved out of prb_t to support fusion
+float *generate_oscales(const attr_t::scale_t &oscale, int N);
+int32_t *generate_zero_points(
+        int arg, const attr_t::zero_points_t &zero_points, int N);
+
+struct prb_t : public desc_t {
+    prb_t(const desc_t &desc, dir_t dir, const dt_conf_t *cfg,
+            const std::string &stag, const std::string &wtag,
+            const std::string &dtag, alg_t alg, const attr_t &attr,
+            int64_t mb = 0, bool is_deconv = false)
+        : desc_t(desc)
+        , dir(dir)
+        , cfg(cfg)
+        , stag(stag)
+        , wtag(wtag)
+        , dtag(dtag)
+        , alg(alg)
+        , attr(attr)
+        , user_mb(mb)
+        , ops(0)
+        , scales(NULL)
+        , scales_dw(NULL)
+        , src_zp(NULL)
+        , dst_zp(NULL)
+        , is_deconv(is_deconv) {
         if (mb) this->mb = mb;
         count_ops();
-        generate_oscales();
+        scales = generate_oscales(attr.oscale, oc);
+        src_zp = generate_zero_points(DNNL_ARG_SRC, attr.zero_points, ic);
+        dst_zp = generate_zero_points(DNNL_ARG_DST, attr.zero_points, oc);
+
+        const int dw_idx = this->attr.post_ops.convolution_index();
+        if (dw_idx != -1) {
+            const auto &e = this->attr.post_ops.entry[dw_idx];
+            scales_dw = generate_oscales(e.convolution.oscale, oc);
+        }
     }
-    ~prb_t() { if (scales) zfree(scales); }
+    ~prb_t() {
+        if (scales) zfree(scales);
+        if (scales_dw) zfree(scales_dw);
+        if (src_zp) zfree(src_zp);
+        if (dst_zp) zfree(dst_zp);
+    }
 
     dir_t dir;
     const dt_conf_t *cfg;
+    std::string stag, wtag, dtag;
     alg_t alg;
     attr_t attr;
+    int64_t user_mb;
 
     double ops;
-    float *scales;
+    float *scales, *scales_dw;
+    int32_t *src_zp, *dst_zp;
     bool is_deconv;
 
     void count_ops();
-    void generate_oscales();
+
+    BENCHDNN_DISALLOW_COPY_AND_ASSIGN(prb_t);
+};
+std::ostream &operator<<(std::ostream &s, const prb_t &prb);
+
+struct perf_report_t : public base_perf_report_t {
+    using base_perf_report_t::base_perf_report_t;
+
+    void report(const prb_t *prb, const res_t *res, const char *prb_str) {
+        p_ = prb;
+        stag_ = {normalize_tag(p_->stag, p_->ndims)};
+        wtag_ = normalize_tag(p_->wtag, p_->ndims);
+        dtag_ = normalize_tag(p_->dtag, p_->ndims);
+        base_report(res, prb_str);
+    }
+
+    void dump_alg(std::ostream &s) const override { s << alg2str(p_->alg); }
+
+    void dump_cfg(std::ostream &s) const override { s << p_->cfg; }
+
+    void dump_desc(std::ostream &s) const override {
+        s << static_cast<const desc_t &>(*p_);
+    }
+
+    void dump_desc_csv(std::ostream &s) const override {
+        s << p_->g << ',' << p_->mb << ','
+
+          << p_->ic << ',' << p_->id << ',' << p_->ih << ',' << p_->iw << ','
+
+          << p_->oc << ',' << p_->od << ',' << p_->oh << ',' << p_->ow << ','
+
+          << p_->kd << ',' << p_->kh << ',' << p_->kw << ','
+
+          << p_->sd << ',' << p_->sh << ',' << p_->sw << ','
+
+          << p_->pd << ',' << p_->ph << ',' << p_->pw << ','
+
+          << p_->dd << ',' << p_->dh << ',' << p_->dw;
+    }
+
+    double ops() const override { return p_->ops; }
+    const attr_t *attr() const override { return &p_->attr; }
+    const int64_t *user_mb() const override { return &p_->user_mb; }
+    const char *name() const override { return p_->name; }
+    const dir_t *dir() const override { return &p_->dir; }
+    const std::vector<std::string> *stag() const override { return &stag_; }
+    const std::string *wtag() const override { return &wtag_; }
+    const std::string *dtag() const override { return &dtag_; }
 
 private:
-    prb_t(const prb_t &) = delete;
-    prb_t &operator=(const prb_t &) = delete;
+    const prb_t *p_ = NULL;
+    std::vector<std::string> stag_;
+    std::string wtag_, dtag_;
 };
-const size_t max_prb_len = max_attr_len + max_desc_len + 196;
-void prb2str(const prb_t *p, char *buffer, bool canonical = false);
 
-/* some extra control parameters which shouldn't be placed in prb_t */
-extern const char *skip_impl; /* NULL or "" means do not skip anything */
-extern bool allow_unimpl; /* true means do not treat unimplemented as error */
-extern const char *perf_template; /* performance output template */
-
-inline size_t src_off_f(const prb_t *p, int mb, int g, int ic,
-                        int id, int ih, int iw)
-{
-    return ((((size_t)mb * p->ic + (size_t)g * p->ic / p->g + ic) * p->id + id)
-                           * p->ih
+inline int64_t src_off_f(const prb_t *prb, int64_t mb, int64_t g, int64_t ic,
+        int64_t id, int64_t ih, int64_t iw) {
+    return (((mb * prb->ic + g * prb->ic / prb->g + ic) * prb->id + id)
+                           * prb->ih
                    + ih)
-            * p->iw
+            * prb->iw
             + iw;
 }
 
-inline void inv_src_off_f(const prb_t *p, size_t off, int &mb, int &g, int &ic,
-        int &id, int &ih, int &iw) {
-    iw = off % p->iw; off /= p->iw;
-    ih = off % p->ih; off /= p->ih;
-    id = off % p->id; off /= p->id;
-    ic = off % (p->ic / p->g); off /= (p->ic / p->g);
-    g = off % p->g; off /= p->g;
-    mb = off % p->mb; off /= p->mb;
+inline void inv_src_off_f(const prb_t *prb, int64_t off, int64_t &mb,
+        int64_t &g, int64_t &ic, int64_t &id, int64_t &ih, int64_t &iw) {
+    iw = off % prb->iw;
+    off /= prb->iw;
+    ih = off % prb->ih;
+    off /= prb->ih;
+    id = off % prb->id;
+    off /= prb->id;
+    ic = off % (prb->ic / prb->g);
+    off /= (prb->ic / prb->g);
+    g = off % prb->g;
+    off /= prb->g;
+    mb = off % prb->mb;
+    off /= prb->mb;
     assert(off == 0);
 }
 
-inline size_t wei_off_f(const prb_t *p, int g, int oc, int ic,
-                        int kd, int kh, int kw)
-{
-    return (((((size_t)g * p->oc / p->g + oc) * p->ic / p->g + ic)
-        * p->kd + kd) * p->kh + kh) * p->kw + kw;
+inline int64_t wei_off_f(const prb_t *prb, int64_t g, int64_t oc, int64_t ic,
+        int64_t kd, int64_t kh, int64_t kw) {
+    return ((((g * prb->oc / prb->g + oc) * prb->ic / prb->g + ic) * prb->kd
+                    + kd) * prb->kh
+                   + kh)
+            * prb->kw
+            + kw;
 }
 
-inline void inv_wei_off_f(const prb_t *p, size_t off, int &g, int &oc, int &ic,
-        int &kd, int &kh, int &kw) {
-    kw = off % p->kw; off /= p->kw;
-    kh = off % p->kh; off /= p->kh;
-    kd = off % p->kd; off /= p->kd;
-    ic = off % (p->ic / p->g); off /= (p->ic / p->g);
-    oc = off % (p->oc / p->g); off /= (p->oc / p->g);
-    g = off % p->g; off /= p->g;
+inline void inv_wei_off_f(const prb_t *prb, int64_t off, int64_t &g,
+        int64_t &oc, int64_t &ic, int64_t &kd, int64_t &kh, int64_t &kw) {
+    kw = off % prb->kw;
+    off /= prb->kw;
+    kh = off % prb->kh;
+    off /= prb->kh;
+    kd = off % prb->kd;
+    off /= prb->kd;
+    ic = off % (prb->ic / prb->g);
+    off /= (prb->ic / prb->g);
+    oc = off % (prb->oc / prb->g);
+    off /= (prb->oc / prb->g);
+    g = off % prb->g;
+    off /= prb->g;
     assert(off == 0);
 }
 
-inline size_t bia_off_f(const prb_t *p, int g, int oc) {
-    return (size_t)g * p->oc / p->g + oc;
+inline int64_t bia_off_f(const prb_t *prb, int64_t g, int64_t oc) {
+    return g * prb->oc / prb->g + oc;
 }
 
-inline void inv_bia_off_f(const prb_t *p, size_t off, int &g, int &oc) {
-    oc = off % (p->oc / p->g); off /= (p->oc / p->g);
-    g = off % p->g; off /= p->g;
+inline void inv_bia_off_f(
+        const prb_t *prb, int64_t off, int64_t &g, int64_t &oc) {
+    oc = off % (prb->oc / prb->g);
+    off /= (prb->oc / prb->g);
+    g = off % prb->g;
+    off /= prb->g;
     assert(off == 0);
 }
 
-inline size_t dst_off_f(const prb_t *p, int mb, int g, int oc,
-                        int od, int oh, int ow)
-{
-    return ((((size_t)mb * p->oc + (size_t)g * p->oc / p->g + oc) * p->od + od)
-                           * p->oh
+inline int64_t dst_off_f(const prb_t *prb, int64_t mb, int64_t g, int64_t oc,
+        int64_t od, int64_t oh, int64_t ow) {
+    return (((mb * prb->oc + g * prb->oc / prb->g + oc) * prb->od + od)
+                           * prb->oh
                    + oh)
-            * p->ow
+            * prb->ow
             + ow;
 }
 
-inline void inv_dst_off_f(const prb_t *p, size_t off, int &mb, int &g, int &oc,
-        int &od, int &oh, int &ow) {
-    ow = off % p->ow; off /= p->ow;
-    oh = off % p->oh; off /= p->oh;
-    od = off % p->od; off /= p->od;
-    oc = off % (p->oc / p->g); off /= (p->oc / p->g);
-    g = off % p->g; off /= p->g;
-    mb = off % p->mb; off /= p->mb;
+inline void inv_dst_off_f(const prb_t *prb, int64_t off, int64_t &mb,
+        int64_t &g, int64_t &oc, int64_t &od, int64_t &oh, int64_t &ow) {
+    ow = off % prb->ow;
+    off /= prb->ow;
+    oh = off % prb->oh;
+    off /= prb->oh;
+    od = off % prb->od;
+    off /= prb->od;
+    oc = off % (prb->oc / prb->g);
+    off /= (prb->oc / prb->g);
+    g = off % prb->g;
+    off /= prb->g;
+    mb = off % prb->mb;
+    off /= prb->mb;
     assert(off == 0);
 }
 
-float oscale(const prb_t *p, int oc);
+float oscale(const prb_t *prb, int oc);
 
-void compute_ref_fwd(const prb_t *p, dnn_mem_t &src_m, dnn_mem_t &wei_m,
-        dnn_mem_t &bia_m, dnn_mem_t &dst_m);
-void compute_ref_bwd_d(const prb_t *p, dnn_mem_t &diff_src_m, dnn_mem_t &wei_m,
-        dnn_mem_t &bia_m, dnn_mem_t &diff_dst_m);
-void compute_ref_bwd_w(const prb_t *p, dnn_mem_t &src_m, dnn_mem_t &diff_wei_m,
-        dnn_mem_t &diff_bia_m, dnn_mem_t &diff_dst_m);
+void compute_ref_fwd(const prb_t *prb, dnnl_primitive_t c_ref, dnn_mem_t &src_m,
+        dnn_mem_t &wei_m, dnn_mem_t &bia_m,
+        const std::vector<dnn_mem_t> &binary_po, dnn_mem_t &dst_m);
+void compute_ref_bwd_d(const prb_t *prb, dnnl_primitive_t c_ref,
+        dnn_mem_t &diff_src_m, dnn_mem_t &wei_m, dnn_mem_t &bia_m,
+        const std::vector<dnn_mem_t> &binary_po, dnn_mem_t &diff_dst_m);
+void compute_ref_bwd_w(const prb_t *prb, dnnl_primitive_t c_ref,
+        dnn_mem_t &src_m, dnn_mem_t &diff_wei_m, dnn_mem_t &diff_bia_m,
+        dnn_mem_t &diff_dst_m);
 
-void compute_ref_direct_fwd(const prb_t *p, dnn_mem_t &src_m, dnn_mem_t &wei_m,
-        dnn_mem_t &bia_m, dnn_mem_t &dst_m);
-void compute_ref_direct_bwd_d(const prb_t *p, dnn_mem_t &diff_src_m, dnn_mem_t &wei_m,
-        dnn_mem_t &bia_m, dnn_mem_t &diff_dst_m);
-void compute_ref_direct_bwd_w(const prb_t *p, dnn_mem_t &src_m, dnn_mem_t &diff_wei_m,
-        dnn_mem_t &diff_bia_m, dnn_mem_t &diff_dst_m);
-
-void compute_wino_ref_fwd(const prb_t *p, dnn_mem_t &src_m, dnn_mem_t &wei_m,
-        dnn_mem_t &bia_m, dnn_mem_t &dst_m);
-void compute_wino_ref_bwd_d(const prb_t *p, dnn_mem_t &idiff_src_m,
-        dnn_mem_t &wei_m, dnn_mem_t &bia_m, dnn_mem_t &diff_dst_m);
-void compute_wino_ref_bwd_w(const prb_t *p, dnn_mem_t &src_m,
+void compute_ref_direct_fwd(const prb_t *prb, dnn_mem_t &src_m,
+        dnn_mem_t &wei_m, dnn_mem_t &bia_m,
+        const std::vector<dnn_mem_t> &binary_po, dnn_mem_t &dst_m);
+void compute_ref_direct_bwd_d(const prb_t *prb, dnn_mem_t &diff_src_m,
+        dnn_mem_t &wei_m, dnn_mem_t &bia_m,
+        const std::vector<dnn_mem_t> &binary_po, dnn_mem_t &diff_dst_m);
+void compute_ref_direct_bwd_w(const prb_t *prb, dnn_mem_t &src_m,
         dnn_mem_t &diff_wei_m, dnn_mem_t &diff_bia_m, dnn_mem_t &diff_dst_m);
 
-void perf_report(const prb_t *p, const res_t *r, const char *pstr);
+void compute_wino_ref_fwd(const prb_t *prb, dnn_mem_t &src_m, dnn_mem_t &wei_m,
+        dnn_mem_t &bia_m, dnn_mem_t &dst_m);
+void compute_wino_ref_bwd_d(const prb_t *prb, dnn_mem_t &idiff_src_m,
+        dnn_mem_t &wei_m, dnn_mem_t &bia_m, dnn_mem_t &diff_dst_m);
+void compute_wino_ref_bwd_w(const prb_t *prb, dnn_mem_t &src_m,
+        dnn_mem_t &diff_wei_m, dnn_mem_t &diff_bia_m, dnn_mem_t &diff_dst_m);
 
-int compare_src(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r, bool final_compare = false);
-int compare_wei(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r, bool final_compare = false);
-int compare_bia(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r, bool final_compare = false);
-int compare_dst(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r, bool final_compare = false);
-int fill_src(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r);
-int fill_wei(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-    res_t *r);
-int fill_bia(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r);
-int fill_dst(const prb_t *p, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
-        res_t *r);
-double get_trust_nz_level(const prb_t *p, data_kind_t kind, bool final_compare);
+int compare_src(const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
+        res_t *res, bool final_compare = false);
+int compare_wei(const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
+        res_t *res, bool final_compare = false);
+int compare_bia(const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
+        res_t *res, bool final_compare = false);
+int compare_dst(const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp,
+        res_t *res, bool final_compare = false);
+int fill_src(
+        const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp, res_t *res);
+int fill_wei(
+        const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp, res_t *res);
+int fill_bia(
+        const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp, res_t *res);
+int fill_dst(
+        const prb_t *prb, dnn_mem_t &mem_dt, dnn_mem_t &mem_fp, res_t *res);
+double get_trust_nz_level(
+        const prb_t *prb, data_kind_t kind, bool final_compare);
 
-void compute_ref_bwd_bias(const prb_t *p, dnn_mem_t &diff_bia_m, dnn_mem_t &diff_dst_m);
-void compute_bias_fwd(const prb_t *p, dnn_mem_t &bia_m, dnn_mem_t &dst_m);
-void compute_ref_bwd_weights(const prb_t *p, dnn_mem_t &src_m,dnn_mem_t &diff_wei_m, dnn_mem_t &diff_dst_m);
+void compute_ref_bwd_bias(
+        const prb_t *prb, dnn_mem_t &diff_bia_m, dnn_mem_t &diff_dst_m);
+void compute_bias_fwd(const prb_t *prb, dnn_mem_t &bia_m, dnn_mem_t &dst_m);
+void compute_ref_bwd_weights(const prb_t *prb, dnn_mem_t &src_m,
+        dnn_mem_t &diff_wei_m, dnn_mem_t &diff_dst_m);
 
-}
+} // namespace conv
 
 #endif

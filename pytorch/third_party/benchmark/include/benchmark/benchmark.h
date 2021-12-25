@@ -42,6 +42,7 @@ BENCHMARK(BM_StringCopy);
 int main(int argc, char** argv) {
   benchmark::Initialize(&argc, argv);
   benchmark::RunSpecifiedBenchmarks();
+  benchmark::Shutdown();
   return 0;
 }
 
@@ -56,8 +57,7 @@ static void BM_memcpy(benchmark::State& state) {
   memset(src, 'x', state.range(0));
   for (auto _ : state)
     memcpy(dst, src, state.range(0));
-  state.SetBytesProcessed(int64_t(state.iterations()) *
-                          int64_t(state.range(0)));
+  state.SetBytesProcessed(state.iterations() * state.range(0));
   delete[] src; delete[] dst;
 }
 BENCHMARK(BM_memcpy)->Arg(8)->Arg(64)->Arg(512)->Arg(1<<10)->Arg(8<<10);
@@ -122,8 +122,7 @@ template <class Q> int BM_Sequential(benchmark::State& state) {
       q.Wait(&v);
   }
   // actually messages, not bytes:
-  state.SetBytesProcessed(
-      static_cast<int64_t>(state.iterations())*state.range(0));
+  state.SetBytesProcessed(state.iterations() * state.range(0));
 }
 BENCHMARK_TEMPLATE(BM_Sequential, WaitQueue<int>)->Range(1<<0, 1<<10);
 
@@ -169,6 +168,12 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
 #define BENCHMARK_HAS_CXX11
 #endif
 
+// This _MSC_VER check should detect VS 2017 v15.3 and newer.
+#if __cplusplus >= 201703L || \
+    (defined(_MSC_VER) && _MSC_VER >= 1911 && _MSVC_LANG >= 201703L)
+#define BENCHMARK_HAS_CXX17
+#endif
+
 #include <stdint.h>
 
 #include <algorithm>
@@ -178,6 +183,7 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if defined(BENCHMARK_HAS_CXX11)
@@ -200,13 +206,19 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
   TypeName& operator=(const TypeName&) = delete
 #endif
 
-#if defined(__GNUC__)
+#ifdef BENCHMARK_HAS_CXX17
+#define BENCHMARK_UNUSED [[maybe_unused]]
+#elif defined(__GNUC__) || defined(__clang__)
 #define BENCHMARK_UNUSED __attribute__((unused))
+#else
+#define BENCHMARK_UNUSED
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
 #define BENCHMARK_ALWAYS_INLINE __attribute__((always_inline))
 #define BENCHMARK_NOEXCEPT noexcept
 #define BENCHMARK_NOEXCEPT_OP(x) noexcept(x)
 #elif defined(_MSC_VER) && !defined(__clang__)
-#define BENCHMARK_UNUSED
 #define BENCHMARK_ALWAYS_INLINE __forceinline
 #if _MSC_VER >= 1900
 #define BENCHMARK_NOEXCEPT noexcept
@@ -217,7 +229,6 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
 #endif
 #define __func__ __FUNCTION__
 #else
-#define BENCHMARK_UNUSED
 #define BENCHMARK_ALWAYS_INLINE
 #define BENCHMARK_NOEXCEPT
 #define BENCHMARK_NOEXCEPT_OP(x)
@@ -226,7 +237,7 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
 #define BENCHMARK_INTERNAL_TOSTRING2(x) #x
 #define BENCHMARK_INTERNAL_TOSTRING(x) BENCHMARK_INTERNAL_TOSTRING2(x)
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__clang__)
 #define BENCHMARK_BUILTIN_EXPECT(x, y) __builtin_expect(x, y)
 #define BENCHMARK_DEPRECATED_MSG(msg) __attribute__((deprecated(msg)))
 #else
@@ -241,10 +252,30 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
 #define BENCHMARK_GCC_VERSION (__GNUC__ * 100 + __GNUC_MINOR__)
 #endif
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
+#if defined(__GNUC__) || __has_builtin(__builtin_unreachable)
+#define BENCHMARK_UNREACHABLE() __builtin_unreachable()
+#elif defined(_MSC_VER)
+#define BENCHMARK_UNREACHABLE() __assume(false)
+#else
+#define BENCHMARK_UNREACHABLE() ((void)0)
+#endif
+
+#ifdef BENCHMARK_HAS_CXX11
+#define BENCHMARK_OVERRIDE override
+#else
+#define BENCHMARK_OVERRIDE
+#endif
+
 namespace benchmark {
 class BenchmarkReporter;
+class MemoryManager;
 
 void Initialize(int* argc, char** argv);
+void Shutdown();
 
 // Report to stdout all arguments in 'argv' as unrecognized except the first.
 // Returns true there is at least on unrecognized argument (i.e. 'argc' > 1).
@@ -255,7 +286,7 @@ bool ReportUnrecognizedArguments(int argc, char** argv);
 // of each matching benchmark. Otherwise run each matching benchmark and
 // report the results.
 //
-// The second and third overload use the specified 'console_reporter' and
+// The second and third overload use the specified 'display_reporter' and
 //  'file_reporter' respectively. 'file_reporter' will write to the file
 //  specified
 //   by '--benchmark_output'. If '--benchmark_output' is not given the
@@ -263,16 +294,16 @@ bool ReportUnrecognizedArguments(int argc, char** argv);
 //
 // RETURNS: The number of matching benchmarks.
 size_t RunSpecifiedBenchmarks();
-size_t RunSpecifiedBenchmarks(BenchmarkReporter* console_reporter);
-size_t RunSpecifiedBenchmarks(BenchmarkReporter* console_reporter,
+size_t RunSpecifiedBenchmarks(BenchmarkReporter* display_reporter);
+size_t RunSpecifiedBenchmarks(BenchmarkReporter* display_reporter,
                               BenchmarkReporter* file_reporter);
 
-// If this routine is called, peak memory allocation past this point in the
-// benchmark is reported at the end of the benchmark report line. (It is
-// computed by running the benchmark once with a single iteration and a memory
-// tracer.)
-// TODO(dominic)
-// void MemoryUsage();
+// Register a MemoryManager instance that will be used to collect and report
+// allocation measurements for benchmark runs.
+void RegisterMemoryManager(MemoryManager* memory_manager);
+
+// Add a key-value pair to output as part of the context stanza in the report.
+void AddCustomContext(const std::string& key, const std::string& value);
 
 namespace internal {
 class Benchmark;
@@ -343,30 +374,62 @@ class Counter {
     kDefaults = 0,
     // Mark the counter as a rate. It will be presented divided
     // by the duration of the benchmark.
-    kIsRate = 1,
+    kIsRate = 1U << 0U,
     // Mark the counter as a thread-average quantity. It will be
     // presented divided by the number of threads.
-    kAvgThreads = 2,
+    kAvgThreads = 1U << 1U,
     // Mark the counter as a thread-average rate. See above.
-    kAvgThreadsRate = kIsRate | kAvgThreads
+    kAvgThreadsRate = kIsRate | kAvgThreads,
+    // Mark the counter as a constant value, valid/same for *every* iteration.
+    // When reporting, it will be *multiplied* by the iteration count.
+    kIsIterationInvariant = 1U << 2U,
+    // Mark the counter as a constant rate.
+    // When reporting, it will be *multiplied* by the iteration count
+    // and then divided by the duration of the benchmark.
+    kIsIterationInvariantRate = kIsRate | kIsIterationInvariant,
+    // Mark the counter as a iteration-average quantity.
+    // It will be presented divided by the number of iterations.
+    kAvgIterations = 1U << 3U,
+    // Mark the counter as a iteration-average rate. See above.
+    kAvgIterationsRate = kIsRate | kAvgIterations,
+
+    // In the end, invert the result. This is always done last!
+    kInvert = 1U << 31U
+  };
+
+  enum OneK {
+    // 1'000 items per 1k
+    kIs1000 = 1000,
+    // 1'024 items per 1k
+    kIs1024 = 1024
   };
 
   double value;
   Flags flags;
+  OneK oneK;
 
   BENCHMARK_ALWAYS_INLINE
-  Counter(double v = 0., Flags f = kDefaults) : value(v), flags(f) {}
+  Counter(double v = 0., Flags f = kDefaults, OneK k = kIs1000)
+      : value(v), flags(f), oneK(k) {}
 
   BENCHMARK_ALWAYS_INLINE operator double const&() const { return value; }
   BENCHMARK_ALWAYS_INLINE operator double&() { return value; }
 };
+
+// A helper for user code to create unforeseen combinations of Flags, without
+// having to do this cast manually each time, or providing this operator.
+Counter::Flags inline operator|(const Counter::Flags& LHS,
+                                const Counter::Flags& RHS) {
+  return static_cast<Counter::Flags>(static_cast<int>(LHS) |
+                                     static_cast<int>(RHS));
+}
 
 // This is the container for the user-defined counters.
 typedef std::map<std::string, Counter> UserCounters;
 
 // TimeUnit is passed to a benchmark in order to specify the order of magnitude
 // for the measured time.
-enum TimeUnit { kNanosecond, kMicrosecond, kMillisecond };
+enum TimeUnit { kNanosecond, kMicrosecond, kMillisecond, kSecond };
 
 // BigO is passed to a benchmark in order to specify the asymptotic
 // computational
@@ -374,34 +437,50 @@ enum TimeUnit { kNanosecond, kMicrosecond, kMillisecond };
 // calculated automatically to the best fit.
 enum BigO { oNone, o1, oN, oNSquared, oNCubed, oLogN, oNLogN, oAuto, oLambda };
 
+typedef uint64_t IterationCount;
+
 // BigOFunc is passed to a benchmark in order to specify the asymptotic
 // computational complexity for the benchmark.
-typedef double(BigOFunc)(int64_t);
+typedef double(BigOFunc)(IterationCount);
 
 // StatisticsFunc is passed to a benchmark in order to compute some descriptive
 // statistics over all the measurements of some type
 typedef double(StatisticsFunc)(const std::vector<double>&);
 
+namespace internal {
 struct Statistics {
   std::string name_;
   StatisticsFunc* compute_;
 
-  Statistics(std::string name, StatisticsFunc* compute)
+  Statistics(const std::string& name, StatisticsFunc* compute)
       : name_(name), compute_(compute) {}
 };
 
-namespace internal {
+class BenchmarkInstance;
 class ThreadTimer;
 class ThreadManager;
+class PerfCountersMeasurement;
 
-enum ReportMode
+enum AggregationReportMode
 #if defined(BENCHMARK_HAS_CXX11)
     : unsigned
 #else
 #endif
-{ RM_Unspecified,  // The mode has not been manually specified
-  RM_Default,      // The mode is user-specified as default.
-  RM_ReportAggregatesOnly };
+{
+  // The mode has not been manually specified
+  ARM_Unspecified = 0,
+  // The mode is user-specified.
+  // This may or may not be set when the following bit-flags are set.
+  ARM_Default = 1U << 0U,
+  // File reporter should only output aggregates.
+  ARM_FileReportAggregatesOnly = 1U << 1U,
+  // Display reporter should only output aggregates
+  ARM_DisplayReportAggregatesOnly = 1U << 2U,
+  // Both reporters should only display aggregates.
+  ARM_ReportAggregatesOnly =
+      ARM_FileReportAggregatesOnly | ARM_DisplayReportAggregatesOnly
+};
+
 }  // namespace internal
 
 // State is passed to a running Benchmark and contains state for the
@@ -436,7 +515,7 @@ class State {
   //   while (state.KeepRunningBatch(1000)) {
   //     // process 1000 elements
   //   }
-  bool KeepRunningBatch(size_t n);
+  bool KeepRunningBatch(IterationCount n);
 
   // REQUIRES: timer is running and 'SkipWithError(...)' has not been called
   //           by the current thread.
@@ -486,6 +565,9 @@ class State {
   // responsibility to exit the scope as needed.
   void SkipWithError(const char* msg);
 
+  // Returns true if an error has been reported with 'SkipWithError(...)'.
+  bool error_occurred() const { return error_occurred_; }
+
   // REQUIRES: called exactly once per iteration of the benchmarking loop.
   // Set the manually measured time for this benchmark iteration, which
   // is used instead of automatically measured time if UseManualTime() was
@@ -497,16 +579,21 @@ class State {
 
   // Set the number of bytes processed by the current benchmark
   // execution.  This routine is typically called once at the end of a
-  // throughput oriented benchmark.  If this routine is called with a
-  // value > 0, the report is printed in MB/sec instead of nanoseconds
-  // per iteration.
+  // throughput oriented benchmark.
   //
   // REQUIRES: a benchmark has exited its benchmarking loop.
   BENCHMARK_ALWAYS_INLINE
-  void SetBytesProcessed(int64_t bytes) { bytes_processed_ = bytes; }
+  void SetBytesProcessed(int64_t bytes) {
+    counters["bytes_per_second"] =
+        Counter(static_cast<double>(bytes), Counter::kIsRate, Counter::kIs1024);
+  }
 
   BENCHMARK_ALWAYS_INLINE
-  int64_t bytes_processed() const { return bytes_processed_; }
+  int64_t bytes_processed() const {
+    if (counters.find("bytes_per_second") != counters.end())
+      return static_cast<int64_t>(counters.at("bytes_per_second"));
+    return 0;
+  }
 
   // If this routine is called with complexity_n > 0 and complexity report is
   // requested for the
@@ -517,7 +604,7 @@ class State {
   void SetComplexityN(int64_t complexity_n) { complexity_n_ = complexity_n; }
 
   BENCHMARK_ALWAYS_INLINE
-  int64_t complexity_length_n() { return complexity_n_; }
+  int64_t complexity_length_n() const { return complexity_n_; }
 
   // If this routine is called with items > 0, then an items/s
   // label is printed on the benchmark report line for the currently
@@ -526,10 +613,17 @@ class State {
   //
   // REQUIRES: a benchmark has exited its benchmarking loop.
   BENCHMARK_ALWAYS_INLINE
-  void SetItemsProcessed(int64_t items) { items_processed_ = items; }
+  void SetItemsProcessed(int64_t items) {
+    counters["items_per_second"] =
+        Counter(static_cast<double>(items), benchmark::Counter::kIsRate);
+  }
 
   BENCHMARK_ALWAYS_INLINE
-  int64_t items_processed() const { return items_processed_; }
+  int64_t items_processed() const {
+    if (counters.find("items_per_second") != counters.end())
+      return static_cast<int64_t>(counters.at("items_per_second"));
+    return 0;
+  }
 
   // If this routine is called, the specified label is printed at the
   // end of the benchmark report line for the currently executing
@@ -563,7 +657,7 @@ class State {
   int64_t range_y() const { return range(1); }
 
   BENCHMARK_ALWAYS_INLINE
-  size_t iterations() const {
+  IterationCount iterations() const {
     if (BENCHMARK_BUILTIN_EXPECT(!started_, false)) {
       return 0;
     }
@@ -574,15 +668,15 @@ class State {
      :  // items we expect on the first cache line (ie 64 bytes of the struct)
   // When total_iterations_ is 0, KeepRunning() and friends will return false.
   // May be larger than max_iterations.
-  size_t total_iterations_;
+  IterationCount total_iterations_;
 
   // When using KeepRunningBatch(), batch_leftover_ holds the number of
   // iterations beyond max_iters that were run. Used to track
   // completed_iterations_ accurately.
-  size_t batch_leftover_;
+  IterationCount batch_leftover_;
 
  public:
-  const size_t max_iterations;
+  const IterationCount max_iterations;
 
  private:
   bool started_;
@@ -591,9 +685,6 @@ class State {
 
  private:  // items we don't need on the first cache line
   std::vector<int64_t> range_;
-
-  int64_t bytes_processed_;
-  int64_t items_processed_;
 
   int64_t complexity_n_;
 
@@ -605,31 +696,33 @@ class State {
   // Number of threads concurrently executing the benchmark.
   const int threads;
 
-  // TODO(EricWF) make me private
-  State(size_t max_iters, const std::vector<int64_t>& ranges, int thread_i,
-        int n_threads, internal::ThreadTimer* timer,
-        internal::ThreadManager* manager);
-
  private:
+  State(IterationCount max_iters, const std::vector<int64_t>& ranges,
+        int thread_i, int n_threads, internal::ThreadTimer* timer,
+        internal::ThreadManager* manager,
+        internal::PerfCountersMeasurement* perf_counters_measurement);
+
   void StartKeepRunning();
   // Implementation of KeepRunning() and KeepRunningBatch().
   // is_batch must be true unless n is 1.
-  bool KeepRunningInternal(size_t n, bool is_batch);
+  bool KeepRunningInternal(IterationCount n, bool is_batch);
   void FinishKeepRunning();
-  internal::ThreadTimer* timer_;
-  internal::ThreadManager* manager_;
-  BENCHMARK_DISALLOW_COPY_AND_ASSIGN(State);
+  internal::ThreadTimer* const timer_;
+  internal::ThreadManager* const manager_;
+  internal::PerfCountersMeasurement* const perf_counters_measurement_;
+
+  friend class internal::BenchmarkInstance;
 };
 
 inline BENCHMARK_ALWAYS_INLINE bool State::KeepRunning() {
   return KeepRunningInternal(1, /*is_batch=*/false);
 }
 
-inline BENCHMARK_ALWAYS_INLINE bool State::KeepRunningBatch(size_t n) {
+inline BENCHMARK_ALWAYS_INLINE bool State::KeepRunningBatch(IterationCount n) {
   return KeepRunningInternal(n, /*is_batch=*/true);
 }
 
-inline BENCHMARK_ALWAYS_INLINE bool State::KeepRunningInternal(size_t n,
+inline BENCHMARK_ALWAYS_INLINE bool State::KeepRunningInternal(IterationCount n,
                                                                bool is_batch) {
   // total_iterations_ is set to 0 by the constructor, and always set to a
   // nonzero value by StartKepRunning().
@@ -693,7 +786,7 @@ struct State::StateIterator {
   }
 
  private:
-  size_t cached_;
+  IterationCount cached_;
   State* const parent_;
 };
 
@@ -721,6 +814,9 @@ class Benchmark {
 
   // Note: the following methods all return "this" so that multiple
   // method calls can be chained together in one expression.
+
+  // Specify the name of the benchmark
+  Benchmark* Name(const std::string& name);
 
   // Run this benchmark once with "x" as the extra argument passed
   // to the function.
@@ -760,6 +856,11 @@ class Benchmark {
   // REQUIRES: The function passed to the constructor must accept arg1, arg2 ...
   Benchmark* Ranges(const std::vector<std::pair<int64_t, int64_t> >& ranges);
 
+  // Run this benchmark once for each combination of values in the (cartesian)
+  // product of the supplied argument lists.
+  // REQUIRES: The function passed to the constructor must accept arg1, arg2 ...
+  Benchmark* ArgsProduct(const std::vector<std::vector<int64_t> >& arglists);
+
   // Equivalent to ArgNames({name})
   Benchmark* ArgName(const std::string& name);
 
@@ -797,7 +898,7 @@ class Benchmark {
   // NOTE: This function should only be used when *exact* iteration control is
   //   needed and never to control or limit how long a benchmark runs, where
   // `--benchmark_min_time=N` or `MinTime(...)` should be used instead.
-  Benchmark* Iterations(size_t n);
+  Benchmark* Iterations(IterationCount n);
 
   // Specify the amount of times to repeat this benchmark. This option overrides
   // the `benchmark_repetitions` flag.
@@ -807,13 +908,24 @@ class Benchmark {
   // Specify if each repetition of the benchmark should be reported separately
   // or if only the final statistics should be reported. If the benchmark
   // is not repeated then the single result is always reported.
+  // Applies to *ALL* reporters (display and file).
   Benchmark* ReportAggregatesOnly(bool value = true);
 
-  // If a particular benchmark is I/O bound, runs multiple threads internally or
-  // if for some reason CPU timings are not representative, call this method. If
-  // called, the elapsed time will be used to control how many iterations are
-  // run, and in the printing of items/second or MB/seconds values.  If not
-  // called, the cpu time used by the benchmark will be used.
+  // Same as ReportAggregatesOnly(), but applies to display reporter only.
+  Benchmark* DisplayAggregatesOnly(bool value = true);
+
+  // By default, the CPU time is measured only for the main thread, which may
+  // be unrepresentative if the benchmark uses threads internally. If called,
+  // the total CPU time spent by all the threads will be measured instead.
+  // By default, the only the main thread CPU time will be measured.
+  Benchmark* MeasureProcessCPUTime();
+
+  // If a particular benchmark should use the Wall clock instead of the CPU time
+  // (be it either the CPU time of the main thread only (default), or the
+  // total CPU usage of the benchmark), call this method. If called, the elapsed
+  // (wall) time will be used to control how many iterations are run, and in the
+  // printing of items/second or MB/seconds values.
+  // If not called, the CPU time used by the benchmark will be used.
   Benchmark* UseRealTime();
 
   // If a benchmark must measure time manually (e.g. if GPU execution time is
@@ -868,9 +980,6 @@ class Benchmark {
 
   virtual void Run(State& state) = 0;
 
-  // Used inside the benchmark implementation
-  struct Instance;
-
  protected:
   explicit Benchmark(const char* name);
   Benchmark(Benchmark const&);
@@ -880,16 +989,18 @@ class Benchmark {
 
  private:
   friend class BenchmarkFamilies;
+  friend class BenchmarkInstance;
 
   std::string name_;
-  ReportMode report_mode_;
+  AggregationReportMode aggregation_report_mode_;
   std::vector<std::string> arg_names_;       // Args for all benchmark runs
   std::vector<std::vector<int64_t> > args_;  // Args for all benchmark runs
   TimeUnit time_unit_;
   int range_multiplier_;
   double min_time_;
-  size_t iterations_;
+  IterationCount iterations_;
   int repetitions_;
+  bool measure_process_cpu_time_;
   bool use_real_time_;
   bool use_manual_time_;
   BigO complexity_;
@@ -926,7 +1037,7 @@ class FunctionBenchmark : public Benchmark {
   FunctionBenchmark(const char* name, Function* func)
       : Benchmark(name), func_(func) {}
 
-  virtual void Run(State& st);
+  virtual void Run(State& st) BENCHMARK_OVERRIDE;
 
  private:
   Function* func_;
@@ -936,7 +1047,7 @@ class FunctionBenchmark : public Benchmark {
 template <class Lambda>
 class LambdaBenchmark : public Benchmark {
  public:
-  virtual void Run(State& st) { lambda_(st); }
+  virtual void Run(State& st) BENCHMARK_OVERRIDE { lambda_(st); }
 
  private:
   template <class OLambda>
@@ -988,7 +1099,7 @@ class Fixture : public internal::Benchmark {
  public:
   Fixture() : internal::Benchmark("") {}
 
-  virtual void Run(State& st) {
+  virtual void Run(State& st) BENCHMARK_OVERRIDE {
     this->SetUp(st);
     this->BenchmarkCase(st);
     this->TearDown(st);
@@ -1021,9 +1132,12 @@ class Fixture : public internal::Benchmark {
 
 // Helpers for generating unique variable names
 #define BENCHMARK_PRIVATE_NAME(n) \
-  BENCHMARK_PRIVATE_CONCAT(_benchmark_, BENCHMARK_PRIVATE_UNIQUE_ID, n)
+  BENCHMARK_PRIVATE_CONCAT(benchmark_uniq_, BENCHMARK_PRIVATE_UNIQUE_ID, n)
 #define BENCHMARK_PRIVATE_CONCAT(a, b, c) BENCHMARK_PRIVATE_CONCAT2(a, b, c)
 #define BENCHMARK_PRIVATE_CONCAT2(a, b, c) a##b##c
+// Helper for concatenation with macro name expansion
+#define BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method) \
+    BaseClass##_##Method##_Benchmark
 
 #define BENCHMARK_PRIVATE_DECLARE(n)                                 \
   static ::benchmark::internal::Benchmark* BENCHMARK_PRIVATE_NAME(n) \
@@ -1093,37 +1207,37 @@ class Fixture : public internal::Benchmark {
 #define BENCHMARK_TEMPLATE(n, a) BENCHMARK_TEMPLATE1(n, a)
 #endif
 
-#define BENCHMARK_PRIVATE_DECLARE_F(BaseClass, Method)        \
-  class BaseClass##_##Method##_Benchmark : public BaseClass { \
-   public:                                                    \
-    BaseClass##_##Method##_Benchmark() : BaseClass() {        \
-      this->SetName(#BaseClass "/" #Method);                  \
-    }                                                         \
-                                                              \
-   protected:                                                 \
-    virtual void BenchmarkCase(::benchmark::State&);          \
+#define BENCHMARK_PRIVATE_DECLARE_F(BaseClass, Method)                  \
+  class BaseClass##_##Method##_Benchmark : public BaseClass {           \
+   public:                                                              \
+    BaseClass##_##Method##_Benchmark() : BaseClass() {                  \
+      this->SetName(#BaseClass "/" #Method);                            \
+    }                                                                   \
+                                                                        \
+   protected:                                                           \
+    virtual void BenchmarkCase(::benchmark::State&) BENCHMARK_OVERRIDE; \
   };
 
-#define BENCHMARK_TEMPLATE1_PRIVATE_DECLARE_F(BaseClass, Method, a) \
-  class BaseClass##_##Method##_Benchmark : public BaseClass<a> {    \
-   public:                                                          \
-    BaseClass##_##Method##_Benchmark() : BaseClass<a>() {           \
-      this->SetName(#BaseClass "<" #a ">/" #Method);                \
-    }                                                               \
-                                                                    \
-   protected:                                                       \
-    virtual void BenchmarkCase(::benchmark::State&);                \
+#define BENCHMARK_TEMPLATE1_PRIVATE_DECLARE_F(BaseClass, Method, a)     \
+  class BaseClass##_##Method##_Benchmark : public BaseClass<a> {        \
+   public:                                                              \
+    BaseClass##_##Method##_Benchmark() : BaseClass<a>() {               \
+      this->SetName(#BaseClass "<" #a ">/" #Method);                    \
+    }                                                                   \
+                                                                        \
+   protected:                                                           \
+    virtual void BenchmarkCase(::benchmark::State&) BENCHMARK_OVERRIDE; \
   };
 
-#define BENCHMARK_TEMPLATE2_PRIVATE_DECLARE_F(BaseClass, Method, a, b) \
-  class BaseClass##_##Method##_Benchmark : public BaseClass<a, b> {    \
-   public:                                                             \
-    BaseClass##_##Method##_Benchmark() : BaseClass<a, b>() {           \
-      this->SetName(#BaseClass "<" #a "," #b ">/" #Method);            \
-    }                                                                  \
-                                                                       \
-   protected:                                                          \
-    virtual void BenchmarkCase(::benchmark::State&);                   \
+#define BENCHMARK_TEMPLATE2_PRIVATE_DECLARE_F(BaseClass, Method, a, b)  \
+  class BaseClass##_##Method##_Benchmark : public BaseClass<a, b> {     \
+   public:                                                              \
+    BaseClass##_##Method##_Benchmark() : BaseClass<a, b>() {            \
+      this->SetName(#BaseClass "<" #a "," #b ">/" #Method);             \
+    }                                                                   \
+                                                                        \
+   protected:                                                           \
+    virtual void BenchmarkCase(::benchmark::State&) BENCHMARK_OVERRIDE; \
   };
 
 #ifdef BENCHMARK_HAS_CXX11
@@ -1135,7 +1249,7 @@ class Fixture : public internal::Benchmark {
     }                                                                      \
                                                                            \
    protected:                                                              \
-    virtual void BenchmarkCase(::benchmark::State&);                       \
+    virtual void BenchmarkCase(::benchmark::State&) BENCHMARK_OVERRIDE;    \
   };
 #else
 #define BENCHMARK_TEMPLATE_PRIVATE_DECLARE_F(n, a) \
@@ -1144,27 +1258,27 @@ class Fixture : public internal::Benchmark {
 
 #define BENCHMARK_DEFINE_F(BaseClass, Method)    \
   BENCHMARK_PRIVATE_DECLARE_F(BaseClass, Method) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE1_DEFINE_F(BaseClass, Method, a)    \
   BENCHMARK_TEMPLATE1_PRIVATE_DECLARE_F(BaseClass, Method, a) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE2_DEFINE_F(BaseClass, Method, a, b)    \
   BENCHMARK_TEMPLATE2_PRIVATE_DECLARE_F(BaseClass, Method, a, b) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #ifdef BENCHMARK_HAS_CXX11
 #define BENCHMARK_TEMPLATE_DEFINE_F(BaseClass, Method, ...)            \
   BENCHMARK_TEMPLATE_PRIVATE_DECLARE_F(BaseClass, Method, __VA_ARGS__) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 #else
 #define BENCHMARK_TEMPLATE_DEFINE_F(BaseClass, Method, a) \
   BENCHMARK_TEMPLATE1_DEFINE_F(BaseClass, Method, a)
 #endif
 
 #define BENCHMARK_REGISTER_F(BaseClass, Method) \
-  BENCHMARK_PRIVATE_REGISTER_F(BaseClass##_##Method##_Benchmark)
+  BENCHMARK_PRIVATE_REGISTER_F(BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method))
 
 #define BENCHMARK_PRIVATE_REGISTER_F(TestName) \
   BENCHMARK_PRIVATE_DECLARE(TestName) =        \
@@ -1174,23 +1288,23 @@ class Fixture : public internal::Benchmark {
 #define BENCHMARK_F(BaseClass, Method)           \
   BENCHMARK_PRIVATE_DECLARE_F(BaseClass, Method) \
   BENCHMARK_REGISTER_F(BaseClass, Method);       \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE1_F(BaseClass, Method, a)           \
   BENCHMARK_TEMPLATE1_PRIVATE_DECLARE_F(BaseClass, Method, a) \
   BENCHMARK_REGISTER_F(BaseClass, Method);                    \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE2_F(BaseClass, Method, a, b)           \
   BENCHMARK_TEMPLATE2_PRIVATE_DECLARE_F(BaseClass, Method, a, b) \
   BENCHMARK_REGISTER_F(BaseClass, Method);                       \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #ifdef BENCHMARK_HAS_CXX11
 #define BENCHMARK_TEMPLATE_F(BaseClass, Method, ...)                   \
   BENCHMARK_TEMPLATE_PRIVATE_DECLARE_F(BaseClass, Method, __VA_ARGS__) \
   BENCHMARK_REGISTER_F(BaseClass, Method);                             \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 #else
 #define BENCHMARK_TEMPLATE_F(BaseClass, Method, a) \
   BENCHMARK_TEMPLATE1_F(BaseClass, Method, a)
@@ -1202,6 +1316,8 @@ class Fixture : public internal::Benchmark {
     ::benchmark::Initialize(&argc, argv);                               \
     if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return 1; \
     ::benchmark::RunSpecifiedBenchmarks();                              \
+    ::benchmark::Shutdown();                                            \
+    return 0;                                                           \
   }                                                                     \
   int main(int, char**)
 
@@ -1218,16 +1334,50 @@ struct CPUInfo {
     int num_sharing;
   };
 
+  enum Scaling {
+    UNKNOWN,
+    ENABLED,
+    DISABLED
+  };
+
   int num_cpus;
+  Scaling scaling;
   double cycles_per_second;
   std::vector<CacheInfo> caches;
-  bool scaling_enabled;
+  std::vector<double> load_avg;
 
   static const CPUInfo& Get();
 
  private:
   CPUInfo();
   BENCHMARK_DISALLOW_COPY_AND_ASSIGN(CPUInfo);
+};
+
+// Adding Struct for System Information
+struct SystemInfo {
+  std::string name;
+  static const SystemInfo& Get();
+
+ private:
+  SystemInfo();
+  BENCHMARK_DISALLOW_COPY_AND_ASSIGN(SystemInfo);
+};
+
+// BenchmarkName contains the components of the Benchmark's name
+// which allows individual fields to be modified or cleared before
+// building the final name using 'str()'.
+struct BenchmarkName {
+  std::string function_name;
+  std::string args;
+  std::string min_time;
+  std::string iterations;
+  std::string repetitions;
+  std::string time_type;
+  std::string threads;
+
+  // Return the full name of the benchmark with each non-empty
+  // field separated by a '/'
+  std::string str() const;
 };
 
 // Interface for custom benchmark result printers.
@@ -1239,6 +1389,7 @@ class BenchmarkReporter {
  public:
   struct Context {
     CPUInfo const& cpu_info;
+    SystemInfo const& sys_info;
     // The number of chars in the longest benchmark name.
     size_t name_field_width;
     static const char* executable_name;
@@ -1246,28 +1397,42 @@ class BenchmarkReporter {
   };
 
   struct Run {
+    static const int64_t no_repetition_index = -1;
+    enum RunType { RT_Iteration, RT_Aggregate };
+
     Run()
-        : error_occurred(false),
+        : run_type(RT_Iteration),
+          error_occurred(false),
           iterations(1),
+          threads(1),
           time_unit(kNanosecond),
           real_accumulated_time(0),
           cpu_accumulated_time(0),
-          bytes_per_second(0),
-          items_per_second(0),
           max_heapbytes_used(0),
           complexity(oNone),
           complexity_lambda(),
           complexity_n(0),
           report_big_o(false),
           report_rms(false),
-          counters() {}
+          counters(),
+          has_memory_result(false),
+          allocs_per_iter(0.0),
+          max_bytes_used(0) {}
 
-    std::string benchmark_name;
+    std::string benchmark_name() const;
+    BenchmarkName run_name;
+    int64_t family_index;
+    int64_t per_family_instance_index;
+    RunType run_type;
+    std::string aggregate_name;
     std::string report_label;  // Empty if not set by benchmark.
     bool error_occurred;
     std::string error_message;
 
-    int64_t iterations;
+    IterationCount iterations;
+    int64_t threads;
+    int64_t repetition_index;
+    int64_t repetitions;
     TimeUnit time_unit;
     double real_accumulated_time;
     double cpu_accumulated_time;
@@ -1284,10 +1449,6 @@ class BenchmarkReporter {
     // accumulated time.
     double GetAdjustedCPUTime() const;
 
-    // Zero if not set by benchmark.
-    double bytes_per_second;
-    double items_per_second;
-
     // This is set to 0.0 if memory tracing is not enabled.
     double max_heapbytes_used;
 
@@ -1297,13 +1458,31 @@ class BenchmarkReporter {
     int64_t complexity_n;
 
     // what statistics to compute from the measurements
-    const std::vector<Statistics>* statistics;
+    const std::vector<internal::Statistics>* statistics;
 
     // Inform print function whether the current run is a complexity report
     bool report_big_o;
     bool report_rms;
 
     UserCounters counters;
+
+    // Memory metrics.
+    bool has_memory_result;
+    double allocs_per_iter;
+    int64_t max_bytes_used;
+  };
+
+  struct PerFamilyRunReports {
+    PerFamilyRunReports() : num_runs_total(0), num_runs_done(0) {}
+
+    // How many runs will all instances of this benchmark perform?
+    int num_runs_total;
+
+    // How many runs have happened already?
+    int num_runs_done;
+
+    // The reports about (non-errneous!) runs of this family.
+    std::vector<BenchmarkReporter::Run> Runs;
   };
 
   // Construct a BenchmarkReporter with the output stream set to 'std::cout'
@@ -1378,8 +1557,8 @@ class ConsoleReporter : public BenchmarkReporter {
         prev_counters_(),
         printed_header_(false) {}
 
-  virtual bool ReportContext(const Context& context);
-  virtual void ReportRuns(const std::vector<Run>& reports);
+  virtual bool ReportContext(const Context& context) BENCHMARK_OVERRIDE;
+  virtual void ReportRuns(const std::vector<Run>& reports) BENCHMARK_OVERRIDE;
 
  protected:
   virtual void PrintRunData(const Run& report);
@@ -1394,9 +1573,9 @@ class ConsoleReporter : public BenchmarkReporter {
 class JSONReporter : public BenchmarkReporter {
  public:
   JSONReporter() : first_report_(true) {}
-  virtual bool ReportContext(const Context& context);
-  virtual void ReportRuns(const std::vector<Run>& reports);
-  virtual void Finalize();
+  virtual bool ReportContext(const Context& context) BENCHMARK_OVERRIDE;
+  virtual void ReportRuns(const std::vector<Run>& reports) BENCHMARK_OVERRIDE;
+  virtual void Finalize() BENCHMARK_OVERRIDE;
 
  private:
   void PrintRunData(const Run& report);
@@ -1404,12 +1583,13 @@ class JSONReporter : public BenchmarkReporter {
   bool first_report_;
 };
 
-class BENCHMARK_DEPRECATED_MSG("The CSV Reporter will be removed in a future release")
-      CSVReporter : public BenchmarkReporter {
+class BENCHMARK_DEPRECATED_MSG(
+    "The CSV Reporter will be removed in a future release") CSVReporter
+    : public BenchmarkReporter {
  public:
   CSVReporter() : printed_header_(false) {}
-  virtual bool ReportContext(const Context& context);
-  virtual void ReportRuns(const std::vector<Run>& reports);
+  virtual bool ReportContext(const Context& context) BENCHMARK_OVERRIDE;
+  virtual void ReportRuns(const std::vector<Run>& reports) BENCHMARK_OVERRIDE;
 
  private:
   void PrintRunData(const Run& report);
@@ -1418,28 +1598,55 @@ class BENCHMARK_DEPRECATED_MSG("The CSV Reporter will be removed in a future rel
   std::set<std::string> user_counter_names_;
 };
 
+// If a MemoryManager is registered, it can be used to collect and report
+// allocation metrics for a run of the benchmark.
+class MemoryManager {
+ public:
+  struct Result {
+    Result() : num_allocs(0), max_bytes_used(0) {}
+
+    // The number of allocations made in total between Start and Stop.
+    int64_t num_allocs;
+
+    // The peak memory use between Start and Stop.
+    int64_t max_bytes_used;
+  };
+
+  virtual ~MemoryManager() {}
+
+  // Implement this to start recording allocation information.
+  virtual void Start() = 0;
+
+  // Implement this to stop recording and fill out the given Result structure.
+  virtual void Stop(Result* result) = 0;
+};
+
 inline const char* GetTimeUnitString(TimeUnit unit) {
   switch (unit) {
+    case kSecond:
+      return "s";
     case kMillisecond:
       return "ms";
     case kMicrosecond:
       return "us";
     case kNanosecond:
-    default:
       return "ns";
   }
+  BENCHMARK_UNREACHABLE();
 }
 
 inline double GetTimeUnitMultiplier(TimeUnit unit) {
   switch (unit) {
+    case kSecond:
+      return 1;
     case kMillisecond:
       return 1e3;
     case kMicrosecond:
       return 1e6;
     case kNanosecond:
-    default:
       return 1e9;
   }
+  BENCHMARK_UNREACHABLE();
 }
 
 }  // namespace benchmark

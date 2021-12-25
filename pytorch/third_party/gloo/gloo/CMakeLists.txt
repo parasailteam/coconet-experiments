@@ -11,10 +11,13 @@ list(APPEND GLOO_SRCS
   "${CMAKE_CURRENT_SOURCE_DIR}/allgatherv.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/allreduce.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/allreduce_local.cc"
+  "${CMAKE_CURRENT_SOURCE_DIR}/alltoall.cc"
+  "${CMAKE_CURRENT_SOURCE_DIR}/alltoallv.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/barrier.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/broadcast.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/context.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/gather.cc"
+  "${CMAKE_CURRENT_SOURCE_DIR}/gatherv.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/reduce.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/scatter.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/types.cc"
@@ -31,6 +34,8 @@ list(APPEND GLOO_HDRS
   "${CMAKE_CURRENT_SOURCE_DIR}/allreduce_local.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/allreduce_ring.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/allreduce_ring_chunked.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/alltoall.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/alltoallv.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/barrier.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/barrier_all_to_all.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/barrier_all_to_one.h"
@@ -73,8 +78,15 @@ endif()
 # Compile TCP transport only on Linux (it uses epoll(2))
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   set(GLOO_HAVE_TRANSPORT_TCP 1)
+  if(${USE_TCP_OPENSSL_LINK} OR ${USE_TCP_OPENSSL_LOAD})
+    find_package(OpenSSL 1.1 REQUIRED EXACT)
+    set(GLOO_HAVE_TRANSPORT_TCP_TLS 1)
+  else()
+    set(GLOO_HAVE_TRANSPORT_TCP_TLS 0)
+  endif()
 else()
   set(GLOO_HAVE_TRANSPORT_TCP 0)
+  set(GLOO_HAVE_TRANSPORT_TCP_TLS 0)
 endif()
 
 # Compile ibverbs transport if libibverbs is available
@@ -103,7 +115,9 @@ add_subdirectory(rendezvous)
 add_subdirectory(transport)
 
 # Depend on pthreads for transport device threads
-list(APPEND gloo_DEPENDENCY_LIBS pthread)
+if(NOT MSVC)
+  list(APPEND gloo_DEPENDENCY_LIBS pthread)
+endif()
 
 # Enable the following to get a list of source files
 if(FALSE)
@@ -137,6 +151,15 @@ if(USE_ROCM)
 endif()
 if(USE_LIBUV)
   target_link_libraries(gloo PRIVATE uv_a)
+endif()
+if(USE_TCP_OPENSSL_LINK)
+  target_compile_definitions(gloo PRIVATE USE_TCP_OPENSSL_LINK)
+  target_link_libraries(gloo PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+elseif(USE_TCP_OPENSSL_LOAD)
+  target_compile_definitions(gloo PRIVATE USE_TCP_OPENSSL_LOAD)
+  # Explicitly include the OPENSSL_INCLUDE_DIR, just in case it's not already in our path
+  target_include_directories(gloo PRIVATE ${OPENSSL_INCLUDE_DIR})
+  target_link_libraries(gloo PRIVATE dl)
 endif()
 
 target_link_libraries(gloo PRIVATE ${gloo_DEPENDENCY_LIBS})
@@ -187,12 +210,23 @@ if(GLOO_INSTALL)
   endif()
 endif()
 
+if(MSVC)
+  add_definitions(-DNOMINMAX=1)
+endif()
+
+if(MSVC AND USE_LIBUV)
+  add_custom_command(TARGET gloo POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${libuv_DLL_PATH}"
+          $<TARGET_FILE_DIR:gloo>)
+endif()
+
 if(BUILD_TEST)
-add_subdirectory(test)
+  add_subdirectory(test)
 endif()
 
 if(BUILD_BENCHMARK)
-add_subdirectory(benchmark)
+  add_subdirectory(benchmark)
 endif()
 
 if(BUILD_EXAMPLES)

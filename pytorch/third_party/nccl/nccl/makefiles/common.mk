@@ -51,14 +51,14 @@ CXXFLAGS   := -DCUDA_MAJOR=$(CUDA_MAJOR) -DCUDA_MINOR=$(CUDA_MINOR) -fPIC -fvisi
 # We would not have to set this if we used __launch_bounds__, but this only works on kernels, not on functions.
 NVCUFLAGS  := -ccbin $(CXX) $(NVCC_GENCODE) -std=c++11 -Xptxas -maxrregcount=96 -Xfatbin -compress-all
 # Use addprefix so that we can specify more than one path
-NVLDFLAGS  := -L${CUDA_LIB} -lcudart -lrt
+NVLDFLAGS  := -L${CUDA_LIB} -lcudart -lrt -lcudadevrt -dlink
 
 ########## GCOV ##########
 GCOV ?= 0 # disable by default.
 GCOV_FLAGS := $(if $(filter 0,${GCOV} ${DEBUG}),,--coverage) # only gcov=1 and debug =1
-CXXFLAGS  += ${GCOV_FLAGS} #-lcudadevrt -lcudart
+CXXFLAGS  += ${GCOV_FLAGS} -lcudadevrt -lcudart
 NVCUFLAGS += ${GCOV_FLAGS:%=-Xcompiler %}
-LDFLAGS   += ${GCOV_FLAGS}  -lcudadevrt
+LDFLAGS   += ${GCOV_FLAGS} -lcudadevrt -lcudart
 NVLDFLAGS   += ${GCOV_FLAGS:%=-Xcompiler %}
 # $(warning GCOV_FLAGS=${GCOV_FLAGS})
 ########## GCOV ##########

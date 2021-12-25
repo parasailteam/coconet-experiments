@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,9 +37,9 @@
 #include "../thread/thread_load.cuh"
 #include "../warp/warp_reduce.cuh"
 #include "../block/block_load.cuh"
+#include "../config.cuh"
 #include "../util_type.cuh"
 #include "../iterator/cache_modified_input_iterator.cuh"
-#include "../util_namespace.cuh"
 
 /// Optional outer namespace(s)
 CUB_NS_PREFIX
@@ -55,16 +55,17 @@ namespace cub {
  * Parameterizable tuning policy type for AgentRadixSortUpsweep
  */
 template <
-    int                 _BLOCK_THREADS,     ///< Threads per thread block
-    int                 _ITEMS_PER_THREAD,  ///< Items per thread (per tile of input)
-    CacheLoadModifier   _LOAD_MODIFIER,     ///< Cache load modifier for reading keys
-    int                 _RADIX_BITS>        ///< The number of radix bits, i.e., log2(bins)
-struct AgentRadixSortUpsweepPolicy
+    int                 NOMINAL_BLOCK_THREADS_4B,       ///< Threads per thread block
+    int                 NOMINAL_ITEMS_PER_THREAD_4B,    ///< Items per thread (per tile of input)
+    typename            ComputeT,                       ///< Dominant compute type
+    CacheLoadModifier   _LOAD_MODIFIER,                 ///< Cache load modifier for reading keys
+    int                 _RADIX_BITS,                    ///< The number of radix bits, i.e., log2(bins)
+    typename            ScalingType = RegBoundScaling<NOMINAL_BLOCK_THREADS_4B, NOMINAL_ITEMS_PER_THREAD_4B, ComputeT> >
+struct AgentRadixSortUpsweepPolicy :
+    ScalingType
 {
     enum
     {
-        BLOCK_THREADS       = _BLOCK_THREADS,       ///< Threads per thread block
-        ITEMS_PER_THREAD    = _ITEMS_PER_THREAD,    ///< Items per thread (per tile of input)
         RADIX_BITS          = _RADIX_BITS,          ///< The number of radix bits, i.e., log2(bins)
     };
 

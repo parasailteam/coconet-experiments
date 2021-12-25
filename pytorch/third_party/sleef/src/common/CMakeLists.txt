@@ -9,7 +9,7 @@ if (BUILD_SHARED_LIBS)
 endif()
 
 # This is a workaround of appveyor bug
-string(CONCAT CMAKE_C_FLAGS ${SLEEF_C_FLAGS})
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SLEEF_C_FLAGS}")
 
 # Target TARGET_LIBCOMMON_OBJ
 
@@ -20,3 +20,6 @@ set_target_properties(${TARGET_LIBCOMMON_OBJ} PROPERTIES ${COMMON_TARGET_PROPERT
 
 add_library(${TARGET_LIBARRAYMAP_OBJ} OBJECT arraymap.c)
 set_target_properties(${TARGET_LIBARRAYMAP_OBJ} PROPERTIES ${COMMON_TARGET_PROPERTIES})
+
+add_host_executable("addSuffix" addSuffix.c)
+set_target_properties("addSuffix" PROPERTIES C_STANDARD 99)

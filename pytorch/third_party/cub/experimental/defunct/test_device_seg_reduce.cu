@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1600,7 +1600,7 @@ struct DeviceSegReduceDispatch
             int num_partition_samples = seg_reduce_region_grid_size + 1;
 
             // Temporary storage allocation requirements
-            void* allocations[2];
+            void* allocations[2] = {};
             size_t allocation_sizes[2] =
             {
                 num_tuple_partials * sizeof(KeyValuePair),  // bytes needed for "fix-up" reduce-by-key tuples

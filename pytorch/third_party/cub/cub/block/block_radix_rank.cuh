@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,10 +38,9 @@
 #include "../thread/thread_reduce.cuh"
 #include "../thread/thread_scan.cuh"
 #include "../block/block_scan.cuh"
+#include "../config.cuh"
 #include "../util_ptx.cuh"
-#include "../util_arch.cuh"
 #include "../util_type.cuh"
-#include "../util_namespace.cuh"
 
 
 /// Optional outer namespace(s)
@@ -140,7 +139,7 @@ public:
     enum
     {
         /// Number of bin-starting offsets tracked per thread
-        BINS_TRACKED_PER_THREAD = CUB_MAX(1, RADIX_DIGITS / BLOCK_THREADS),
+        BINS_TRACKED_PER_THREAD = CUB_MAX(1, (RADIX_DIGITS + BLOCK_THREADS - 1) / BLOCK_THREADS),
     };
 
 private:
@@ -495,7 +494,7 @@ public:
     enum
     {
         /// Number of bin-starting offsets tracked per thread
-        BINS_TRACKED_PER_THREAD = CUB_MAX(1, RADIX_DIGITS / BLOCK_THREADS),
+        BINS_TRACKED_PER_THREAD = CUB_MAX(1, (RADIX_DIGITS + BLOCK_THREADS - 1) / BLOCK_THREADS),
     };
 
 private:
@@ -589,7 +588,6 @@ public:
         // Each warp will strip-mine its section of input, one strip at a time
 
         volatile DigitCounterT  *digit_counters[KEYS_PER_THREAD];
-        uint32_t                lane_id         = LaneId();
         uint32_t                warp_id         = linear_tid >> LOG_WARP_THREADS;
         uint32_t                lane_mask_lt    = LaneMaskLt();
 

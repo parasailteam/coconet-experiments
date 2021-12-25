@@ -10,7 +10,7 @@
 #include <limits>
 #include <stdio.h>
 #include <assert.h>
-#include <curand_kernel.h>
+
 template<typename T>
 struct FuncNull {
   __device__ T operator()(const T x, const T y) const {
@@ -49,6 +49,20 @@ struct FuncSqrt<half> {
   __device__ half operator()(const half x) const {
     assert(false);
     return x;
+  }
+};
+
+template<typename T> 
+struct FuncIsOverflow {
+  __device__ bool operator()(const T x) const {
+    return (isnan((float)x) || isinf((float)x));
+  }
+};
+
+template<> 
+struct FuncIsOverflow<half> {
+  __device__ bool operator()(const half x) const {
+    return (__hisnan(x) || __hisinf(x));
   }
 };
 
@@ -143,22 +157,53 @@ struct FuncPow {
 template<typename T>
 struct FuncFirstMomentUpdate {
   //m[t] = beta1 * m[t-1] + (1-beta1)*g
-  __device__ T operator()(const T m, const T grad, const T beta) {
-    return beta * m + (1-beta) * grad;
+  __device__ T operator()(const T m, const half grad, const T unscaleParameter, const T beta) {
+    // if (threadIdx.x == 0) {
+    //   printf("m %f grad %f beta %f\n", (float)m, (float)grad, (float)beta);
+    // }
+    if (__hisnan(grad) || __hisinf(grad)) {
+      return m;
+    }
+    return beta * m + (1-beta) *(unscaleParameter * (float)grad);
+  }
+};
+
+template<typename T1, typename T2>
+struct FuncFirstMomentUpdateMP {
+  //m[t] = beta1 * m[t-1] + (1-beta1)*g
+  __device__ T2 operator()(const T2 m, const T1 grad, const T2 unscaleParameter, const T2 beta) {
+    if (isnan((float)grad) || isinf((float)grad)) {
+      return m;
+    }
+    return beta * m + (1-beta) * (unscaleParameter*(T2)grad);
+  }
+};
+
+template<typename T1>
+struct FuncFirstMomentUpdateMP<T1, half> {
+  //m[t] = beta1 * m[t-1] + (1-beta1)*g
+  __device__ half operator()(const half m, const half grad, const half unscaleParameter, const half beta) {
+    assert(false);
+    //return beta * m + (1-beta) * (T2)grad;
   }
 };
 
 template<>
 struct FuncFirstMomentUpdate<half> {
-  __device__ half operator()(const half m, const half grad, const half beta1) {
-    assert(false);
-    return m; //return grad * m + (1-beta1) * grad;
+  __device__ float operator()(const float m, const half grad, const float unscaleParameter, const  float beta1) {
+    // if (threadIdx.x == 0) {
+    //   printf("175: m %f grad %f beta %f\n", (float)m, (float)grad, (float)beta1);
+    // }
+    if (__hisnan(grad) || __hisinf(grad)) {
+      return m;
+    }
+    return beta1 * m + (1-beta1) * (unscaleParameter * (float)grad);
   }
 };
 
 template<>
 struct FuncFirstMomentUpdate<half2> {
-  __device__ half2 operator()(const half2 m, const half2 grad, const half2 beta1) {
+  __device__ half2 operator()(const half2 m, const half2 grad, const half2 unscaleParameter, const half2 beta1) {
     assert(false);
     return m; //return grad * m + (1-beta1) * grad;
   }
@@ -167,48 +212,49 @@ struct FuncFirstMomentUpdate<half2> {
 template<typename T>
 struct FuncSecondMomentUpdate {
   //v[t] = beta2 * v[t-1] + (1-beta2)*g*g
-  __device__ T operator()(const T m, const T grad, const T beta) {
-    return beta * m + (1-beta) * grad * grad;
+  __device__ T operator()(const T m, const half grad, const T unscaleParameter, const T beta) {
+    if (__hisnan(grad) || __hisinf(grad)) {
+      return m;
+    }
+    return beta * m + (1-beta) * (unscaleParameter * (float)grad) * (unscaleParameter * (float)grad);
+  }
+};
+
+template<typename T1, typename T2>
+struct FuncSecondMomentUpdateMP {
+  //v[t] = beta2 * v[t-1] + (1-beta2)*g*g
+  __device__ T2 operator()(const T2 m, const T1 grad, const T2 unscaleParameter, const T2 beta) {
+    if (isnan((float)grad) || isinf((float)grad)) {
+      return m;
+    }
+    return beta * m + (1-beta) * (unscaleParameter * (T2)grad) * (unscaleParameter * (T2)grad);
+  }
+};
+
+template<typename T1>
+struct FuncSecondMomentUpdateMP<T1, half> {
+  //v[t] = beta2 * v[t-1] + (1-beta2)*g*g
+  __device__ half operator()(const half m, const T1 grad, const half unscaleParameter, const half beta) {
+    assert(false);
+    //return beta * m + (1-beta) * (T2)grad * (T2)grad;
   }
 };
 
 template<>
 struct FuncSecondMomentUpdate<half> {
-  __device__ half operator()(const half m, const half grad, const half beta1) {
-    assert(false);
-    return m; //return grad * m + (1-beta1) * grad;
+  __device__ float operator()(const float m, const half grad, const float unscaleParameter, const float beta1) {
+    if (__hisnan(grad) || __hisinf(grad)) {
+      return m;
+    }
+    return beta1 * m + (1-beta1) * (unscaleParameter * (float)grad) * (unscaleParameter * (float)grad);
   }
 };
 
 template<>
 struct FuncSecondMomentUpdate<half2> {
-  __device__ half2 operator()(const half2 m, const half2 grad, const half2 beta1) {
+  __device__ half2 operator()(const half2 m, const half2 grad, const half2 unscaleParameter, const half2 beta1) {
     assert(false);
     return m; //return grad * m + (1-beta1) * grad;
-  }
-};
-
-
-template<typename T>
-struct FuncDropout {
-  __device__ T operator()(const T val, const T addTensorVal, const T biasVal, curandState* randState, const float p) {
-    return (curand_uniform(randState) < p ? val  : (T)0.0f) + biasVal + addTensorVal;
-  }
-};
-
-template<>
-struct FuncDropout<half> {
-  __device__ half2 operator()(const half2 val, const half2 addTensorVal, const half2 biasVal,curandState* randState, const float p) {
-    half2 v = (curand_uniform(randState) < p ? val  : __float2half2_rn(0.0f));
-    return __hadd2_sat(__hadd2_sat(v, biasVal), addTensorVal);
-  }
-};
-
-template<>
-struct FuncDropout<half2> {
-  __device__ half2 operator()(const half2 val, const half2 addTensorVal, const half2 biasVal,curandState* randState, const float p) {
-    half2 v = (curand_uniform(randState) < p ? val  : __float2half2_rn(0.0f));
-    return __hadd2_sat(__hadd2_sat(v, biasVal), addTensorVal);
   }
 };
 

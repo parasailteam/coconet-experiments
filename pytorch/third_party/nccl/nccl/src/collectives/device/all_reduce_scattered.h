@@ -29,12 +29,17 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
 
   const T ** __restrict__ thisInput = (const T**)args->ThisScatteredSendBuff;
   T** __restrict__ thisWeight = (T**)args->ThisScatteredWeightBuff;
-  const T * __restrict__ thisAlpha = (T*)args->ThisAlpha;
-  const T alpha = (thisAlpha == NULL) ? (T)0.0 : *thisAlpha;
-  const T beta1 = (args->ThisBeta1 == NULL) ? (T)0.0 : *(T*)args->ThisBeta1;
-  const T beta2 = (args->ThisBeta1 == NULL) ? (T)0.0 : *(T*)args->ThisBeta2;
-  T* __restrict__ thisFirstMoment = (T*)args->ThisScatteredFirstMoment;
-  T* __restrict__ thisSecondMoment = (T*)args->ThisScatteredSecondMoment;
+  float** __restrict__ thisFloatWeight = args->ThisScatteredFloatWeightBuff;
+  const float * __restrict__ thisAlpha = (float*)args->ThisAlpha;
+  const float* thisUnscaleParameter = (float*)args->ThisUnscaleParameter;
+  const float alpha = (thisAlpha == NULL) ? (float)0.0 : *thisAlpha;
+  const float beta1 = (args->ThisBeta1 == NULL) ? (float)0.0 : *(float*)args->ThisBeta1;
+  const float beta2 = (args->ThisBeta1 == NULL) ? (float)0.0 : *(float*)args->ThisBeta2;
+  const float unscaleParameter = (thisUnscaleParameter == NULL) ? (float)1.0f : *(float*)thisUnscaleParameter;
+  int* numOverflows = (int*)args->ThisNumOverflows;
+  float* __restrict__ thisFirstMoment = (float*)args->ThisScatteredFirstMoment;
+  float* __restrict__ thisSecondMoment = (float*)args->ThisScatteredSecondMoment;
+  
   const int epoch = args->epoch;
   size_t* scatteredBuffSizes = args->ThisScatteredBuffSizes;
   int smallNBuff = args->ThisScatteredSmallNBuff;
@@ -43,14 +48,23 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
   const size_t* __restrict__ buffIdToParentBufferId = args->buffIdToParentBufferId;
   const size_t* parentBuffSizes = args->parentBuffSizes;
   
+  register int perThreadNumOverflows = 0;
   int partNum = 0;
   int maxPartSize = min(chunkSize, DIVUP(size,nranks*args->nChannels));
   ALIGN_SIZE(maxPartSize, nthreads*sizeof(uint64_t)/sizeof(T));
+  __shared__ int perBlockNumOverflows;
+
+  if (threadIdx.x <= 0) {
+    perBlockNumOverflows = 0;
+  }
+
+  __syncthreads();
+  cooperative_groups::grid_group __grid_group = cooperative_groups::this_grid();
 
   ncclScatteredPrimitives<UNROLL, ALLREDUCE_CHUNKSTEPS/ALLREDUCE_SLICESTEPS, ALLREDUCE_SLICESTEPS, T, 1, 1, FUNC>
     prims(tid, args->nThreads, &ring->prev, &ring->next, thisWeight, stepSize, channel, comm, args->opCount, scatteredBuffSizes, 
     smallNBuff, size, nranks, args->nChannels, loopSize, maxPartSize, nBuff, buffIdToParentBufferId, parentBuffSizes);
-
+  
   if (optimType != OptimizerType::LAMB) {
     for (ssize_t gridOffset = 0; gridOffset < size; gridOffset += nranks*loopSize) {
       int realChunkSize = min(chunkSize, DIVUP(size-gridOffset,nranks*args->nChannels));
@@ -82,9 +96,10 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
       chunk = ring->devUserRanks[0];
       offset = chunkOffset + chunk * realChunkSize;
       nelem = min(realChunkSize, size-offset);
-      prims.directRecvReduceCopySendAdam(thisInput, thisWeight, thisFirstMoment, thisSecondMoment, 
-                                        offset, nelem, alpha, beta1, beta2, epoch, partNum);
-
+      prims.directRecvReduceCopySendAdam(thisInput, thisWeight, thisFloatWeight, thisFirstMoment, thisSecondMoment, 
+                                        offset, nelem, alpha, beta1, beta2, unscaleParameter, epoch, partNum,
+                                        &perThreadNumOverflows);
+      
       // k-2 steps: copy to next GPU
       for (int j=1; j<nranks-1; ++j) {
         chunk = ring->devUserRanks[nranks-j];
@@ -106,7 +121,7 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
   } else {
     double* __restrict__ weightNormBuff = ((double*)args->weightNormBuff);
     double* __restrict__ rNormBuff = ((double*)args->weightNormBuff) + nBuff;
-    T* __restrict__ rStorageBuff = (T*)args->rStorageBuff;
+    float* __restrict__ rStorageBuff = (float*)args->rStorageBuff;
 
     for (int o = threadIdx.x + blockDim.x * blockIdx.x; o < nBuff*2; o+= gridDim.x*blockDim.x) {
       weightNormBuff[o] = 0.0;
@@ -145,29 +160,23 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
       offset = chunkOffset + chunk * realChunkSize;
       nelem = min(realChunkSize, size-offset);
       //atomicAdd(rNormBuff, nelem);
-      prims.directRecvReduceCopyLAMB(thisInput, thisWeight, thisFirstMoment, thisSecondMoment, rStorageBuff,
-                                     offset, nelem, alpha, beta1, beta2, epoch, partNum, weightNormBuff,
-                                     rNormBuff);
+      prims.directRecvReduceCopyLAMB(thisInput, thisWeight, thisFloatWeight, thisFirstMoment, thisSecondMoment, rStorageBuff,
+                                     offset, nelem, alpha, beta1, beta2, unscaleParameter, epoch, partNum, weightNormBuff,
+                                     rNormBuff, &perThreadNumOverflows);
       partNum++;
     }
 
     cooperative_groups::this_grid().sync();
-    
-    // if (threadIdx.x + blockIdx.x*blockDim.x == 0) {
-    //   printf("213: rank %d weightNorm %lf totalElems %lf\n", comm->rank, (double)weightNormBuff[0], (double)rNormBuff[0]);
-    //   // printf("213: weightNorm[1] %lf rNorm[1] %lf\n", (double)weightNormBuff[1], (double)rNormBuff[1]);
-    // }
 
     if (true) {
       const int stepSize = channel->buffSize / (sizeof(double)*NCCL_STEPS);
       const int chunkSize = stepSize * ALLREDUCE_CHUNKSTEPS;
       const ssize_t loopSize = args->nChannels*(ssize_t)chunkSize;
-
-      for (ssize_t gridOffset = 0; gridOffset < nBuff*2; gridOffset += nranks*loopSize) {
-        int realChunkSize = min(chunkSize, DIVUP(nBuff*2-gridOffset,nranks*args->nChannels));
+      const ssize_t combinedSize = nBuff*2;
+      for (ssize_t gridOffset = 0; gridOffset < combinedSize; gridOffset += nranks*loopSize) {
+        int realChunkSize = min(chunkSize, DIVUP(combinedSize-gridOffset,nranks*args->nChannels));
         ALIGN_SIZE(realChunkSize, nthreads*sizeof(uint64_t)/sizeof(double));
         ssize_t chunkOffset = gridOffset + bid*nranks*realChunkSize;
-
         /////////////// begin AllReduce steps ///////////////
         ssize_t offset;
         int nelem;
@@ -176,14 +185,14 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
         // step 0: push data to next GPU
         chunk = ring->devUserRanks[nranks-1];
         offset = chunkOffset + chunk * realChunkSize;
-        nelem = min(realChunkSize, nBuff*2-offset);
+        nelem = min(realChunkSize, combinedSize-offset);
 
         prims.send(weightNormBuff+offset, nelem);
         // k-2 steps: reduce and copy to next GPU
         for (int j=2; j<nranks; ++j) {
           chunk = ring->devUserRanks[nranks-j];
           offset = chunkOffset + chunk * realChunkSize;
-          nelem = min(realChunkSize, nBuff*2-offset);
+          nelem = min(realChunkSize, combinedSize-offset);
 
           prims.recvReduceSend(weightNormBuff+offset, nelem);
         }
@@ -192,14 +201,15 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
         // result that we store in this data and push to the next GPU
         chunk = ring->devUserRanks[0];
         offset = chunkOffset + chunk * realChunkSize;
-        nelem = min(realChunkSize, nBuff*2-offset);
+        nelem = min(realChunkSize, combinedSize-offset);
+        
         prims.recvReduceCopySend(weightNormBuff+offset, weightNormBuff+offset, nelem);
         
         // k-2 steps: copy to next GPU
         for (int j=1; j<nranks-1; ++j) {
           chunk = ring->devUserRanks[nranks-j];
           offset = chunkOffset + chunk * realChunkSize;
-          nelem = min(realChunkSize, nBuff*2-offset);
+          nelem = min(realChunkSize, combinedSize-offset);
 
           prims.recvCopySend(weightNormBuff+offset, nelem);
         }
@@ -207,17 +217,15 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
         // Make final copy from buffer to dest.
         chunk = ring->devUserRanks[1];
         offset = chunkOffset + chunk * realChunkSize;
-        nelem = min(realChunkSize, nBuff*2-offset);
+        nelem = min(realChunkSize, combinedSize-offset);
+
         // Final wait/copy.
         prims.recv(weightNormBuff+offset, nelem);
       }
     }
 
-    // if (threadIdx.x + blockIdx.x*blockDim.x == 0) {
-    //   for (ssize_t i = 0; i < nBuff; i++) {
-    //     printf("rank %d norm %ld %f\n", comm->rank, i, (float)weightNormBuff[i]);
-    //   }
-    // }
+    __threadfence_system();
+    __syncthreads();
     // if (threadIdx.x + blockIdx.x*blockDim.x == 0) {
     //   printf("213: weightNorm %lf rNorm %lf\n", (double)weightNormBuff2[0], (double)rNormBuff2[0]);
     //   printf("213: weightNorm[1] %lf rNorm[1] %lf\n", (double)weightNormBuff2[1], (double)rNormBuff2[1]);
@@ -225,18 +233,24 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
 
     cooperative_groups::this_grid().sync();
 
-    for (ssize_t o = threadIdx.x + blockDim.x * blockIdx.x; o < nBuff; o += gridDim.x*blockDim.x) {
+    // if (threadIdx.x + blockIdx.x*blockDim.x == 0) {
+    //   for (ssize_t i = 0; i < 1; i++) {
+    //     printf("233 rank %d norm %ld %lf %p %p %p\n", comm->rank, i, rNormBuff[i], rNormBuff, weightNormBuff, weightNormBuff + nBuff);
+    //   }
+    // }
+
+    for (ssize_t o = threadIdx.x + blockDim.x * blockIdx.x; o < nBuff*2; o += gridDim.x*blockDim.x) {
       weightNormBuff[o] = sqrt(weightNormBuff[o]);
     }
 
-    for (int o = threadIdx.x + blockDim.x * blockIdx.x; o < nBuff; o += gridDim.x*blockDim.x) {
-      rNormBuff[o] = sqrt(rNormBuff[o]);
-    }
+    // for (int o = threadIdx.x + blockDim.x * blockIdx.x; o < nBuff; o += gridDim.x*blockDim.x) {
+    //   rNormBuff[o] = sqrt(rNormBuff[o]);
+    // }
 
     cooperative_groups::this_grid().sync();
 
-    // if (threadIdx.x + blockIdx.x*blockDim.x == 0 && comm->rank == 0) {
-    //   for (int i = 0; i < nBuff; i++)
+    // if (threadIdx.x + blockIdx.x*blockDim.x == 0) {
+    //   for (int i = 0; i < 1; i++)
     //     printf("weightNorm[%d] %lf rNorm[%d] %lf\n", i, weightNormBuff[i], i, rNormBuff[i]);
     //   // printf("223: weightNorm[1] %lf rNorm[1] %lf\n", (double)weightNormBuff[1], (double)rNormBuff[1]);
     // }
@@ -259,7 +273,7 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
       offset = chunkOffset + chunk * realChunkSize;
       nelem = min(realChunkSize, size-offset);
 
-      prims.directSendScatteredLAMB((const T**)thisWeight, rStorageBuff, offset, nelem, partNum, alpha, weightNormBuff, rNormBuff);
+      prims.directSendScatteredLAMB((const T**)thisWeight, thisFloatWeight, rStorageBuff, offset, nelem, partNum, alpha, weightNormBuff, rNormBuff);
 
       // k-2 steps: copy to next GPU
       for (int j=1; j<nranks-1; ++j) {
@@ -279,6 +293,42 @@ __device__ void ncclAllReduceScatteredRingKernel(struct CollectiveArgs* args) {
 
       partNum++;
     }
+  }
+
+  //Number of Overflows reduction
+  for (int offset = warpSize/2; offset > 0; offset /= 2) {
+    perThreadNumOverflows |= __shfl_down_sync(0xffffffff, perThreadNumOverflows, offset);
+  }
+
+  if (threadIdx.x % warpSize == 0)
+    ::atomicOr((&perBlockNumOverflows), perThreadNumOverflows);
+  
+  __syncwarp();
+
+  if(threadIdx.x + blockDim.x*blockIdx.x == 0) {
+    *numOverflows = 0;
+  }
+
+  __grid_group.sync();
+
+  if(threadIdx.x == 0) {
+      ::atomicOr(numOverflows, perBlockNumOverflows);
+  }
+  
+  __grid_group.sync();
+
+  if (blockIdx.x == 0) {
+    prims.sendInt(numOverflows, 1);
+
+    __syncthreads();
+
+    for (int j=2; j<nranks; ++j) {
+        prims.recvReduceSendInt(numOverflows, 1);
+    }
+
+    __syncthreads();
+
+    prims.recvReduceCopyInt(numOverflows, numOverflows, 1);
   }
 }
 
@@ -308,7 +358,7 @@ __device__ void ncclAllReduceScatteredTreeKernel(struct CollectiveArgs* args) {
   do {
     struct ncclTree* tree = &channel->treeUp;
     // Reduce : max number of recv is 3, max number of send is 1 (binary tree + local)
-    ncclPrimitives<UNROLL/2, 1, 1, T, NCCL_MAX_TREE_ARITY, 1, FUNC> prims(tid, args->nThreads, tree->down, &tree->up, NULL, stepSize, channel, comm, args->opCount, nullptr);
+    ncclPrimitives<UNROLL/2, 1, 1, T, NCCL_MAX_TREE_ARITY, 1, FUNC> prims(tid, args->nThreads, tree->down, &tree->up, NULL, stepSize, channel, comm, args->opCount);
     for (ssize_t gridOffset = 0; gridOffset < size; gridOffset += loopSize) {
       // Up
       ssize_t offset = gridOffset + bid*chunkSize;
@@ -326,7 +376,7 @@ __device__ void ncclAllReduceScatteredTreeKernel(struct CollectiveArgs* args) {
   do {
     struct ncclTree* tree = &channel->treeDn;
     // Broadcast : max number of recv is 1, max number of send is 3 (binary tree + local)
-    ncclPrimitives<UNROLL/2, 1, 1, T, 1, NCCL_MAX_TREE_ARITY, FUNC> prims(tid, args->nThreads, &tree->up, tree->down, NULL, stepSize, channel, comm, args->opCount, nullptr);
+    ncclPrimitives<UNROLL/2, 1, 1, T, 1, NCCL_MAX_TREE_ARITY, FUNC> prims(tid, args->nThreads, &tree->up, tree->down, NULL, stepSize, channel, comm, args->opCount);
     for (ssize_t gridOffset = 0; gridOffset < size; gridOffset += loopSize) {
       // Down
       ssize_t offset = gridOffset + bid*chunkSize;
@@ -367,7 +417,7 @@ __device__ void ncclAllReduceScatteredCollNetKernel(struct CollectiveArgs* args)
 
   if (blockIdx.x < args->nChannels) { // first half of the channels do reduce
     struct ncclTree* tree = &channel->collTreeUp;
-    ncclPrimitives<UNROLL, 1, 1, T, 1, 1, FUNC> prims(tid, args->nThreads, tree->down, &tree->up, NULL, stepSize, channel, comm, args->opCount, nullptr);
+    ncclPrimitives<UNROLL, 1, 1, T, 1, 1, FUNC> prims(tid, args->nThreads, tree->down, &tree->up, NULL, stepSize, channel, comm, args->opCount);
     for (ssize_t gridOffset = 0; gridOffset < size; gridOffset += loopSize) {
       // Up
       ssize_t offset = gridOffset + bid*chunkSize;
@@ -384,7 +434,7 @@ __device__ void ncclAllReduceScatteredCollNetKernel(struct CollectiveArgs* args)
 
   if (blockIdx.x >= args->nChannels) { // second half of the channels do broadcast
     struct ncclTree* tree = &channel->collTreeDn;
-    ncclPrimitives<UNROLL, 1, 1, T, 1, 1, FUNC> prims(tid, args->nThreads, &tree->up, tree->down, NULL, stepSize, channel, comm, args->opCount, nullptr);
+    ncclPrimitives<UNROLL, 1, 1, T, 1, 1, FUNC> prims(tid, args->nThreads, &tree->up, tree->down, NULL, stepSize, channel, comm, args->opCount);
     for (ssize_t gridOffset = 0; gridOffset < size; gridOffset += loopSize) {
       // Down
       ssize_t offset = gridOffset + bid*chunkSize;

@@ -62,22 +62,39 @@ PackAWithQuantRowOffset<T, accT>::PackAWithQuantRowOffset(
     BaseType::bcol_ = params->KCB;
     row_interleave_B_ = params->ROW_INTERLEAVE;
   } else {
-    if (fbgemmHasAvx512VnniSupport()) {
-      BaseType::brow_ = PackingTraits<T, accT, inst_set_t::avx512_vnni>::MCB;
-      BaseType::bcol_ = PackingTraits<T, accT, inst_set_t::avx512_vnni>::KCB;
-      row_interleave_B_ =
-          PackingTraits<T, accT, inst_set_t::avx512_vnni>::ROW_INTERLEAVE;
-    } else if (fbgemmHasAvx512Support()) {
-      BaseType::brow_ = PackingTraits<T, accT, inst_set_t::avx512>::MCB;
-      BaseType::bcol_ = PackingTraits<T, accT, inst_set_t::avx512>::KCB;
-      row_interleave_B_ =
-          PackingTraits<T, accT, inst_set_t::avx512>::ROW_INTERLEAVE;
-    } else {
-      // AVX2
-      BaseType::brow_ = PackingTraits<T, accT, inst_set_t::avx2>::MCB;
-      BaseType::bcol_ = PackingTraits<T, accT, inst_set_t::avx2>::KCB;
-      row_interleave_B_ =
-          PackingTraits<T, accT, inst_set_t::avx2>::ROW_INTERLEAVE;
+    const inst_set_t isa = fbgemmInstructionSet();
+    switch (isa) {
+      case inst_set_t::avx512_vnni:
+        std::tie(BaseType::brow_, BaseType::bcol_, row_interleave_B_) =
+            PackingTraits<T, accT, inst_set_t::avx512_vnni>::
+              getMatrixPackAParams();
+        break;
+
+      case inst_set_t::avx512_vnni_ymm:
+        std::tie(BaseType::brow_, BaseType::bcol_, row_interleave_B_) =
+            PackingTraits<T, accT, inst_set_t::avx512_vnni_ymm>::
+              getMatrixPackAParams();
+        break;
+
+      case inst_set_t::avx512:
+        std::tie(BaseType::brow_, BaseType::bcol_, row_interleave_B_) =
+            PackingTraits<T, accT, inst_set_t::avx512>::getMatrixPackAParams();
+        break;
+
+      case inst_set_t::avx512_ymm:
+        std::tie(BaseType::brow_, BaseType::bcol_, row_interleave_B_) =
+            PackingTraits<T, accT, inst_set_t::avx512_ymm>::
+              getMatrixPackAParams();
+        break;
+
+      case inst_set_t::avx2:
+        std::tie(BaseType::brow_, BaseType::bcol_, row_interleave_B_) =
+            PackingTraits<T, accT, inst_set_t::avx2>::getMatrixPackAParams();
+        break;
+
+      default:
+        assert(0 && "unknown architecure");
+        throw std::runtime_error("unknown architecure");
     }
   }
 
@@ -123,9 +140,10 @@ void PackAWithQuantRowOffset<T, accT>::pack(const block_type_t& block) {
       (block.col_start % (this->numCols() / this->numGroups())) != 0;
   int32_t* row_offset_buf = getRowOffsetBuffer();
 
-  float* smat_transposed = static_cast<float*>(
-      fbgemmAlignedAlloc(64, block.row_size * block.col_size * sizeof(float)));
+  float* smat_transposed = nullptr;
   if (tr) {
+    smat_transposed = static_cast<float*>(
+        fbgemmAlignedAlloc(64, block.row_size * block.col_size * sizeof(float)));
     transpose_simd(
         block.col_size,
         block.row_size,
@@ -163,7 +181,9 @@ void PackAWithQuantRowOffset<T, accT>::pack(const block_type_t& block) {
       out[i * BaseType::blockColSize() + j] = 0;
     }
   }
-  fbgemmAlignedFree(smat_transposed);
+  if (smat_transposed) {
+    fbgemmAlignedFree(smat_transposed);
+  }
 }
 
 template <typename T, typename accT>

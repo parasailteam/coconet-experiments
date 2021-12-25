@@ -67,7 +67,7 @@ IF(NOT CMAKE_SYSTEM_PROCESSOR)
       "cpuinfo will compile, but cpuinfo_initialize() will always fail.")
     SET(CPUINFO_SUPPORTED_PLATFORM FALSE)
   ENDIF()
-ELSEIF(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3-6]86|AMD64|x86(_64)?|armv[5-8].*|aarch64)$")
+ELSEIF(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3-6]86|AMD64|x86(_64)?|armv[5-8].*|aarch64|arm64)$")
   MESSAGE(WARNING
     "Target processor architecture \"${CMAKE_SYSTEM_PROCESSOR}\" is not supported in cpuinfo. "
     "cpuinfo will compile, but cpuinfo_initialize() will always fail.")
@@ -79,11 +79,13 @@ IF(NOT CMAKE_SYSTEM_NAME)
       "Target operating system is not specified. "
       "cpuinfo will compile, but cpuinfo_initialize() will always fail.")
   SET(CPUINFO_SUPPORTED_PLATFORM FALSE)
-ELSEIF(NOT CMAKE_SYSTEM_NAME MATCHES "^(Windows|Darwin|Linux|Android)$")
-  MESSAGE(WARNING
-    "Target operating system \"${CMAKE_SYSTEM_NAME}\" is not supported in cpuinfo. "
-    "cpuinfo will compile, but cpuinfo_initialize() will always fail.")
-  SET(CPUINFO_SUPPORTED_PLATFORM FALSE)
+ELSEIF(NOT CMAKE_SYSTEM_NAME MATCHES "^(Windows|CYGWIN|MSYS|Darwin|Linux|Android)$")
+  IF(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.14" AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    MESSAGE(WARNING
+      "Target operating system \"${CMAKE_SYSTEM_NAME}\" is not supported in cpuinfo. "
+      "cpuinfo will compile, but cpuinfo_initialize() will always fail.")
+    SET(CPUINFO_SUPPORTED_PLATFORM FALSE)
+  ENDIF()
 ENDIF()
 
 # ---[ Download deps
@@ -119,10 +121,11 @@ ENDIF()
 # ---[ cpuinfo library
 SET(CPUINFO_SRCS
   src/init.c
-  src/api.c)
+  src/api.c
+  src/cache.c)
 
 IF(CPUINFO_SUPPORTED_PLATFORM)
-  IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3-6]86|AMD64|x86(_64)?)$" OR IOS_ARCH MATCHES "^(i386|x86_64)$")
+  IF(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten" AND (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i[3-6]86|AMD64|x86(_64)?)$" OR IOS_ARCH MATCHES "^(i386|x86_64)$"))
     LIST(APPEND CPUINFO_SRCS
       src/x86/init.c
       src/x86/info.c
@@ -138,12 +141,12 @@ IF(CPUINFO_SUPPORTED_PLATFORM)
       LIST(APPEND CPUINFO_SRCS
         src/x86/linux/init.c
         src/x86/linux/cpuinfo.c)
-    ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
       LIST(APPEND CPUINFO_SRCS src/x86/mach/init.c)
-    ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    ELSEIF(CMAKE_SYSTEM_NAME MATCHES "^(Windows|CYGWIN|MSYS)$")
       LIST(APPEND CPUINFO_SRCS src/x86/windows/init.c)
     ENDIF()
-  ELSEIF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(armv[5-8].*|aarch64)$" OR IOS_ARCH MATCHES "^(armv7.*|arm64.*)$")
+  ELSEIF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(armv[5-8].*|aarch64|arm64)$" OR IOS_ARCH MATCHES "^(armv7.*|arm64.*)$")
     LIST(APPEND CPUINFO_SRCS
       src/arm/uarch.c
       src/arm/cache.c)
@@ -160,10 +163,10 @@ IF(CPUINFO_SUPPORTED_PLATFORM)
         IF(CMAKE_SYSTEM_NAME STREQUAL "Android" AND ANDROID_ABI STREQUAL "armeabi")
           SET_SOURCE_FILES_PROPERTIES(src/arm/linux/aarch32-isa.c PROPERTIES COMPILE_FLAGS -marm)
         ENDIF()
-      ELSEIF(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+      ELSEIF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
         LIST(APPEND CPUINFO_SRCS src/arm/linux/aarch64-isa.c)
       ENDIF()
-    ELSEIF(IOS)
+    ELSEIF(IOS OR (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64"))
       LIST(APPEND CPUINFO_SRCS src/arm/mach/init.c)
     ENDIF()
     IF(CMAKE_SYSTEM_NAME STREQUAL "Android")
@@ -172,14 +175,18 @@ IF(CPUINFO_SUPPORTED_PLATFORM)
     ENDIF()
   ENDIF()
 
+  IF(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    LIST(APPEND CPUINFO_SRCS
+      src/emscripten/init.c)
+  ENDIF()
+
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     LIST(APPEND CPUINFO_SRCS
       src/linux/smallfile.c
       src/linux/multiline.c
-      src/linux/current.c
       src/linux/cpulist.c
       src/linux/processors.c)
-  ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  ELSEIF(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     LIST(APPEND CPUINFO_SRCS src/mach/topology.c)
   ENDIF()
 
@@ -203,6 +210,11 @@ ADD_LIBRARY(cpuinfo_internals STATIC ${CPUINFO_SRCS})
 CPUINFO_TARGET_ENABLE_C99(cpuinfo)
 CPUINFO_TARGET_ENABLE_C99(cpuinfo_internals)
 CPUINFO_TARGET_RUNTIME_LIBRARY(cpuinfo)
+IF(CMAKE_SYSTEM_NAME MATCHES "^(Windows|CYGWIN|MSYS)$")
+  # Target Windows 7+ API
+  TARGET_COMPILE_DEFINITIONS(cpuinfo PRIVATE _WIN32_WINNT=0x0601)
+  TARGET_COMPILE_DEFINITIONS(cpuinfo_internals PRIVATE _WIN32_WINNT=0x0601)
+ENDIF()
 SET_TARGET_PROPERTIES(cpuinfo PROPERTIES PUBLIC_HEADER include/cpuinfo.h)
 TARGET_INCLUDE_DIRECTORIES(cpuinfo BEFORE PUBLIC include)
 TARGET_INCLUDE_DIRECTORIES(cpuinfo BEFORE PRIVATE src)

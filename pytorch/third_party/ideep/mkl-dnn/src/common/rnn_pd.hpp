@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2018 Intel Corporation
+* Copyright 2018-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,67 +14,123 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef RNN_PD_HPP
-#define RNN_PD_HPP
+#ifndef COMMON_RNN_PD_HPP
+#define COMMON_RNN_PD_HPP
 
-#include "mkldnn.h"
+#include "oneapi/dnnl/dnnl.h"
 
 #include "c_types_map.hpp"
-#include "memory_pd.hpp"
 #include "primitive_desc.hpp"
+#include "rnn.hpp"
+#include "type_helpers.hpp"
 
-namespace mkldnn {
+namespace dnnl {
 namespace impl {
 
-// struct rnn_fwd_pd_t;
+struct rnn_fwd_pd_t;
 
 struct rnn_pd_t : public primitive_desc_t {
     static constexpr auto base_pkind = primitive_kind::rnn;
 
-    rnn_pd_t(mkldnn::impl::engine_t *engine, const rnn_desc_t *adesc,
-            const primitive_attr_t *attr, const rnn_pd_t *hint_pd)
-        : primitive_desc_t(engine, attr, primitive_kind::rnn)
+    rnn_pd_t(const rnn_desc_t *adesc, const primitive_attr_t *attr,
+            const rnn_fwd_pd_t *hint_fwd_pd)
+        : primitive_desc_t(attr, base_pkind)
         , desc_(*adesc)
-        , hint_pd_(hint_pd) {}
-    virtual ~rnn_pd_t() {}
+        , hint_fwd_pd_(hint_fwd_pd)
+        , src_layer_md_(desc_.src_layer_desc)
+        , src_iter_md_(desc_.src_iter_desc)
+        , src_iter_c_md_(desc_.src_iter_c_desc)
+        , weights_layer_md_(desc_.weights_layer_desc)
+        , weights_iter_md_(desc_.weights_iter_desc)
+        , weights_peephole_md_(desc_.weights_peephole_desc)
+        , weights_projection_md_(desc_.weights_projection_desc)
+        , bias_md_(desc_.bias_desc)
+        , dst_layer_md_(desc_.dst_layer_desc)
+        , dst_iter_md_(desc_.dst_iter_desc)
+        , dst_iter_c_md_(desc_.dst_iter_c_desc)
+        , ws_md_() {}
 
     const rnn_desc_t *desc() const { return &desc_; }
-    virtual const op_desc_t *op_desc() const override {
+    const op_desc_t *op_desc() const override {
         return reinterpret_cast<const op_desc_t *>(this->desc());
     }
-    virtual void init_info() override { init_info_rnn(this, this->info_); }
 
-    virtual status_t query(query_t what, int idx, void *result) const override {
+    status_t query(query_t what, int idx, void *result) const override {
         switch (what) {
-        case query::rnn_d: *(const rnn_desc_t **)result = desc(); break;
-        default: return primitive_desc_t::query(what, idx, result);
+            case query::prop_kind:
+                *(prop_kind_t *)result = desc()->prop_kind;
+                break;
+            case query::rnn_d: *(const rnn_desc_t **)result = desc(); break;
+            default: return primitive_desc_t::query(what, idx, result);
         }
         return status::success;
     }
 
-    inline bool is_training() const {
+    const memory_desc_t *src_md(int index = 0) const override {
+        if (index == 0) return &src_layer_md_;
+        if (index == 1 && with_src_iter()) return &src_iter_md_;
+        if (index == 2 && with_src_iter_c()) return &src_iter_c_md_;
+        return &glob_zero_md;
+    }
+    const memory_desc_t *weights_md(int index = 0) const override {
+        if (index == 0) return &weights_layer_md_;
+        if (index == 1) return &weights_iter_md_;
+
+        const int peephole_index = 2;
+        if (is_lstm_peephole() && index == peephole_index)
+            return &weights_peephole_md_;
+
+        const int projection_index = 2 + is_lstm_peephole();
+        if (is_lstm_projection() && index == projection_index)
+            return &weights_projection_md_;
+
+        const int bias_index = 2 + is_lstm_peephole() + is_lstm_projection();
+        if (with_bias() && index == bias_index) return &bias_md_;
+
+        return &glob_zero_md;
+    }
+    const memory_desc_t *dst_md(int index = 0) const override {
+        if (index == 0) return &dst_layer_md_;
+        if (index == 1 && with_dst_iter()) return &dst_iter_md_;
+        if (index == 2 && with_dst_iter_c()) return &dst_iter_c_md_;
+        return &glob_zero_md;
+    }
+    const memory_desc_t *workspace_md(int index = 0) const override {
+        return (index == 0) ? &ws_md_ : &glob_zero_md;
+    }
+
+    /* common aux functions */
+
+    bool is_training() const {
         return utils::one_of(desc_.prop_kind, prop_kind::forward_training,
                 prop_kind::backward);
     }
 
-    inline bool is_fwd() const {
+    bool is_fwd() const {
         return utils::one_of(desc_.prop_kind, prop_kind::forward_training,
                 prop_kind::forward_inference);
     }
 
-    int T() const { return desc_.src_layer_desc.dims[0]; }
-    int MB() const { return desc_.src_layer_desc.dims[1]; }
+    dim_t T() const { return desc_.src_layer_desc.dims[0]; }
+    dim_t MB() const { return desc_.src_layer_desc.dims[1]; }
 
-    int L() const { return desc_.weights_layer_desc.dims[0]; }
-    int D() const { return desc_.weights_layer_desc.dims[1]; }
+    dim_t L() const { return desc_.weights_layer_desc.dims[0]; }
+    dim_t D() const { return desc_.weights_layer_desc.dims[1]; }
 
-    int SIC() const { return desc_.weights_iter_desc.dims[2]; }
+    dim_t SIC() const { return desc_.weights_iter_desc.dims[2]; }
 
-    int SLC() const { return desc_.weights_layer_desc.dims[2]; }
-    int G() const { return desc_.weights_layer_desc.dims[3]; }
-    int DIC() const { return desc_.weights_layer_desc.dims[4]; }
+    dim_t SLC() const { return desc_.weights_layer_desc.dims[2]; }
+    dim_t G() const { return desc_.weights_layer_desc.dims[3]; }
+    dim_t DHC() const { return desc_.weights_layer_desc.dims[4]; }
 
-    int DLC() const { return desc_.dst_layer_desc.dims[2]; }
+    // Returns the number of channels for the iter tensor.
+    // Must be equal to the dst_iter.dims[3] if dst_iter is not zero.
+    dim_t DIC() const {
+        return is_lstm_projection() ? desc_.weights_projection_desc.dims[3]
+                                    : DHC();
+    }
+
+    dim_t DLC() const { return desc_.dst_layer_desc.dims[2]; }
 
     bool with_bias() const {
         return !memory_desc_wrapper(desc_.bias_desc).is_zero();
@@ -84,117 +140,300 @@ struct rnn_pd_t : public primitive_desc_t {
         return !(memory_desc_wrapper(desc_.src_iter_desc).is_zero());
     }
 
+    bool with_src_iter_c() const {
+        return is_lstm()
+                && !(memory_desc_wrapper(desc_.src_iter_desc).is_zero());
+    }
+
     bool with_dst_iter() const {
         return !memory_desc_wrapper(desc_.dst_iter_desc).is_zero();
     }
 
-    mkldnn::impl::alg_kind_t cell_kind() const {
-        return desc_.cell_desc.cell_kind;
-    }
-    mkldnn::impl::alg_kind_t activation_kind() const {
-        return desc_.cell_desc.activation_kind;
+    bool with_dst_iter_c() const {
+        return is_lstm() && !memory_desc_wrapper(desc_.dst_iter_desc).is_zero();
     }
 
-    bool is_lbr() const {
-        return cell_kind() == mkldnn_gru_linear_before_reset;
+    dnnl::impl::alg_kind_t cell_kind() const { return desc_.cell_kind; }
+    dnnl::impl::alg_kind_t activation_kind() const {
+        return desc_.activation_kind;
     }
 
-    mkldnn_rnn_direction_t direction() const { return desc_.direction; }
+    bool is_lbr() const { return cell_kind() == dnnl_lbr_gru; }
+
+    bool is_lstm() const { return cell_kind() == dnnl_vanilla_lstm; }
+
+    bool is_lstm_peephole() const {
+        return !memory_desc_wrapper(weights_peephole_md_).is_zero();
+    }
+
+    bool is_lstm_projection() const {
+        return !memory_desc_wrapper(weights_projection_md_).is_zero();
+    }
+
+    dnnl_rnn_direction_t direction() const { return desc_.direction; }
 
 protected:
     rnn_desc_t desc_;
-    const rnn_pd_t *hint_pd_;
+    const rnn_fwd_pd_t *hint_fwd_pd_;
+
+    memory_desc_t src_layer_md_;
+    memory_desc_t src_iter_md_;
+    memory_desc_t src_iter_c_md_;
+    memory_desc_t weights_layer_md_;
+    memory_desc_t weights_iter_md_;
+    memory_desc_t weights_peephole_md_;
+    memory_desc_t weights_projection_md_;
+    memory_desc_t bias_md_;
+    memory_desc_t dst_layer_md_;
+    memory_desc_t dst_iter_md_;
+    memory_desc_t dst_iter_c_md_;
+
+    memory_desc_t ws_md_;
 };
 
 struct rnn_fwd_pd_t : public rnn_pd_t {
     typedef rnn_fwd_pd_t base_class;
     typedef rnn_fwd_pd_t hint_class;
 
-    using rnn_pd_t::rnn_pd_t;
-    virtual ~rnn_fwd_pd_t() {}
+    rnn_fwd_pd_t(const rnn_desc_t *adesc, const primitive_attr_t *attr,
+            const rnn_fwd_pd_t *hint_fwd_pd)
+        : rnn_pd_t(adesc, attr, hint_fwd_pd) {}
 
-    virtual const memory_pd_t *input_pd(int index = 0) const override {
-        if (index == 0) return src_pd(0);
-        if (with_src_iter() && index == 1) return src_pd(1);
-        index = index - 1 - with_src_iter();
+    arg_usage_t arg_usage(int arg) const override {
+        if (arg == DNNL_ARG_SRC_LAYER) return arg_usage_t::input;
 
-        if (index < 3) return weights_pd(index);
+        if (arg == DNNL_ARG_SRC_ITER && with_src_iter())
+            return arg_usage_t::input;
 
-        return nullptr;
+        if (arg == DNNL_ARG_SRC_ITER_C && with_src_iter_c())
+            return arg_usage_t::input;
+
+        if (utils::one_of(arg, DNNL_ARG_WEIGHTS_LAYER, DNNL_ARG_WEIGHTS_ITER))
+            return arg_usage_t::input;
+
+        if (arg == DNNL_ARG_WEIGHTS_PEEPHOLE && is_lstm_peephole())
+            return arg_usage_t::input;
+
+        if (arg == DNNL_ARG_WEIGHTS_PROJECTION && is_lstm_projection())
+            return arg_usage_t::input;
+
+        if (arg == DNNL_ARG_BIAS && with_bias()) return arg_usage_t::input;
+
+        if (arg == DNNL_ARG_DST_LAYER) return arg_usage_t::output;
+
+        if (arg == DNNL_ARG_DST_ITER && with_dst_iter())
+            return arg_usage_t::output;
+
+        if (arg == DNNL_ARG_DST_ITER_C && with_dst_iter() && is_lstm())
+            return arg_usage_t::output;
+
+        if (arg == DNNL_ARG_WORKSPACE && is_training())
+            return arg_usage_t::output;
+
+        return primitive_desc_t::arg_usage(arg);
     }
 
-    virtual const memory_pd_t *output_pd(int index = 0) const override {
-        if (index == 0) return dst_pd(0);
-        if (with_dst_iter() && index == 1) return dst_pd(1);
-        index = index - 1 - with_dst_iter();
-
-        if (is_training() && index == 0) return workspace_pd();
-
-        return nullptr;
+    const memory_desc_t *arg_md(int arg) const override {
+        switch (arg) {
+            case DNNL_ARG_SRC_LAYER: return src_md(0);
+            case DNNL_ARG_SRC_ITER: return src_md(1);
+            case DNNL_ARG_SRC_ITER_C: return src_md(2);
+            case DNNL_ARG_WEIGHTS_LAYER: return weights_md(0);
+            case DNNL_ARG_WEIGHTS_ITER: return weights_md(1);
+            case DNNL_ARG_WEIGHTS_PEEPHOLE:
+                return is_lstm_peephole() ? weights_md(2) : &glob_zero_md;
+            case DNNL_ARG_WEIGHTS_PROJECTION:
+                return is_lstm_projection() ? weights_md(2 + is_lstm_peephole())
+                                            : &glob_zero_md;
+            case DNNL_ARG_BIAS:
+                return weights_md(
+                        2 + is_lstm_peephole() + is_lstm_projection());
+            case DNNL_ARG_DST_LAYER: return dst_md(0);
+            case DNNL_ARG_DST_ITER: return dst_md(1);
+            case DNNL_ARG_DST_ITER_C: return dst_md(2);
+            default: return rnn_pd_t::arg_md(arg);
+        }
     }
 
-    virtual int n_inputs() const override {
-        return 3 + with_bias() + with_src_iter();
+    int n_inputs() const override {
+        return 3 + is_lstm_peephole() + is_lstm_projection() + with_bias()
+                + with_src_iter() + with_src_iter_c();
     }
-
-    virtual int n_outputs() const override {
-        return 1 + with_dst_iter() + is_training();
+    int n_outputs() const override {
+        return 1 + with_dst_iter() + with_dst_iter_c() + is_training();
     }
-
-    int ws_idx() const { return 1 + with_dst_iter(); }
 };
 
 struct rnn_bwd_pd_t : public rnn_pd_t {
     typedef rnn_bwd_pd_t base_class;
     typedef rnn_fwd_pd_t hint_class;
 
-    using rnn_pd_t::rnn_pd_t;
-    virtual ~rnn_bwd_pd_t() {}
+    rnn_bwd_pd_t(const rnn_desc_t *adesc, const primitive_attr_t *attr,
+            const rnn_fwd_pd_t *hint_fwd_pd)
+        : rnn_pd_t(adesc, attr, hint_fwd_pd)
+        , diff_src_layer_md_(desc_.diff_src_layer_desc)
+        , diff_src_iter_md_(desc_.diff_src_iter_desc)
+        , diff_src_iter_c_md_(desc_.diff_src_iter_c_desc)
+        , diff_weights_layer_md_(desc_.diff_weights_layer_desc)
+        , diff_weights_iter_md_(desc_.diff_weights_iter_desc)
+        , diff_weights_peephole_md_(desc_.diff_weights_peephole_desc)
+        , diff_weights_projection_md_(desc_.diff_weights_projection_desc)
+        , diff_bias_md_(desc_.diff_bias_desc)
+        , diff_dst_layer_md_(desc_.diff_dst_layer_desc)
+        , diff_dst_iter_md_(desc_.diff_dst_iter_desc)
+        , diff_dst_iter_c_md_(desc_.diff_dst_iter_c_desc) {}
 
-    virtual const memory_pd_t *input_pd(int index = 0) const override {
-        if (index == 0) return src_pd(0);
-        if (with_src_iter() && index == 1) return src_pd(1);
-        index = index - 1 - with_src_iter();
+    arg_usage_t arg_usage(int arg) const override {
+        if (utils::one_of(arg, DNNL_ARG_SRC_LAYER, DNNL_ARG_DST_LAYER,
+                    DNNL_ARG_DIFF_DST_LAYER, DNNL_ARG_WEIGHTS_LAYER,
+                    DNNL_ARG_WEIGHTS_ITER))
+            return arg_usage_t::input;
 
-        if (index < 2) return weights_pd(index);
-        if (with_bias() && index == 2) return weights_pd(2);
-        index = index - 2 - with_bias();
+        if (utils::one_of(arg, DNNL_ARG_DIFF_SRC_LAYER,
+                    DNNL_ARG_DIFF_WEIGHTS_LAYER, DNNL_ARG_DIFF_WEIGHTS_ITER))
+            return arg_usage_t::output;
 
-        if (index == 0) return dst_pd(0);
-        if (with_dst_iter() && index == 1) return dst_pd(1);
-        index = index - 1 - with_dst_iter();
+        if (is_lstm_peephole()) {
+            if (arg == DNNL_ARG_WEIGHTS_PEEPHOLE) return arg_usage_t::input;
 
-        if (index == 0) return diff_dst_pd(0);
-        if (with_dst_iter() && index == 1) return diff_dst_pd(1);
-        index = index - 1 - with_dst_iter();
+            if (arg == DNNL_ARG_DIFF_WEIGHTS_PEEPHOLE)
+                return arg_usage_t::output;
+        }
 
-        if (index == 0) return workspace_pd();
+        if (is_lstm_projection()) {
+            if (arg == DNNL_ARG_WEIGHTS_PROJECTION) return arg_usage_t::input;
 
-        return nullptr;
+            if (arg == DNNL_ARG_DIFF_WEIGHTS_PROJECTION)
+                return arg_usage_t::output;
+        }
+
+        if (with_bias()) {
+            if (arg == DNNL_ARG_BIAS) return arg_usage_t::input;
+
+            if (arg == DNNL_ARG_DIFF_BIAS) return arg_usage_t::output;
+        }
+
+        if (with_src_iter()) {
+            if (arg == DNNL_ARG_SRC_ITER) return arg_usage_t::input;
+
+            if (arg == DNNL_ARG_DIFF_SRC_ITER) return arg_usage_t::output;
+        }
+
+        if (with_src_iter_c()) {
+            if (arg == DNNL_ARG_SRC_ITER_C) return arg_usage_t::input;
+
+            if (arg == DNNL_ARG_DIFF_SRC_ITER_C) return arg_usage_t::output;
+        }
+
+        if (with_dst_iter()
+                && utils::one_of(
+                        arg, DNNL_ARG_DST_ITER, DNNL_ARG_DIFF_DST_ITER))
+            return arg_usage_t::input;
+
+        if (with_dst_iter_c()
+                && utils::one_of(
+                        arg, DNNL_ARG_DST_ITER_C, DNNL_ARG_DIFF_DST_ITER_C))
+            return arg_usage_t::input;
+
+        if (arg == DNNL_ARG_WORKSPACE) return arg_usage_t::input;
+
+        return primitive_desc_t::arg_usage(arg);
     }
 
-    virtual const memory_pd_t *output_pd(int index = 0) const override {
-        if (index == 0) return diff_src_pd(0);
-        if (with_src_iter() && index == 1) return diff_src_pd(1);
-        index = index - 1 - with_src_iter();
-
-        if (index < 3) return diff_weights_pd(index);
-
-        return nullptr;
+    const memory_desc_t *arg_md(int arg) const override {
+        switch (arg) {
+            case DNNL_ARG_SRC_LAYER: return src_md(0);
+            case DNNL_ARG_SRC_ITER: return src_md(1);
+            case DNNL_ARG_SRC_ITER_C: return src_md(2);
+            case DNNL_ARG_DIFF_SRC_LAYER: return diff_src_md(0);
+            case DNNL_ARG_DIFF_SRC_ITER: return diff_src_md(1);
+            case DNNL_ARG_DIFF_SRC_ITER_C: return diff_src_md(2);
+            case DNNL_ARG_WEIGHTS_LAYER: return weights_md(0);
+            case DNNL_ARG_WEIGHTS_ITER: return weights_md(1);
+            case DNNL_ARG_WEIGHTS_PEEPHOLE:
+                return is_lstm_peephole() ? weights_md(2) : &glob_zero_md;
+            case DNNL_ARG_WEIGHTS_PROJECTION:
+                return is_lstm_projection() ? weights_md(2 + is_lstm_peephole())
+                                            : &glob_zero_md;
+            case DNNL_ARG_BIAS:
+                return weights_md(
+                        2 + is_lstm_peephole() + is_lstm_projection());
+            case DNNL_ARG_DIFF_WEIGHTS_LAYER: return diff_weights_md(0);
+            case DNNL_ARG_DIFF_WEIGHTS_ITER: return diff_weights_md(1);
+            case DNNL_ARG_DIFF_WEIGHTS_PEEPHOLE:
+                return is_lstm_peephole() ? diff_weights_md(2) : &glob_zero_md;
+            case DNNL_ARG_DIFF_WEIGHTS_PROJECTION:
+                return is_lstm_projection()
+                        ? diff_weights_md(2 + is_lstm_peephole())
+                        : &glob_zero_md;
+            case DNNL_ARG_DIFF_BIAS:
+                return diff_weights_md(
+                        2 + is_lstm_peephole() + is_lstm_projection());
+            case DNNL_ARG_DST_LAYER: return dst_md(0);
+            case DNNL_ARG_DST_ITER: return dst_md(1);
+            case DNNL_ARG_DST_ITER_C: return dst_md(2);
+            case DNNL_ARG_DIFF_DST_LAYER: return diff_dst_md(0);
+            case DNNL_ARG_DIFF_DST_ITER: return diff_dst_md(1);
+            case DNNL_ARG_DIFF_DST_ITER_C: return diff_dst_md(2);
+            default: return rnn_pd_t::arg_md(arg);
+        }
     }
 
-    virtual int n_inputs() const override {
-        return 6 + with_src_iter() + with_bias() + 2 * with_dst_iter();
+    const memory_desc_t *diff_src_md(int index = 0) const override {
+        if (index == 0) return &diff_src_layer_md_;
+        if (index == 1 && with_src_iter()) return &diff_src_iter_md_;
+        if (index == 2 && with_src_iter_c()) return &diff_src_iter_c_md_;
+        return &glob_zero_md;
     }
-    virtual int n_outputs() const override {
-        return 3 + with_src_iter() + with_bias();
+    const memory_desc_t *diff_weights_md(int index = 0) const override {
+        if (index == 0) return &diff_weights_layer_md_;
+        if (index == 1) return &diff_weights_iter_md_;
+
+        const int peephole_index = 2;
+        if (is_lstm_peephole() && index == peephole_index)
+            return &diff_weights_peephole_md_;
+
+        const int projection_index = 2 + is_lstm_peephole();
+        if (is_lstm_projection() && index == projection_index)
+            return &diff_weights_projection_md_;
+
+        const int bias_index = 2 + is_lstm_peephole() + is_lstm_projection();
+        if (with_bias() && index == bias_index) return &diff_bias_md_;
+
+        return &glob_zero_md;
+    }
+    const memory_desc_t *diff_dst_md(int index = 0) const override {
+        if (index == 0) return &diff_dst_layer_md_;
+        if (index == 1 && with_dst_iter()) return &diff_dst_iter_md_;
+        if (index == 2 && with_dst_iter_c()) return &diff_dst_iter_c_md_;
+        return &glob_zero_md;
     }
 
-    int ws_idx() const {
-        return 5 + with_src_iter() + with_bias() + 2 * with_dst_iter();
+    int n_inputs() const override {
+        return 6 + with_src_iter() + with_src_iter_c()
+                + 2 * (with_dst_iter() + with_dst_iter_c()) + is_lstm_peephole()
+                + is_lstm_projection() + with_bias();
     }
+    int n_outputs() const override {
+        return 3 + with_src_iter() + with_src_iter_c() + is_lstm_peephole()
+                + is_lstm_projection() + with_bias();
+    }
+
+protected:
+    memory_desc_t diff_src_layer_md_;
+    memory_desc_t diff_src_iter_md_;
+    memory_desc_t diff_src_iter_c_md_;
+    memory_desc_t diff_weights_layer_md_;
+    memory_desc_t diff_weights_iter_md_;
+    memory_desc_t diff_weights_peephole_md_;
+    memory_desc_t diff_weights_projection_md_;
+    memory_desc_t diff_bias_md_;
+    memory_desc_t diff_dst_layer_md_;
+    memory_desc_t diff_dst_iter_md_;
+    memory_desc_t diff_dst_iter_c_md_;
 };
-}
-}
+
+} // namespace impl
+} // namespace dnnl
 
 #endif

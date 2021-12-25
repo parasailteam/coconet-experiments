@@ -1,13 +1,30 @@
-// [AsmJit]
-// Machine Code Generation for C++.
+// AsmJit - Machine code generation for C++
 //
-// [License]
-// Zlib - See LICENSE.md file in the package.
+//  * Official AsmJit Home Page: https://asmjit.com
+//  * Official Github Repository: https://github.com/asmjit/asmjit
+//
+// Copyright (c) 2008-2020 The AsmJit Authors
+//
+// This software is provided 'as-is', without any express or implied
+// warranty. In no event will the authors be held liable for any damages
+// arising from the use of this software.
+//
+// Permission is granted to anyone to use this software for any purpose,
+// including commercial applications, and to alter it and redistribute it
+// freely, subject to the following restrictions:
+//
+// 1. The origin of this software must not be misrepresented; you must not
+//    claim that you wrote the original software. If you use this software
+//    in a product, an acknowledgment in the product documentation would be
+//    appreciated but is not required.
+// 2. Altered source versions must be plainly marked as such, and must not be
+//    misrepresented as being the original software.
+// 3. This notice may not be removed or altered from any source distribution.
 
-#ifndef _ASMJIT_TEST_OPCODE_H
-#define _ASMJIT_TEST_OPCODE_H
+#ifndef ASMJIT_TEST_OPCODE_H_INCLUDED
+#define ASMJIT_TEST_OPCODE_H_INCLUDED
 
-#include "./asmjit.h"
+#include <asmjit/x86.h>
 
 namespace asmtest {
 
@@ -38,10 +55,10 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   Gp gdB = useRex2 ? r9d  : ebx;
   Gp gdC = useRex2 ? r10d : ecx;
 
-  Gp gzA = useRex1 ? r8   : e->zax();
-  Gp gzB = useRex2 ? r9   : e->zbx();
-  Gp gzC = useRex2 ? r10  : e->zcx();
-  Gp gzD = useRex2 ? r11  : e->zdx();
+  Gp gzA = useRex1 ? r8.as<Gp>()  : e->zax();
+  Gp gzB = useRex2 ? r9.as<Gp>()  : e->zbx();
+  Gp gzC = useRex2 ? r10.as<Gp>() : e->zcx();
+  Gp gzD = useRex2 ? r11.as<Gp>() : e->zdx();
 
   KReg kA = k1;
   KReg kB = k2;
@@ -74,7 +91,6 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   Zmm zmmA = useRex1 ? zmm8  : zmm0;
   Zmm zmmB = useRex2 ? zmm9  : zmm1;
   Zmm zmmC = useRex2 ? zmm10 : zmm2;
-  Zmm zmmD = useRex2 ? zmm11 : zmm3;
 
   Mem vx_ptr = ptr(gzB, xmmB);
   Mem vy_ptr = ptr(gzB, ymmB);
@@ -1049,10 +1065,6 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   e->monitorx();                            // Implicit <ds:[EAX|RAX]>, <ECX>, <EDX>
   e->mwait();                               // Implicit <EAX>, <ECX>
   e->mwaitx();                              // Implicit <EAX>, <ECX>, <EBX>
-
-  // PCOMMIT.
-  e->nop();
-  e->pcommit();
 
   // PREFETCH / PREFETCHW / PREFETCHWT1.
   e->nop();
@@ -3488,18 +3500,6 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   e->vandps(ymmA, ymmB, anyptr_gpC);
   e->vandps(zmmA, zmmB, zmmC);
   e->vandps(zmmA, zmmB, anyptr_gpC);
-  e->vblendmb(xmmA, xmmB, xmmC);
-  e->vblendmb(xmmA, xmmB, anyptr_gpC);
-  e->vblendmb(ymmA, ymmB, ymmC);
-  e->vblendmb(ymmA, ymmB, anyptr_gpC);
-  e->vblendmb(zmmA, zmmB, zmmC);
-  e->vblendmb(zmmA, zmmB, anyptr_gpC);
-  e->vblendmd(xmmA, xmmB, xmmC);
-  e->vblendmd(xmmA, xmmB, anyptr_gpC);
-  e->vblendmd(ymmA, ymmB, ymmC);
-  e->vblendmd(ymmA, ymmB, anyptr_gpC);
-  e->vblendmd(zmmA, zmmB, zmmC);
-  e->vblendmd(zmmA, zmmB, anyptr_gpC);
   e->vblendmpd(xmmA, xmmB, xmmC);
   e->vblendmpd(xmmA, xmmB, anyptr_gpC);
   e->vblendmpd(ymmA, ymmB, ymmC);
@@ -3512,18 +3512,6 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   e->vblendmps(ymmA, ymmB, anyptr_gpC);
   e->vblendmps(zmmA, zmmB, zmmC);
   e->vblendmps(zmmA, zmmB, anyptr_gpC);
-  e->vblendmq(xmmA, xmmB, xmmC);
-  e->vblendmq(xmmA, xmmB, anyptr_gpC);
-  e->vblendmq(ymmA, ymmB, ymmC);
-  e->vblendmq(ymmA, ymmB, anyptr_gpC);
-  e->vblendmq(zmmA, zmmB, zmmC);
-  e->vblendmq(zmmA, zmmB, anyptr_gpC);
-  e->vblendmw(xmmA, xmmB, xmmC);
-  e->vblendmw(xmmA, xmmB, anyptr_gpC);
-  e->vblendmw(ymmA, ymmB, ymmC);
-  e->vblendmw(ymmA, ymmB, anyptr_gpC);
-  e->vblendmw(zmmA, zmmB, zmmC);
-  e->vblendmw(zmmA, zmmB, anyptr_gpC);
   e->vbroadcastf32x2(ymmA, xmmB);
   e->vbroadcastf32x2(ymmA, anyptr_gpB);
   e->vbroadcastf32x2(zmmA, xmmB);
@@ -4621,6 +4609,30 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   e->vpavgw(ymmA, ymmB, anyptr_gpC);
   e->vpavgw(zmmA, zmmB, zmmC);
   e->vpavgw(zmmA, zmmB, anyptr_gpC);
+  e->vpblendmb(xmmA, xmmB, xmmC);
+  e->vpblendmb(xmmA, xmmB, anyptr_gpC);
+  e->vpblendmb(ymmA, ymmB, ymmC);
+  e->vpblendmb(ymmA, ymmB, anyptr_gpC);
+  e->vpblendmb(zmmA, zmmB, zmmC);
+  e->vpblendmb(zmmA, zmmB, anyptr_gpC);
+  e->vpblendmd(xmmA, xmmB, xmmC);
+  e->vpblendmd(xmmA, xmmB, anyptr_gpC);
+  e->vpblendmd(ymmA, ymmB, ymmC);
+  e->vpblendmd(ymmA, ymmB, anyptr_gpC);
+  e->vpblendmd(zmmA, zmmB, zmmC);
+  e->vpblendmd(zmmA, zmmB, anyptr_gpC);
+  e->vpblendmq(xmmA, xmmB, xmmC);
+  e->vpblendmq(xmmA, xmmB, anyptr_gpC);
+  e->vpblendmq(ymmA, ymmB, ymmC);
+  e->vpblendmq(ymmA, ymmB, anyptr_gpC);
+  e->vpblendmq(zmmA, zmmB, zmmC);
+  e->vpblendmq(zmmA, zmmB, anyptr_gpC);
+  e->vpblendmw(xmmA, xmmB, xmmC);
+  e->vpblendmw(xmmA, xmmB, anyptr_gpC);
+  e->vpblendmw(ymmA, ymmB, ymmC);
+  e->vpblendmw(ymmA, ymmB, anyptr_gpC);
+  e->vpblendmw(zmmA, zmmB, zmmC);
+  e->vpblendmw(zmmA, zmmB, anyptr_gpC);
   e->vpbroadcastb(xmmA, gdB);
   e->vpbroadcastb(xmmA, gzB);
   e->vpbroadcastb(xmmA, xmmB);
@@ -4645,12 +4657,12 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
   e->vpbroadcastd(zmmA, gzB);
   e->vpbroadcastd(zmmA, xmmB);
   e->vpbroadcastd(zmmA, anyptr_gpB);
-  e->vpbroadcastmb2d(xmmA, kB);
-  e->vpbroadcastmb2d(ymmA, kB);
-  e->vpbroadcastmb2d(zmmA, kB);
   e->vpbroadcastmb2q(xmmA, kB);
   e->vpbroadcastmb2q(ymmA, kB);
   e->vpbroadcastmb2q(zmmA, kB);
+  e->vpbroadcastmw2d(xmmA, kB);
+  e->vpbroadcastmw2d(ymmA, kB);
+  e->vpbroadcastmw2d(zmmA, kB);
   if (isX64) e->vpbroadcastq(xmmA, gzB);
   e->vpbroadcastq(xmmA, xmmB);
   e->vpbroadcastq(xmmA, anyptr_gpB);
@@ -6040,4 +6052,4 @@ static void generateOpcodes(asmjit::x86::Emitter* e, bool useRex1 = false, bool 
 
 } // {asmtest}
 
-#endif // _ASMJIT_TEST_OPCODE_H
+#endif // ASMJIT_TEST_OPCODE_H_INCLUDED

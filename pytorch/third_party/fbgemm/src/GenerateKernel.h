@@ -21,6 +21,11 @@ namespace fbgemm {
 namespace x86 = asmjit::x86;
 
 /**
+  * @brief Generate instructions for initializing the C registers to 0.
+  */
+void initCRegs(x86::Emitter* a, int rowRegs, int colRegs);
+
+/**
  * @brief AVX2/AVX512/AVX512VNNI JIT assembly code generator.
  * @tparam TA Type of matrix A.
  * @tparam TB Type of matrix B.
@@ -44,22 +49,6 @@ class CodeGenBase {
    */
   CodeGenBase(const BlockingFactors* params = nullptr)
       : blocking_params(params) {
-    // vector width in bits
-    if (cpuinfo_initialize()) {
-      if (fbgemmHasAvx512Support()) {
-        vectorWidth_ = simd_info<inst_set_t::avx512>::WIDTH_BITS;
-      } else if (fbgemmHasAvx2Support()) {
-        vectorWidth_ = simd_info<inst_set_t::avx2>::WIDTH_BITS;
-      } else {
-        // TODO: Have default path
-        assert(0 && "unsupported architecture");
-        return;
-      }
-    } else {
-      throw std::runtime_error("Failed to initialize cpuinfo!");
-    }
-    // vector width in elements
-    VLEN_ = vectorWidth_ / (8 * sizeof(TA));
   }
 
   /**
@@ -73,12 +62,6 @@ class CodeGenBase {
   template <inst_set_t instSet>
   jit_micro_kernel_fp
   getOrCreate(bool accum, int32_t mc, int32_t nc, int32_t kc);
-
-  /**
-   * @brief Generate instructions for initializing the C registers to 0.
-   */
-  template <inst_set_t instSet>
-  void initCRegs(x86::Emitter* a, int rowRegs, int colRegs);
 
   /**
    * @brief Generate instructions for computing block in the rank-k update.
@@ -131,12 +114,14 @@ class CodeGenBase {
     }
     oss << "accum-" + std::to_string(accum) << "_MC-" + std::to_string(mc)
         << "_NC-" + std::to_string(nc) << "_NCB-" + std::to_string(NCB)
-        << "_NCB-" + std::to_string(KCB) << "_MR-" + std::to_string(MR)
+        << "_KCB-" + std::to_string(KCB) << "_MR-" + std::to_string(MR)
         << "_NR-" + std::to_string(NR);
     if (instSet == inst_set_t::avx512_vnni) {
       oss << "_avx512vnni";
     } else if (instSet == inst_set_t::avx512) {
       oss << "_avx512";
+    } else if (instSet == inst_set_t::avx512_ymm) {
+      oss << "_avx512_ymm";
     } else if (instSet == inst_set_t::avx2) {
       oss << "_avx2";
     }
@@ -145,9 +130,6 @@ class CodeGenBase {
   }
 
  private:
-  int vectorWidth_; ///< Vector width in bits.
-  int VLEN_; ///< Vector width in elements.
-
   static asmjit::JitRuntime& runtime() {
     static asmjit::JitRuntime rt; //< JIT Runtime for asmjit,
                                   // depents on other static

@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2016-2018 Intel Corporation
+* Copyright 2016-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,254 +14,271 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef CPU_INNER_PRODUCT_FWD_PD_HPP
-#define CPU_INNER_PRODUCT_FWD_PD_HPP
+#ifndef CPU_CPU_INNER_PRODUCT_PD_HPP
+#define CPU_CPU_INNER_PRODUCT_PD_HPP
 
 #include <assert.h>
 
-#include "c_types_map.hpp"
-#include "inner_product_pd.hpp"
-#include "cpu_engine.hpp"
-#include "cpu_memory.hpp"
-#include "cpu_primitive.hpp"
-#include "type_helpers.hpp"
-#include "utils.hpp"
+#include "common/c_types_map.hpp"
+#include "common/inner_product_pd.hpp"
+#include "common/utils.hpp"
+#include "cpu/cpu_engine.hpp"
 
-namespace mkldnn {
+namespace dnnl {
 namespace impl {
 namespace cpu {
 
 namespace {
-inline memory_format_t wei_compatible_fmt(int ndims, memory_format_t src_fmt) {
-    using namespace memory_format;
-    using namespace utils;
-
-    if (src_fmt == nc)
-        return oi;
-    else if (one_of(src_fmt, ncw, nchw, ncdhw))
-        return utils::pick(ndims - 3, oiw, oihw, oidhw);
-    else if (one_of(src_fmt, nwc, nhwc, ndhwc))
-        return utils::pick(ndims - 3, wio, hwio, dhwio);
-    else if (one_of(src_fmt, nChw8c, nCdhw8c))
-        return utils::pick(ndims - 4, oIhw8i, oIdhw8i);
-    else if (one_of(src_fmt, nChw16c, nCdhw16c))
-        return utils::pick(ndims - 4, oIhw16i, oIdhw16i);
-    else
-        return undef;
-}
-inline memory_format_t src_compatible_fmt(int ndims, memory_format_t wei_fmt) {
-    using namespace memory_format;
-    using namespace utils;
-
-    if (wei_fmt == oi || wei_fmt == io)
-        return nc;
-    else if (one_of(wei_fmt, oiw, oihw, oidhw))
-        return utils::pick(ndims - 3, ncw, nchw, ncdhw);
-    else if (one_of(wei_fmt, wio, owi, hwio, ohwi, dhwio, odhwi))
-        return utils::pick(ndims - 3, nwc, nhwc, ndhwc);
-    else if (one_of(wei_fmt, oIhw8i, oIdhw8i))
-        return utils::pick(ndims - 4, nChw8c, nCdhw8c);
-    else if (one_of(wei_fmt, oIhw16i, oIdhw16i))
-        return utils::pick(ndims - 4, nChw16c, nCdhw16c);
-    else
-        return undef;
-}
 inline bool dense_gemm_consitency_check(const memory_desc_wrapper &src_d,
         const memory_desc_wrapper &wei_d, const memory_desc_wrapper &dst_d) {
-    using namespace memory_format;
     using namespace utils;
-    return true
-        && src_d.format() == src_compatible_fmt(wei_d.ndims(), wei_d.format())
-        && dst_d.format() == nc
-        && src_d.only_padded_dim(1)
-        && wei_d.only_padded_dim(1)
-        && src_d.blocking_desc().padding_dims[1]
-            == wei_d.blocking_desc().padding_dims[1]
-        && src_d.is_dense(true)
-        && dst_d.is_dense()
-        && wei_d.is_dense(true);
-}
-}
 
-struct cpu_inner_product_fwd_pd_t: public inner_product_fwd_pd_t {
-    using cpu_memory_pd_t = cpu_memory_t::pd_t;
-
-    cpu_inner_product_fwd_pd_t(engine_t *engine,
-            const inner_product_desc_t *adesc,
-            const primitive_attr_t *attr,
-            const inner_product_fwd_pd_t *hint_fwd_pd)
-        : inner_product_fwd_pd_t(engine, adesc, attr, hint_fwd_pd)
-        , src_pd_(engine_, &desc_.src_desc), dst_pd_(engine_, &desc_.dst_desc)
-        , weights_pd_(engine_, &desc_.weights_desc)
-        , bias_pd_(engine_, &desc_.bias_desc) {}
-    virtual ~cpu_inner_product_fwd_pd_t() {}
-
-    virtual const cpu_memory_pd_t *src_pd(int index = 0) const override
-    { return index == 0 ? &src_pd_ : nullptr; }
-    virtual const cpu_memory_pd_t *dst_pd(int index = 0) const override
-    { return index == 0 ? &dst_pd_ : nullptr; }
-    virtual const cpu_memory_pd_t *weights_pd(int index = 0) const override {
-        if (index == 0) return &weights_pd_;
-        if (index == 1 && with_bias()) return &bias_pd_;
-        return nullptr;
-    }
-
-    int IC_total_padded() const {
-        auto src_md = memory_desc_wrapper(src_pd());
-
-        assert(src_md.is_blocking_desc());
-        if (!src_md.is_blocking_desc()) return -1;
-
-        return utils::array_product(src_md.blocking_desc().padding_dims + 1,
-                ndims() - 1);
-    }
-
-protected:
-    cpu_memory_pd_t src_pd_, dst_pd_;
-    cpu_memory_pd_t weights_pd_, bias_pd_;
-
-    virtual status_t set_default_params() {
-        using namespace memory_format;
-        if (src_pd_.desc()->format == any
-                && weights_pd_.desc()->format == any) {
-            CHECK(src_pd_.set_format(
-                    utils::pick(ndims() - 2, nc, ncw, nchw, ncdhw)));
-            CHECK(weights_pd_.set_format(
-                    utils::pick(ndims() - 2, oi, oiw, oihw, oidhw)));
-        } else if (src_pd_.desc()->format == any)
-            CHECK(src_pd_.set_format(
-                    src_compatible_fmt(ndims(), weights_pd_.desc()->format)));
-        else if (weights_pd_.desc()->format == any)
-            CHECK(weights_pd_.set_format(
-                    wei_compatible_fmt(ndims(), src_pd_.desc()->format)));
-        if (dst_pd_.desc()->format == any)
-            CHECK(dst_pd_.set_format(nc));
-        if (bias_pd_.desc()->format == any)
-            CHECK(bias_pd_.set_format(x));
-        return status::success;
-    }
-};
-
-struct cpu_inner_product_bwd_data_pd_t: public inner_product_bwd_data_pd_t {
-    using cpu_memory_pd_t = cpu_memory_t::pd_t;
-
-    cpu_inner_product_bwd_data_pd_t(engine_t *engine,
-            const inner_product_desc_t *adesc,
-            const primitive_attr_t *attr,
-            const inner_product_fwd_pd_t *hint_fwd_pd)
-        : inner_product_bwd_data_pd_t(engine, adesc, attr, hint_fwd_pd)
-        , diff_src_pd_(engine_, &desc_.diff_src_desc)
-        , diff_dst_pd_(engine_, &desc_.diff_dst_desc)
-        , weights_pd_(engine_, &desc_.weights_desc) {}
-    virtual ~cpu_inner_product_bwd_data_pd_t() {}
-
-    virtual const cpu_memory_pd_t *diff_src_pd(int index = 0) const override
-    { return index == 0 ? &diff_src_pd_ : nullptr; }
-    virtual const cpu_memory_pd_t *diff_dst_pd(int index = 0) const override
-    { return index == 0 ? &diff_dst_pd_ : nullptr; }
-    virtual const cpu_memory_pd_t *weights_pd(int index = 0) const override
-    { return index == 0 ? &weights_pd_ : nullptr; }
-
-    int IC_total_padded() const {
-        auto diff_src_md = memory_desc_wrapper(diff_src_pd());
-
-        assert(diff_src_md.is_blocking_desc());
-        if (!diff_src_md.is_blocking_desc()) return -1;
-
-        return utils::array_product(
-                diff_src_md.blocking_desc().padding_dims + 1, ndims() - 1);
-    }
-
-protected:
-    cpu_memory_pd_t diff_src_pd_, diff_dst_pd_;
-    cpu_memory_pd_t weights_pd_;
-
-    virtual status_t set_default_params() {
-        using namespace memory_format;
-        if (diff_src_pd_.desc()->format == any
-                && weights_pd_.desc()->format == any) {
-            CHECK(diff_src_pd_.set_format(
-                    utils::pick(ndims() - 2, nc, ncw, nchw, ncdhw)));
-            CHECK(weights_pd_.set_format(
-                    utils::pick(ndims() - 2, oi, oiw, oihw, oidhw)));
-        } else if (diff_src_pd_.desc()->format == any)
-            CHECK(diff_src_pd_.set_format(
-                    src_compatible_fmt(ndims(), weights_pd_.desc()->format)));
-        else if (weights_pd_.desc()->format == any)
-            CHECK(weights_pd_.set_format(
-                    wei_compatible_fmt(ndims(), diff_src_pd_.desc()->format)));
-        if (diff_dst_pd_.desc()->format == any)
-            CHECK(diff_dst_pd_.set_format(nc));
-        return status::success;
-    }
-};
-
-struct cpu_inner_product_bwd_weights_pd_t: public inner_product_bwd_weights_pd_t {
-    using cpu_memory_pd_t = cpu_memory_t::pd_t;
-
-    cpu_inner_product_bwd_weights_pd_t(engine_t *engine,
-            const inner_product_desc_t *adesc,
-            const primitive_attr_t *attr,
-            const inner_product_fwd_pd_t *hint_fwd_pd)
-        : inner_product_bwd_weights_pd_t(engine, adesc, attr, hint_fwd_pd)
-        , src_pd_(engine_, &desc_.src_desc)
-        , diff_dst_pd_(engine_, &desc_.diff_dst_desc)
-        , diff_weights_pd_(engine_, &desc_.diff_weights_desc)
-        , diff_bias_pd_(engine_, &desc_.diff_bias_desc) {}
-    virtual ~cpu_inner_product_bwd_weights_pd_t() {}
-
-    virtual const cpu_memory_pd_t *src_pd(int index = 0) const override
-    { return index == 0 ? &src_pd_ : nullptr; }
-    virtual const cpu_memory_pd_t *diff_dst_pd(int index = 0) const override
-    { return index == 0 ? &diff_dst_pd_ : nullptr; }
-    virtual const cpu_memory_pd_t *diff_weights_pd(int index = 0) const
-        override {
-            if (index == 0) return &diff_weights_pd_;
-            if (index == 1 && this->with_bias()) return &diff_bias_pd_;
-            return  nullptr;
+    auto strides_compatible = [&]() {
+        bool ok = true;
+        auto w_str = wei_d.blocking_desc().strides;
+        auto d_str = src_d.blocking_desc().strides;
+        for (int i = 1; i < src_d.ndims() - 1; i++) {
+            ok = ok && w_str[i] / d_str[i] == w_str[i + 1] / d_str[i + 1];
         }
+        return ok && one_of(w_str[1] / d_str[1], 1, wei_d.padded_dims()[0]);
+    };
 
-    int IC_total_padded() const {
-        auto src_md = memory_desc_wrapper(src_pd());
+    auto inner_blk_compatible = [&]() {
+        auto d_inner_blks = src_d.blocking_desc().inner_blks;
+        auto w_inner_blks = wei_d.blocking_desc().inner_blks;
+        auto d_inner_idxs = src_d.blocking_desc().inner_idxs;
+        auto w_inner_idxs = wei_d.blocking_desc().inner_idxs;
 
-        assert(src_md.is_blocking_desc());
-        if (!src_md.is_blocking_desc()) return -1;
+        int d_inner_nblks = src_d.blocking_desc().inner_nblks;
+        int w_inner_nblks = wei_d.blocking_desc().inner_nblks;
 
-        return utils::array_product(src_md.blocking_desc().padding_dims + 1,
-                ndims() - 1);
-    }
+        bool ok = true;
+
+        if ((wei_d.blocking_desc().strides[0] == 1) && (w_inner_nblks > 0)) {
+            ok = ok && wei_d.dims()[0] / w_inner_blks[w_inner_nblks - 1] == 1
+                    && w_inner_idxs[w_inner_nblks - 1] == 0;
+            w_inner_nblks--;
+        }
+        ok = ok && d_inner_nblks == w_inner_nblks;
+
+        for (int d = 0; d < w_inner_nblks; d++)
+            ok = ok && (d_inner_blks[d] == w_inner_blks[d])
+                    && (d_inner_idxs[d] == w_inner_idxs[d]);
+
+        return ok;
+    };
+
+    return true && src_d.is_blocking_desc() && wei_d.is_blocking_desc()
+            && src_d.ndims() == wei_d.ndims() && inner_blk_compatible()
+            && strides_compatible() && dst_d.matches_tag(format_tag::nc)
+            && src_d.only_padded_dim(1) && wei_d.only_padded_dim(1)
+            && src_d.padded_dims()[1] == wei_d.padded_dims()[1]
+            && src_d.is_dense(true) && dst_d.is_dense() && wei_d.is_dense(true);
+}
+
+void transpose_md(memory_desc_t &md) {
+    // Note: we cannot directly use good leading dimension for a
+    // in padded_dims.  This is because inner_blks does not
+    // account for padding, and should divide the corresponding
+    // padded_dim.
+    auto put_a_last = [](memory_desc_t &md) {
+        auto &md_blk = md.format_desc.blocking;
+        md.padded_dims[0] = md.dims[0];
+        md_blk.strides[0] = 1;
+        for (int d = 1; d < md.ndims; d++)
+            md_blk.strides[d] *= md.padded_dims[0];
+        if (md_blk.inner_nblks > 0) {
+            md_blk.inner_idxs[md_blk.inner_nblks] = 0;
+            md_blk.inner_blks[md_blk.inner_nblks] = md.padded_dims[0];
+            md_blk.inner_nblks++;
+        }
+    };
+
+    auto put_a_first = [](memory_desc_t &md) {
+        blocking_desc_t blk = md.format_desc.blocking;
+        // make the stride for `a` bigger than any other stride and
+        // use the fact that memory_desc_init_by_blocking_desc
+        // preserves the strides order but actually changes them to
+        // densify the descriptor
+        blk.strides[0] = memory_desc_wrapper(md).size();
+        memory_desc_init_by_blocking_desc(md, blk);
+    };
+
+    auto is_a_last = [](memory_desc_t &md) {
+        auto &md_blk = md.format_desc.blocking;
+        // The inner_blks condition makes sure that a is a non blocked dimension
+        return (md_blk.strides[0] == 1) && (md_blk.inner_nblks == 0);
+    };
+
+    auto is_a_first = [&](memory_desc_t &md) {
+        auto &md_blk = md.format_desc.blocking;
+        for (int d = 1; d < md.ndims; d++)
+            if (md_blk.strides[0] < md_blk.strides[d]) return false;
+        return true;
+    };
+
+    if (is_a_last(md))
+        put_a_first(md);
+    else if (is_a_first(md))
+        put_a_last(md);
+
+    // here, by default we do not transpose md if it is not
+}
+
+format_tag_t get_tag(memory_desc_t &md) {
+    using namespace format_tag;
+    auto tag = memory_desc_matches_one_of_tag(md, ab, abc, abcd,
+            abcde, // NCHW derivatives
+            ba, bca, bcda, bcdea, cba, cdba,
+            cdeba, // IO and spatial derivatives
+            acb, acdb, acdeb, // NHWC derivatives
+            aBcd16b, aBcde16b, aBcd8b, aBcde8b, aBcd4b,
+            aBcde4b); // blocked layouts
+    return tag;
+}
+
+inline bool is_ineff_lead_dim(const dim_t dim) {
+    return dim % 1024 == 0; // check cache aliasing
+}
+
+/* Pick between M and K for the most efficient leading
+ * dimension to compute GeMM. */
+bool transpose_leading_dim(const dim_t M, const dim_t K) {
+    return IMPLICATION(is_ineff_lead_dim(M), is_ineff_lead_dim(K) && M <= K);
+}
+} // namespace
+
+#define INIT_MEM_BY_TAG(tag_init_f, md) \
+    do { \
+        auto tag = tag_init_f; \
+        if (tag == format_tag::undef) return status::unimplemented; \
+        CHECK(memory_desc_init_by_tag(md, tag)); \
+    } while (0)
+
+struct cpu_inner_product_fwd_pd_t : public inner_product_fwd_pd_t {
+    using inner_product_fwd_pd_t::inner_product_fwd_pd_t;
 
 protected:
-    cpu_memory_pd_t src_pd_;
-    cpu_memory_pd_t diff_dst_pd_;
-    cpu_memory_pd_t diff_weights_pd_, diff_bias_pd_;
+    status_t set_default_params() {
+        using namespace format_tag;
 
-    virtual status_t set_default_params() {
-        using namespace memory_format;
-        if (src_pd_.desc()->format == any
-                && diff_weights_pd_.desc()->format == any) {
-            CHECK(src_pd_.set_format(
-                    utils::pick(ndims() - 2, nc, ncw, nchw, ncdhw)));
-            CHECK(diff_weights_pd_.set_format(
-                    utils::pick(ndims() - 2, oi, oiw, oihw, oidhw)));
-        } else if (src_pd_.desc()->format == any)
-            CHECK(src_pd_.set_format(src_compatible_fmt(
-                    ndims(), diff_weights_pd_.desc()->format)));
-        else if (diff_weights_pd_.desc()->format == any)
-            CHECK(diff_weights_pd_.set_format(
-                    wei_compatible_fmt(ndims(), src_pd_.desc()->format)));
-        if (diff_dst_pd_.desc()->format == any)
-            CHECK(diff_dst_pd_.set_format(nc));
-        if (diff_bias_pd_.desc()->format == any)
-            CHECK(diff_bias_pd_.set_format(x));
+        auto set_default_src = [&]() {
+            if (weights_md_.format_kind == format_kind::any) {
+                INIT_MEM_BY_TAG(utils::pick(ndims() - 2, ab, abc, abcd, abcde),
+                        src_md_);
+            } else {
+                INIT_MEM_BY_TAG(get_tag(weights_md_), src_md_);
+                // transpose weights to improve efficiency of non-copy kernels
+                if (src_md_.format_desc.blocking.strides[0] == 1)
+                    transpose_md(src_md_);
+            }
+            return status::success;
+        };
+
+        auto set_default_weights = [&]() {
+            INIT_MEM_BY_TAG(get_tag(src_md_), weights_md_);
+            /* with batch = 1, no transpose to use the faster gemv kernels */
+            /* otherwise, we transpose the weights to improve efficiency of
+             * no-copy kernels */
+            if (MB() > 1 && transpose_leading_dim(OC(), IC_total()))
+                transpose_md(weights_md_);
+            return status::success;
+        };
+
+        if (src_md_.format_kind == format_kind::any) CHECK(set_default_src());
+        if (weights_md_.format_kind == format_kind::any)
+            CHECK(set_default_weights());
+        if (dst_md_.format_kind == format_kind::any)
+            CHECK(memory_desc_init_by_tag(dst_md_, nc));
+        if (bias_md_.format_kind == format_kind::any)
+            CHECK(memory_desc_init_by_tag(bias_md_, x));
         return status::success;
     }
 };
 
-}
-}
-}
+struct cpu_inner_product_bwd_data_pd_t : public inner_product_bwd_data_pd_t {
+    using inner_product_bwd_data_pd_t::inner_product_bwd_data_pd_t;
+
+protected:
+    status_t set_default_params() {
+        using namespace format_tag;
+
+        auto set_default_diff_src = [&]() {
+            if (weights_md_.format_kind == format_kind::any) {
+                INIT_MEM_BY_TAG(utils::pick(ndims() - 2, ab, abc, abcd, abcde),
+                        diff_src_md_);
+            } else {
+                INIT_MEM_BY_TAG(get_tag(weights_md_), diff_src_md_);
+                if (diff_src_md_.format_desc.blocking.strides[0] == 1)
+                    transpose_md(diff_src_md_);
+            }
+            return status::success;
+        };
+
+        auto set_default_weights = [&]() {
+            INIT_MEM_BY_TAG(get_tag(diff_src_md_), weights_md_);
+            /* with batch = 1, no transpose to use the faster gemv kernels */
+            /* otherwise, we transpose the weights to improve efficiency of
+             * no-copy kernels */
+            if (MB() == 1) transpose_md(weights_md_);
+
+            return status::success;
+        };
+
+        if (diff_src_md_.format_kind == format_kind::any)
+            CHECK(set_default_diff_src());
+        if (weights_md_.format_kind == format_kind::any)
+            CHECK(set_default_weights());
+        if (diff_dst_md_.format_kind == format_kind::any)
+            CHECK(memory_desc_init_by_tag(diff_dst_md_, nc));
+        return status::success;
+    }
+};
+
+struct cpu_inner_product_bwd_weights_pd_t
+    : public inner_product_bwd_weights_pd_t {
+    using inner_product_bwd_weights_pd_t::inner_product_bwd_weights_pd_t;
+
+protected:
+    status_t set_default_params() {
+        using namespace format_tag;
+
+        auto set_default_src = [&]() {
+            if (diff_weights_md_.format_kind == format_kind::any) {
+                INIT_MEM_BY_TAG(utils::pick(ndims() - 2, ab, abc, abcd, abcde),
+                        src_md_);
+            } else {
+                INIT_MEM_BY_TAG(get_tag(diff_weights_md_), src_md_);
+                if (src_md_.format_desc.blocking.strides[0] == 1)
+                    transpose_md(src_md_);
+            }
+            return status::success;
+        };
+
+        auto set_default_diff_weights = [&]() {
+            INIT_MEM_BY_TAG(get_tag(src_md_), diff_weights_md_);
+            // Here, we want diff_weights layout to match the fwd weights layout
+            if (MB() > 1 && transpose_leading_dim(OC(), MB()))
+                transpose_md(diff_weights_md_);
+            return status::success;
+        };
+
+        if (src_md_.format_kind == format_kind::any) CHECK(set_default_src());
+        if (diff_weights_md_.format_kind == format_kind::any)
+            CHECK(set_default_diff_weights());
+        if (diff_dst_md_.format_kind == format_kind::any)
+            CHECK(memory_desc_init_by_tag(diff_dst_md_, nc));
+        if (diff_bias_md_.format_kind == format_kind::any)
+            CHECK(memory_desc_init_by_tag(diff_bias_md_, x));
+        return status::success;
+    }
+};
+#undef INIT_MEM_BY_TAG
+
+} // namespace cpu
+} // namespace impl
+} // namespace dnnl
 
 #endif
 
-// vim: et ts=4 sw=4 cindent cino^=l0,\:0,N-s
+// vim: et ts=4 sw=4 cindent cino+=l0,\:4,N-s

@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2019 Intel Corporation
+* Copyright 2019-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,131 +17,79 @@
 #ifndef CPU_GEMM_INNER_PRODUCT_UTILS_HPP
 #define CPU_GEMM_INNER_PRODUCT_UTILS_HPP
 
-#include "c_types_map.hpp"
-#include "cpu_inner_product_pd.hpp"
-#include "cpu_engine.hpp"
-#include "type_helpers.hpp"
-#include "utils.hpp"
-#include "jit_generator.hpp"
-#include "jit_uni_eltwise.hpp"
-#include "ref_eltwise.hpp"
-#include "jit_avx512_core_bf16cvt.hpp"
+#include "common/c_types_map.hpp"
+#include "common/type_helpers.hpp"
+#include "common/utils.hpp"
 
-namespace mkldnn {
+#include "cpu/cpu_inner_product_pd.hpp"
+
+namespace dnnl {
 namespace impl {
 namespace cpu {
-
 namespace inner_product_utils {
 
-template <impl::data_type_t acc_type, impl::data_type_t dst_type>
-class pp_kernel_t : jit_generator
-{
-public:
-    DECLARE_CPU_JIT_AUX_FUNCTIONS(gemm_x8s8s32x_inner_product_fwd_t::pp_kernel);
-    pp_kernel_t(const cpu_inner_product_fwd_pd_t *pd);
-    ~pp_kernel_t() {
-        if (do_eltwise_) {
-            delete eltwise_injector_;
-            delete ref_eltwise_;
-        }
+template <data_type_t acc_type, data_type_t dst_type>
+struct pp_kernel_t {
+    static pp_kernel_t *create(size_t OC, size_t MB, dim_t dst_mb_stride,
+            const primitive_attr_t *attr, data_type_t bias_dt,
+            const memory_desc_t *dst_md, bool skip_sum);
+    static pp_kernel_t *create(
+            const cpu_inner_product_fwd_pd_t *pd, bool skip_sum) {
+        return create(pd->OC(), pd->MB(), pd->OC(), pd->attr(),
+                pd->desc()->bias_desc.data_type, pd->dst_md(), skip_sum);
     }
+
+    virtual ~pp_kernel_t() = default;
 
     typedef typename prec_traits<acc_type>::type acc_data_t;
     typedef typename prec_traits<dst_type>::type dst_data_t;
 
-    void operator()(dst_data_t *dst, const acc_data_t *acc, const char *bias,
-            const float *scales, size_t start, size_t end);
+    // mb kernel only supports single-threaded execution where performance
+    // degradation is larger
+    bool sequential_kernel() const { return mb_blk_kernel_; }
 
-private:
-    void generate();
+    virtual void operator()(dst_data_t *dst, const acc_data_t *acc,
+            const char *bias, const float *scales, size_t start, size_t end,
+            size_t runtime_oc, dim_t dst_mb_stride,
+            const float *dst_zero_points,
+            const void *post_ops_binary_rhs_arg_vec, const void *dst_orig,
+            const exec_ctx_t &ctx, const memory_desc_t &dst_md) const = 0;
 
-    struct ker_args {
-        dst_data_t *dst;
-        const acc_data_t *acc;
-        const char *bias;
-        const float *scales;
-        float nslope;
-        size_t len;
-        size_t oc_offset;
-    };
+    virtual status_t create_kernel() { return status::success; }
 
-    enum {
-        default_OC_loop_unroll_ = 4
-    };
-
-    void (*ker_)(const ker_args *args);
-    jit_uni_eltwise_injector_f32<avx512_common> *eltwise_injector_;
-    ref_eltwise_scalar_fwd_t *ref_eltwise_;
-    bf16_emulation_t *bf16_emu_;
-
-    Xbyak::Reg64 reg_param = abi_param1;
-    Xbyak::Reg64 reg_dst = rdx;
-    Xbyak::Reg64 reg_acc = rax;
-    Xbyak::Reg64 reg_bias = rbx;
-    Xbyak::Reg64 reg_scales = rsi;
-
-    Xbyak::Reg64 reg_len = r8;
-    Xbyak::Reg64 reg_tmp = rcx; // intentional for shifting purposes
-    Xbyak::Reg64 reg_oc_offset = r9;
-    Xbyak::Reg64 reg_rem_mask = r10;
-    Xbyak::Opmask kreg_rem_mask = k1;
-
-    Xbyak::Zmm vreg_zero, vreg_scale;
-
-    Xbyak::Reg64 eltwise_reserved_1_ = r11;
-    Xbyak::Opmask eltwise_reserved_2_ = k2;
-
-    Xbyak::Zmm bf16_emu_reserv_1 = Xbyak::Zmm(28);
-    Xbyak::Zmm bf16_emu_reserv_2 = Xbyak::Zmm(29);
-    Xbyak::Zmm bf16_emu_reserv_3 = Xbyak::Zmm(30);
-    Xbyak::Reg64 bf16_emu_reserv_4 = r12;
-    Xbyak::Zmm bf16_emu_reserv_5 = Xbyak::Zmm(31);
+protected:
+    pp_kernel_t(size_t OC, size_t MB, dim_t dst_mb_stride,
+            const primitive_attr_t *attr, data_type_t bias_dt, bool skip_sum);
 
     size_t OC_;
+    size_t MB_;
+    dim_t dst_mb_stride_;
     data_type_t bias_data_type_;
-    size_t bias_data_type_size_;
-    bool do_scale_;
-    size_t scale_idx_mult_;
-    round_mode_t rmode_;
-    bool do_bias_;
-    bool do_eltwise_;
-    cpu_isa_t isa_;
-    int max_OC_loop_unroll_;
-    int idx_compute_vreg_start_;
-    int idx_compute_vreg_max_;
-    int compute_vregs_per_iter_;
+    size_t bias_data_type_size_ = 0;
+    bool do_scale_ = false;
+    size_t scale_idx_mult_ = 0;
+    bool do_eltwise_ = false;
+    bool do_binary_ = false;
+    bool do_sum_ = false;
+    bool do_dst_zero_points_ = false;
+    float sum_scale_ = 0.f;
+    bool mb_blk_kernel_ = false;
+    post_ops_t post_ops_;
 
-    post_ops_t::entry_t::eltwise_t eltwise_;
-
-    int idx_vreg_dst(int iter) {
-        int idx = idx_compute_vreg_start_ + iter * compute_vregs_per_iter_ + 0;
-        assert(idx <= idx_compute_vreg_max_);
-        return idx;
+    bool has_trivial_mb_stride() const {
+        return (!runtime_oc()) && (OC_ == (size_t)dst_mb_stride_);
     }
-    int idx_vreg_bias(int iter) {
-        int idx = idx_compute_vreg_start_ + iter * compute_vregs_per_iter_ + 1;
-        assert(idx <= idx_compute_vreg_max_);
-        return idx;
-    }
-
-    Xbyak::Zmm vreg_dst(int iter) {
-        return Xbyak::Zmm(idx_vreg_dst(iter));
-    };
-
-    Xbyak::Zmm vreg_bias(int iter) {
-        return Xbyak::Zmm(idx_vreg_bias(iter));
-    };
-
-    Xbyak::Ymm ymm_dst(int iter) {
-        return Xbyak::Ymm(idx_vreg_dst(iter));
-    };
-
+    bool do_bias() const { return bias_data_type_ != data_type::undef; }
+    bool runtime_oc() const { return OC_ == (size_t)DNNL_RUNTIME_DIM_VAL; }
+    bool runtime_mb() const { return MB_ == (size_t)DNNL_RUNTIME_DIM_VAL; }
 };
 
-}
+bool post_ops_ok(const post_ops_t &post_ops, const memory_desc_wrapper *dst_d);
+bool post_ops_ok(const post_ops_t &post_ops, const memory_desc_t *dst_d);
 
-}
-}
-}
+} // namespace inner_product_utils
+} // namespace cpu
+} // namespace impl
+} // namespace dnnl
 
 #endif

@@ -42,16 +42,53 @@ if(USE_LIBUV)
     #     )
     #
   else()
-    include(FindPkgConfig)
-    pkg_search_module(libuv REQUIRED libuv>=1.26)
-    find_file(
-      libuv_LIBRARY
-      NAMES libuv.a libuv_a.a
-      PATHS ${libuv_LIBDIR}
-      NO_DEFAULT_PATH)
-    if(NOT EXISTS ${libuv_LIBRARY})
-      message(FATAL "Unable to find static libuv library in " ${libuv_LIBDIR})
+    if(MSVC)
+      find_library(
+        libuv_LIBRARY
+        NAMES uv libuv
+        HINTS ${libuv_ROOT} ENV libuv_ROOT
+        PATH_SUFFIXES lib/release lib/debug lib
+        REQUIRED
+        NO_DEFAULT_PATH)
+      if(NOT EXISTS ${libuv_LIBRARY})
+        message(FATAL_ERROR "Unable to find static libuv library in " $ENV{libuv_ROOT})
+      endif()
+
+      find_file(
+        libuv_DLL_PATH
+        NAMES uv.dll
+        HINTS ${libuv_ROOT} ENV libuv_ROOT
+        PATH_SUFFIXES lib/release lib/debug bin
+        REQUIRED
+        NO_DEFAULT_PATH)
+      if(NOT EXISTS ${libuv_DLL_PATH})
+        message(FATAL_ERROR "Unable to find uv.dll in " $ENV{libuv_ROOT})
+      endif()
+
+      find_file(
+        uv_HEADER_PATH
+        NAMES uv.h
+        HINTS ${libuv_ROOT} ENV libuv_ROOT
+        PATH_SUFFIXES include
+        REQUIRED
+        NO_DEFAULT_PATH)
+      if(NOT EXISTS ${uv_HEADER_PATH})
+        message(FATAL_ERROR "Unable to find headers of libuv in " $ENV{libuv_ROOT})
+      endif()
+      set(libuv_INCLUDE_DIRS ${uv_HEADER_PATH}/..)
+    else()
+      include(FindPkgConfig)
+      pkg_search_module(libuv REQUIRED libuv>=1.26)
+      find_file(
+        libuv_LIBRARY
+        NAMES libuv.a libuv_a.a
+        PATHS ${libuv_LIBDIR}
+        NO_DEFAULT_PATH)
+      if(NOT EXISTS ${libuv_LIBRARY})
+        message(FATAL_ERROR "Unable to find static libuv library in " ${libuv_LIBDIR})
+      endif()
     endif()
+
     add_library(uv_a INTERFACE IMPORTED)
     set_target_properties(uv_a PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES ${libuv_INCLUDE_DIRS}
@@ -117,7 +154,7 @@ if(USE_ROCM)
     list(APPEND HIP_CXX_FLAGS -Wno-unused-command-line-argument)
     list(APPEND HIP_CXX_FLAGS -Wno-duplicate-decl-specifier)
     list(APPEND HIP_CXX_FLAGS -DUSE_MIOPEN)
-    
+
     set(HIP_HCC_FLAGS ${HIP_CXX_FLAGS})
     # Ask hcc to generate device code during compilation so we can use
     # host linker to link.

@@ -1,5 +1,5 @@
 #===============================================================================
-# Copyright 2018 Intel Corporation
+# Copyright 2018-2021 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,111 +26,177 @@ set(options_cmake_included true)
 # Features
 # ========
 
-option(MKLDNN_VERBOSE
-    "allows Intel(R) MKL-DNN be verbose whenever MKLDNN_VERBOSE
+option(DNNL_VERBOSE
+    "allows oneDNN be verbose whenever DNNL_VERBOSE
     environment variable set to 1" ON) # enabled by default
 
-option(MKLDNN_ENABLE_CONCURRENT_EXEC
+option(DNNL_ENABLE_CONCURRENT_EXEC
     "disables sharing a common scratchpad between primitives.
-    This option must be turned on if there is a possibility of concurrent
-    execution of primitives that were created in the same thread.
-    CAUTION: enabling this option increases memory consumption"
+    This option must be turned ON if there is a possibility of executing
+    distinct primitives concurrently.
+    CAUTION: enabling this option increases memory consumption."
     OFF) # disabled by default
+
+option(DNNL_ENABLE_PRIMITIVE_CACHE "enables primitive cache." ON)
+    # enabled by default
+
+option(DNNL_ENABLE_MAX_CPU_ISA
+    "enables control of CPU ISA detected by oneDNN via DNNL_MAX_CPU_ISA
+    environment variable and dnnl_set_max_cpu_isa() function" ON)
+
+option(DNNL_ENABLE_CPU_ISA_HINTS
+    "enables control of CPU ISA specific hints by oneDNN via DNNL_CPU_ISA_HINTS
+    environment variable and dnnl_set_cpu_isa_hints() function" ON)
 
 # =============================
 # Building properties and scope
 # =============================
 
-set(MKLDNN_LIBRARY_TYPE "SHARED" CACHE STRING
-    "specifies whether Intel(R) MKL-DNN library should be SHARED or STATIC")
-option(WITH_EXAMPLE "builds examples"  ON)
-option(WITH_TEST "builds tests" ON)
-option(MKLDNN_WERROR "treat warnings as errors" OFF)
+set(DNNL_LIBRARY_TYPE "SHARED" CACHE STRING
+    "specifies whether oneDNN library should be SHARED or STATIC")
+option(DNNL_BUILD_EXAMPLES "builds examples"  ON)
+option(DNNL_BUILD_TESTS "builds tests" ON)
+option(DNNL_BUILD_FOR_CI
+    "specifies whether oneDNN library will use special testing environment for
+    internal testing processes"
+    OFF)
+option(DNNL_WERROR "treat warnings as errors" OFF)
 
-set(MKLDNN_INSTALL_MODE "DEFAULT" CACHE STRING
+set(DNNL_TEST_SET "CI" CACHE STRING
+    "specifies testing targets coverage. Supports CI, NIGHTLY.
+
+    When CI option is set, it enables a subset of test targets to run. When
+    NIGHTLY option is set, it enables a broader set of test targets to run.")
+
+set(DNNL_INSTALL_MODE "DEFAULT" CACHE STRING
     "specifies installation mode; supports DEFAULT or BUNDLE.
 
-    When BUNDLE option is set MKL-DNN will be installed as a bundle
-    which contains examples and benchdnn.
-    The BUNDLE option requires MKLDNN_USE_MKL be set to FULL:STATIC.")
+    When BUNDLE option is set oneDNN will be installed as a bundle
+    which contains examples and benchdnn.")
 
-set(MKLDNN_THREADING "OMP" CACHE STRING
-    "specifies threading type; supports OMP (default), OMP:COMP, OMP:INTEL, or TBB.
-
-    When OpenMP is used a user can choose what runtime to use:
-    - native OpenMP runtime that comes with the compiler (OMP:COMP), or
-    - Intel OpenMP runtime that is compatible with all the compilers that
-      Intel MKL-DNN supports (OMP:INTEL). This option requires Intel MKL
-      be installed or Intel MKL-ML library be downloaded. This option doesn't
-      work with MSVC (w/o Intel Compiler).
-    The default option is OMP, which gives a preference to OMP:INTEL, but if
-    neither Intel MKL is installed nor Intel MKL-ML is available then fallback
-    to OMP:COMP.
-
-    To use Intel(R) Threading Building Blocks (Intel(R) TBB) one should also
-    set TBBROOT (either environment variable or CMake option) to the library
-    location")
-
-set(MKLDNN_USE_MKL "DEF" CACHE STRING
-    "specifies what Intel MKL library to use.
-    Supports DEF (default), NONE, ML, FULL, FULL:STATIC.
-
-    By default (DEF) cmakes tries to find Intel MKL-ML library, then full
-    Intel MKL library, or just builds Intel MKL-DNN w/o any binary dependency.
-
-    To build Intel MKL-DNN w/o any dependencies on Intel MKL / Intel MKL-ML
-    use NONE. Note that building system would not be able to use Intel OpenMP
-    runtime that comes with Intel MKL or Intel MKL-ML, and would be available
-    only if Intel Compiler is used.
-
-    To force Intel MKL-DNN to use Intel MKL-ML use ML. Depending on the
-    threading the build system would choose between libmklml_intel or
-    libmklml_gnu.
-
-    To force Intel MKL-DNN to use the full Intel MKL pass FULL or FULL:STATIC
-    to cmake. The former option would make Intel MKL-DNN link against
-    Intel MKL RT (libmkl_rt). The latter one would link against static
-    Intel MKL. Use static linking to reduce the size of the resulting library
-    (including its dependencies).
-    Caution: Intel MKL RT allows setting the threading layer using environment
-             variable MKL_THREADING_LAYER. By default Intel MKL would use
-             OpenMP. If Intel MKL-DNN is built with TBB it is recommended to
-             set MKL_THREADING_LAYER to `tbb` or `sequential`, to avoid
-             conflict between OpenMP and TBB thread pools.")
+set(DNNL_CODE_COVERAGE "OFF" CACHE STRING
+    "specifies which supported tool for code coverage will be used
+    Currently only gcov supported")
+if(NOT "${DNNL_CODE_COVERAGE}" MATCHES "^(OFF|GCOV)$")
+    message(FATAL_ERROR "Unsupported code coverage tool: ${DNNL_CODE_COVERAGE}")
+endif()
 
 # =============
 # Optimizations
 # =============
 
-set(ARCH_OPT_FLAGS "HostOpts" CACHE STRING
+set(DNNL_ARCH_OPT_FLAGS "HostOpts" CACHE STRING
     "specifies compiler optimization flags (see below for more information).
     If empty default optimization level would be applied which depends on the
     compiler being used.
 
-    - For Intel(R) C++ Compilers the default option is `-xHOST` which instructs
-      the compiler to generate the code for the architecture where building is
-      happening. This option would not allow to run the library on older
+    - For Intel C++ Compilers the default option is `-xSSE4.1` which instructs
+      the compiler to generate the code for the processors that support SSE4.1
+      instructions. This option would not allow to run the library on older
       architectures.
 
-    - For GNU* Compiler Collection version 5 and newer the default options are
-      `-march=native -mtune=native` which behaves similarly to the description
-      above.
+    - For GNU* Compiler Collection and Clang, the default option is `-msse4.1` which
+      behaves similarly to the description above.
 
     - For all other cases there are no special optimizations flags.
 
     If the library is to be built for generic architecture (e.g. built by a
-    Linux distributive maintainer) one may want to specify ARCH_OPT_FLAGS=\"\"
+    Linux distributive maintainer) one may want to specify DNNL_ARCH_OPT_FLAGS=\"\"
     to not use any host specific instructions")
 
 # ======================
 # Profiling capabilities
 # ======================
 
-set(VTUNEROOT "" CACHE STRING
-    "path to Intel(R) VTune(tm) Amplifier.
-    Required to register Intel(R) MKL-DNN kernels that are generated at
-    runtime, otherwise the profile would not be able to track the kernels and
-    would report `outside any known module`.")
+# TODO: restore default to ON after the issue with linking C files by 
+# Intel oneAPI DPC++ Compiler is fixed. Currently this compiler issues a warning
+# when linking object files built from C and C++ sources.
+option(DNNL_ENABLE_JIT_PROFILING
+    "Enable registration of oneDNN kernels that are generated at
+    runtime with VTune Amplifier (on by default). Without the
+    registrations, VTune Amplifier would report data collected inside
+    the kernels as `outside any known module`."
+    ON)
+
+option(DNNL_ENABLE_ITT_TASKS
+    "Enable ITT Tasks tagging feature and tag all primitive execution 
+    (on by default). VTune Amplifier can group profiling results based 
+    on those ITT tasks and show corresponding timeline information."
+    ON)
+
+# ===================
+# Engine capabilities
+# ===================
+
+set(DNNL_CPU_RUNTIME "OMP" CACHE STRING
+    "specifies the threading runtime for CPU engines;
+    supports OMP (default), TBB or DPCPP (DPC++ CPU engines).
+
+    To use Threading Building Blocks (TBB) one should also
+    set TBBROOT (either environment variable or CMake option) to the library
+    location.")
+if(NOT "${DNNL_CPU_RUNTIME}" MATCHES "^(OMP|TBB|SEQ|THREADPOOL|DPCPP|SYCL)$")
+    message(FATAL_ERROR "Unsupported CPU runtime: ${DNNL_CPU_RUNTIME}")
+endif()
+
+set(_DNNL_TEST_THREADPOOL_IMPL "STANDALONE" CACHE STRING
+    "specifies which threadpool implementation to use when
+    DNNL_CPU_RUNTIME=THREADPOOL is selected. Valid values: STANDALONE, EIGEN,
+    TBB")
+if(NOT "${_DNNL_TEST_THREADPOOL_IMPL}" MATCHES "^(STANDALONE|TBB|EIGEN)$")
+    message(FATAL_ERROR
+        "Unsupported threadpool implementation: ${_DNNL_TEST_THREADPOOL_IMPL}")
+endif()
+
+set(TBBROOT "" CACHE STRING
+    "path to Thread Building Blocks (TBB).
+    Use this option to specify TBB installation locaton.")
+
+set(DNNL_GPU_RUNTIME "NONE" CACHE STRING
+    "specifies the runtime to use for GPU engines.
+    Can be NONE (default; no GPU engines), OCL (OpenCL GPU engines)
+    or DPCPP (DPC++ GPU engines).
+
+    Using OpenCL for GPU requires setting OPENCLROOT if the libraries are
+    installed in a non-standard location.")
+if(NOT "${DNNL_GPU_RUNTIME}" MATCHES "^(OCL|NONE|DPCPP|SYCL)$")
+    message(FATAL_ERROR "Unsupported GPU runtime: ${DNNL_GPU_RUNTIME}")
+endif()
+
+set(DNNL_GPU_VENDOR "INTEL" CACHE STRING
+    "specifies target GPU vendor for GPU engines.
+    Can be INTEL (default) or NVIDIA.")
+if(NOT "${DNNL_GPU_VENDOR}" MATCHES "^(INTEL|NVIDIA)$")
+    message(FATAL_ERROR "Unsupported GPU vendor: ${DNNL_GPU_VENDOR}")
+endif()
+
+set(OPENCLROOT "" CACHE STRING
+    "path to Intel SDK for OpenCL applications.
+    Use this option to specify custom location for OpenCL.")
+
+# TODO: move logic to other cmake files?
+# Shortcuts for SYCL/DPC++
+if(DNNL_CPU_RUNTIME STREQUAL "DPCPP" OR DNNL_CPU_RUNTIME STREQUAL "SYCL")
+    set(DNNL_CPU_SYCL true)
+else()
+    set(DNNL_CPU_SYCL false)
+endif()
+
+if(DNNL_GPU_RUNTIME STREQUAL "DPCPP" OR DNNL_GPU_RUNTIME STREQUAL "SYCL")
+    set(DNNL_GPU_SYCL true)
+    set(DNNL_SYCL_CUDA OFF)
+    if(DNNL_GPU_VENDOR STREQUAL "NVIDIA")
+        set(DNNL_SYCL_CUDA ON)
+    endif()
+else()
+    set(DNNL_GPU_SYCL false)
+endif()
+
+if(DNNL_CPU_SYCL OR DNNL_GPU_SYCL)
+    set(DNNL_WITH_SYCL true)
+else()
+    set(DNNL_WITH_SYCL false)
+endif()
 
 # =============
 # Miscellaneous
@@ -138,17 +204,64 @@ set(VTUNEROOT "" CACHE STRING
 
 option(BENCHDNN_USE_RDPMC
     "enables rdpms counter to report precise cpu frequency in benchdnn.
-     CAUTION: may not work on all cpus (hence disabled by default)"
+    CAUTION: may not work on all cpus (hence disabled by default)"
     OFF) # disabled by default
 
-# =============
-# Developer flags
-# =============
+# =========================
+# Developer and debug flags
+# =========================
 
-set(MKLDNN_USE_CLANG_SANITIZER "" CACHE STRING
+set(DNNL_USE_CLANG_SANITIZER "" CACHE STRING
     "instructs build system to use a Clang sanitizer. Possible values:
     Address: enables AddressSanitizer
+    Leak: enables LeakSanitizer
     Memory: enables MemorySanitizer
     MemoryWithOrigin: enables MemorySanitizer with origin tracking
+    Thread: enables ThreadSanitizer
     Undefined: enables UndefinedBehaviourSanitizer
     This feature is experimental and is only available on Linux.")
+
+option(DNNL_ENABLE_MEM_DEBUG "enables memory-related debug functionality,
+    such as buffer overflow (default) and underflow, using gtests and benchdnn.
+    Additionaly, this option enables testing of out-of-memory handling by the
+    library, such as failed memory allocations, using primitive-related gtests.
+    This feature is experimental and is only available on Linux." OFF)
+
+set(DNNL_USE_CLANG_TIDY "NONE" CACHE STRING
+    "Instructs build system to use clang-tidy. Valid values:
+    - NONE (default)
+      Clang-tidy is disabled.
+    - CHECK
+      Enables checks from .clang-tidy.
+    - FIX
+      Enables checks from .clang-tidy and fix found issues.
+    This feature is only available on Linux.")
+
+# =============================
+# External BLAS library options
+# =============================
+
+set(DNNL_BLAS_VENDOR "NONE" CACHE STRING
+    "Use an external BLAS library. Valid values:
+      - NONE (default)
+        Use in-house implementation.
+      - MKL
+        Intel Math Kernel Library (Intel MKL)
+        (https://software.intel.com/content/www/us/en/develop/tools/math-kernel-library.html)
+      - OPENBLAS
+        (https://www.openblas.net)
+      - ARMPL
+        Arm Performance Libraries
+        (https://developer.arm.com/tools-and-software/server-and-hpc/downloads/arm-performance-libraries)
+      - ANY
+        FindBLAS will search default library paths for a known BLAS installation.")
+
+# ==============================================
+# AArch64 optimizations with Arm Compute Library
+# ==============================================
+
+option(DNNL_AARCH64_USE_ACL "Enables use of AArch64 optimised functions
+    from Arm Compute Library.
+    This is only supported on AArch64 builds and assumes there is a
+    functioning Compute Library build available at the location specified by the
+    environment variable ACL_ROOT_DIR." OFF)

@@ -22,7 +22,6 @@
 #include <lyra/lyra_exceptions.h>
 #endif
 
-#include <alloca.h>
 #include <cstdlib>
 #include <ios>
 #include <stdexcept>
@@ -31,6 +30,10 @@
 #include <system_error>
 
 #include <jni.h>
+
+#ifndef _WIN32
+#include <cxxabi.h>
+#endif
 
 namespace facebook {
 namespace jni {
@@ -279,7 +282,17 @@ local_ref<JThrowable> convertCppExceptionToJavaException(std::exception_ptr ptr)
   } catch (const char* msg) {
     current = JUnknownCppException::create(msg);
   } catch (...) {
+#ifdef _WIN32
     current = JUnknownCppException::create();
+#else
+    const std::type_info* tinfo = abi::__cxa_current_exception_type();
+    if (tinfo) {
+      std::string msg = std::string("Unknown: ") + tinfo->name();
+      current = JUnknownCppException::create(msg.c_str());
+    } else {
+      current = JUnknownCppException::create();
+    }
+#endif
   }
 
   if (addCppStack) {

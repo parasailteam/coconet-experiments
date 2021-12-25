@@ -26,6 +26,8 @@ set(USE_IBVERBS_DEFAULT OFF)
 set(USE_NCCL_DEFAULT OFF)
 set(USE_RCCL_DEFAULT OFF)
 set(USE_LIBUV_DEFAULT OFF)
+set(USE_TCP_OPENSSL_LINK_DEFAULT OFF)
+set(USE_TCP_OPENSSL_LOAD_DEFAULT OFF)
 
 # Options
 option(USE_REDIS "Support using Redis for rendezvous" ${USE_REDIS_DEFAULT})
@@ -33,6 +35,30 @@ option(USE_IBVERBS "Support ibverbs transport" ${USE_IBVERBS_DEFAULT})
 option(USE_NCCL "Support using NCCL for local collectives" ${USE_NCCL_DEFAULT})
 option(USE_RCCL "Support using RCCL for local collectives" ${USE_RCCL_DEFAULT})
 option(USE_LIBUV "Build libuv transport" ${USE_LIBUV_DEFAULT})
+option(USE_TCP_OPENSSL_LINK "Build TCP-TLS transport with dynamically linked OpenSSL (Linux only)" ${USE_TCP_OPENSSL_LINK_DEFAULT})
+option(USE_TCP_OPENSSL_LOAD "Build TCP-TLS transport with OpenSSL dynamically loaded during runtime (Linux only)" ${USE_TCP_OPENSSL_LOAD_DEFAULT})
+if(${USE_TCP_OPENSSL_LINK} AND ${USE_TCP_OPENSSL_LOAD})
+  message(FATAL_ERROR "USE_TCP_OPENSSL_LINK and USE_TCP_OPENSSL_LOAD are mutually exclusive")
+endif()
+
+if(MSVC)
+  message(STATUS "MSVC detected")
+  set(USE_REDIS OFF)
+  message(STATUS "Set USE_REDIS OFF")
+  set(USE_IBVERBS OFF)
+  message(STATUS "Set USE_IBVERBS OFF")
+  set(USE_NCCL OFF)
+  message(STATUS "Set USE_NCCL OFF")
+  set(USE_RCCL OFF)
+  message(STATUS "Set USE_RCCL OFF")
+  set(USE_LIBUV ON)
+  message(STATUS "Set USE_LIBUV ON")
+  message(STATUS "Only USE_LIBUV is supported on Windows")
+
+  if(BUILD_BENCHMARK)
+    message(FATAL_ERROR "BUILD_BENCHMARK is not supported on Windows yet")
+  endif()
+endif()
 
 # Set default build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -44,8 +70,14 @@ endif()
 find_program(SCCACHE_EXECUTABLE sccache)
 mark_as_advanced(SCCACHE_EXECUTABLE)
 if(SCCACHE_EXECUTABLE)
+  if(MSVC)
+    set(SCCACHE_COMPILE_MATCH_STRING ".*/sccache-cl.exe$")
+  else()
+    set(SCCACHE_COMPILE_MATCH_STRING ".*/s?ccache$")
+  endif()
+
   foreach(LANG CXX C)
-    if(NOT DEFINED CMAKE_${LANG}_COMPILER_LAUNCHER AND NOT CMAKE_${LANG}_COMPILER MATCHES ".*/s?ccache$")
+    if(NOT DEFINED CMAKE_${LANG}_COMPILER_LAUNCHER AND NOT CMAKE_${LANG}_COMPILER MATCHES ${SCCACHE_COMPILE_MATCH_STRING})
       message(STATUS "Enabling sccache for ${LANG}")
       set(CMAKE_${LANG}_COMPILER_LAUNCHER ${SCCACHE_EXECUTABLE} CACHE STRING "")
     endif()
@@ -66,8 +98,10 @@ mark_as_advanced(GLOO_INSTALL)
 # Build shared or static libraries (override from parent project)
 if(BUILD_SHARED_LIBS)
   set(GLOO_STATIC_OR_SHARED SHARED CACHE STRING "")
+  message(STATUS "Gloo build as SHARED library")
 else()
   set(GLOO_STATIC_OR_SHARED STATIC CACHE STRING "")
+  message(STATUS "Gloo build as STATIC library")
 endif()
 mark_as_advanced(GLOO_STATIC_OR_SHARED)
 
@@ -79,7 +113,10 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_BINARY_DIR})
 
 # Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+
+if(NOT MSVC)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fPIC")
+endif()
 
 # Recurse into main project directory
 add_subdirectory(gloo)
@@ -95,12 +132,16 @@ configure_file(
   @ONLY)
 
 if(GLOO_INSTALL)
-  install(FILES
-    ${PROJECT_BINARY_DIR}/cmake/GlooConfig.cmake
-    ${PROJECT_BINARY_DIR}/cmake/GlooConfigVersion.cmake
-    DESTINATION share/cmake/Gloo
-    COMPONENT dev)
-  install(EXPORT GlooTargets DESTINATION share/cmake/Gloo
-    FILE GlooTargets.cmake
-    COMPONENT dev)
+  if(NOT MSVC)
+    install(FILES
+      ${PROJECT_BINARY_DIR}/cmake/GlooConfig.cmake
+      ${PROJECT_BINARY_DIR}/cmake/GlooConfigVersion.cmake
+      DESTINATION share/cmake/Gloo
+      COMPONENT dev)
+    install(EXPORT GlooTargets DESTINATION share/cmake/Gloo
+      FILE GlooTargets.cmake
+      COMPONENT dev)
+  else()
+    install(FILES ${libuv_DLL_PATH} DESTINATION lib)
+  endif()
 endif()

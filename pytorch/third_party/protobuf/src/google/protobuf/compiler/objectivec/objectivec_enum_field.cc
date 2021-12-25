@@ -32,11 +32,9 @@
 #include <string>
 
 #include <google/protobuf/compiler/objectivec/objectivec_enum_field.h>
-#include <google/protobuf/stubs/common.h>
 #include <google/protobuf/compiler/objectivec/objectivec_helpers.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/wire_format.h>
-#include <google/protobuf/stubs/strutil.h>
 
 namespace google {
 namespace protobuf {
@@ -106,13 +104,13 @@ void EnumFieldGenerator::GenerateCFunctionImplementations(
       "int32_t $owning_message_class$_$capitalized_name$_RawValue($owning_message_class$ *message) {\n"
       "  GPBDescriptor *descriptor = [$owning_message_class$ descriptor];\n"
       "  GPBFieldDescriptor *field = [descriptor fieldWithNumber:$field_number_name$];\n"
-      "  return GPBGetMessageInt32Field(message, field);\n"
+      "  return GPBGetMessageRawEnumField(message, field);\n"
       "}\n"
       "\n"
       "void Set$owning_message_class$_$capitalized_name$_RawValue($owning_message_class$ *message, int32_t value) {\n"
       "  GPBDescriptor *descriptor = [$owning_message_class$ descriptor];\n"
       "  GPBFieldDescriptor *field = [descriptor fieldWithNumber:$field_number_name$];\n"
-      "  GPBSetInt32IvarWithFieldInternal(message, field, value, descriptor.file.syntax);\n"
+      "  GPBSetMessageRawEnumField(message, field, value);\n"
       "}\n"
       "\n");
 }

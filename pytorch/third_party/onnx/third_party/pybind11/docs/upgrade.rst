@@ -8,6 +8,114 @@ to a new version. But it goes into more detail. This includes things like
 deprecated APIs and their replacements, build system changes, general code
 modernization and other useful information.
 
+.. _upgrade-guide-2.6:
+
+v2.6
+====
+
+Usage of the ``PYBIND11_OVERLOAD*`` macros and ``get_overload`` function should
+be replaced by ``PYBIND11_OVERRIDE*`` and ``get_override``. In the future, the
+old macros may be deprecated and removed.
+
+``py::module`` has been renamed ``py::module_``, but a backward compatible
+typedef has been included. This change was to avoid a language change in C++20
+that requires unqualified ``module`` not be placed at the start of a logical
+line. Qualified usage is unaffected and the typedef will remain unless the
+C++ language rules change again.
+
+The public constructors of ``py::module_`` have been deprecated. Use
+``PYBIND11_MODULE`` or ``module_::create_extension_module`` instead.
+
+An error is now thrown when ``__init__`` is forgotten on subclasses. This was
+incorrect before, but was not checked. Add a call to ``__init__`` if it is
+missing.
+
+A ``py::type_error`` is now thrown when casting to a subclass (like
+``py::bytes`` from ``py::object``) if the conversion is not valid. Make a valid
+conversion instead.
+
+The undocumented ``h.get_type()`` method has been deprecated and replaced by
+``py::type::of(h)``.
+
+Enums now have a ``__str__`` method pre-defined; if you want to override it,
+the simplest fix is to add the new ``py::prepend()`` tag when defining
+``"__str__"``.
+
+If ``__eq__`` defined but not ``__hash__``, ``__hash__`` is now set to
+``None``, as in normal CPython. You should add ``__hash__`` if you intended the
+class to be hashable, possibly using the new ``py::hash`` shortcut.
+
+The constructors for ``py::array`` now always take signed integers for size,
+for consistency. This may lead to compiler warnings on some systems. Cast to
+``py::ssize_t`` instead of ``std::size_t``.
+
+The ``tools/clang`` submodule and ``tools/mkdoc.py`` have been moved to a
+standalone package, `pybind11-mkdoc`_. If you were using those tools, please
+use them via a pip install from the new location.
+
+The ``pybind11`` package on PyPI no longer fills the wheel "headers" slot - if
+you were using the headers from this slot, they are available by requesting the
+``global`` extra, that is, ``pip install "pybind11[global]"``. (Most users will
+be unaffected, as the ``pybind11/include`` location is reported by ``python -m
+pybind11 --includes`` and ``pybind11.get_include()`` is still correct and has
+not changed since 2.5).
+
+.. _pybind11-mkdoc: https://github.com/pybind/pybind11-mkdoc
+
+CMake support:
+--------------
+
+The minimum required version of CMake is now 3.4.  Several details of the CMake
+support have been deprecated; warnings will be shown if you need to change
+something. The changes are:
+
+* ``PYBIND11_CPP_STANDARD=<platform-flag>`` is deprecated, please use
+  ``CMAKE_CXX_STANDARD=<number>`` instead, or any other valid CMake CXX or CUDA
+  standard selection method, like ``target_compile_features``.
+
+* If you do not request a standard, pybind11 targets will compile with the
+  compiler default, but not less than C++11, instead of forcing C++14 always.
+  If you depend on the old behavior, please use ``set(CMAKE_CXX_STANDARD 14 CACHE STRING "")``
+  instead.
+
+* Direct ``pybind11::module`` usage should always be accompanied by at least
+  ``set(CMAKE_CXX_VISIBILITY_PRESET hidden)`` or similar - it used to try to
+  manually force this compiler flag (but not correctly on all compilers or with
+  CUDA).
+
+* ``pybind11_add_module``'s ``SYSTEM`` argument is deprecated and does nothing;
+  linking now behaves like other imported libraries consistently in both
+  config and submodule mode, and behaves like a ``SYSTEM`` library by
+  default.
+
+* If ``PYTHON_EXECUTABLE`` is not set, virtual environments (``venv``,
+  ``virtualenv``, and ``conda``) are prioritized over the standard search
+  (similar to the new FindPython mode).
+
+In addition, the following changes may be of interest:
+
+* ``CMAKE_INTERPROCEDURAL_OPTIMIZATION`` will be respected by
+  ``pybind11_add_module`` if set instead of linking to ``pybind11::lto`` or
+  ``pybind11::thin_lto``.
+
+* Using ``find_package(Python COMPONENTS Interpreter Development)`` before
+  pybind11 will cause pybind11 to use the new Python mechanisms instead of its
+  own custom search, based on a patched version of classic ``FindPythonInterp``
+  / ``FindPythonLibs``. In the future, this may become the default. A recent
+  (3.15+ or 3.18.2+) version of CMake is recommended.
+
+
+
+v2.5
+====
+
+The Python package now includes the headers as data in the package itself, as
+well as in the "headers" wheel slot. ``pybind11 --includes`` and
+``pybind11.get_include()`` report the new location, which is always correct
+regardless of how pybind11 was installed, making the old ``user=`` argument
+meaningless. If you are not using the function to get the location already, you
+are encouraged to switch to the package location.
+
 
 v2.2
 ====
@@ -35,6 +143,72 @@ The old macro emits a compile-time deprecation warning.
 
         m.def("add", [](int a, int b) { return a + b; });
     }
+
+
+New API for defining custom constructors and pickling functions
+---------------------------------------------------------------
+
+The old placement-new custom constructors have been deprecated. The new approach
+uses ``py::init()`` and factory functions to greatly improve type safety.
+
+Placement-new can be called accidentally with an incompatible type (without any
+compiler errors or warnings), or it can initialize the same object multiple times
+if not careful with the Python-side ``__init__`` calls. The new-style custom
+constructors prevent such mistakes. See :ref:`custom_constructors` for details.
+
+.. code-block:: cpp
+
+    // old -- deprecated (runtime warning shown only in debug mode)
+    py::class<Foo>(m, "Foo")
+        .def("__init__", [](Foo &self, ...) {
+            new (&self) Foo(...); // uses placement-new
+        });
+
+    // new
+    py::class<Foo>(m, "Foo")
+        .def(py::init([](...) { // Note: no `self` argument
+            return new Foo(...); // return by raw pointer
+            // or: return std::make_unique<Foo>(...); // return by holder
+            // or: return Foo(...); // return by value (move constructor)
+        }));
+
+Mirroring the custom constructor changes, ``py::pickle()`` is now the preferred
+way to get and set object state. See :ref:`pickling` for details.
+
+.. code-block:: cpp
+
+    // old -- deprecated (runtime warning shown only in debug mode)
+    py::class<Foo>(m, "Foo")
+        ...
+        .def("__getstate__", [](const Foo &self) {
+            return py::make_tuple(self.value1(), self.value2(), ...);
+        })
+        .def("__setstate__", [](Foo &self, py::tuple t) {
+            new (&self) Foo(t[0].cast<std::string>(), ...);
+        });
+
+    // new
+    py::class<Foo>(m, "Foo")
+        ...
+        .def(py::pickle(
+            [](const Foo &self) { // __getstate__
+                return py::make_tuple(f.value1(), f.value2(), ...); // unchanged
+            },
+            [](py::tuple t) { // __setstate__, note: no `self` argument
+                return new Foo(t[0].cast<std::string>(), ...);
+                // or: return std::make_unique<Foo>(...); // return by holder
+                // or: return Foo(...); // return by value (move constructor)
+            }
+        ));
+
+For both the constructors and pickling, warnings are shown at module
+initialization time (on import, not when the functions are called).
+They're only visible when compiled in debug mode. Sample warning:
+
+.. code-block:: none
+
+    pybind11-bound class 'mymodule.Foo' is using an old-style placement-new '__init__'
+    which has been deprecated. See the upgrade guide in pybind11's docs.
 
 
 Stricter enforcement of hidden symbol visibility for pybind11 modules
@@ -135,31 +309,13 @@ localize all common type bindings in order to avoid conflicts with
 third-party modules.
 
 
-New syntax for custom constructors
-----------------------------------
+Negative strides for Python buffer objects and numpy arrays
+-----------------------------------------------------------
 
-The old placement-new custom constructors are still valid, but the new approach
-greatly improves type safety. Placement-new can be called accidentally with an
-incompatible type (without any compiler errors or warnings), or it can initialize
-the same object multiple times if not careful with the Python-side ``__init__``
-calls. The new-style ``py::init()`` custom constructors prevent such mistakes.
-See :ref:`custom_constructors` for details.
-
-.. code-block:: cpp
-
-    // old
-    py::class<Foo>(m, "Foo")
-        .def("__init__", [](Foo &self, ...) {
-            new (&self) Foo(...); // uses placement-new
-        });
-
-    // new
-    py::class<Foo>(m, "Foo")
-        .def(py::init([](...) { // Note: no `self` argument
-            return new Foo(...); // return by raw pointer
-            // or: return std::make_unique<Foo>(...); // return by holder
-            // or: return Foo(...); // return by value (move constructor)
-        }));
+Support for negative strides required changing the integer type from unsigned
+to signed in the interfaces of ``py::buffer_info`` and ``py::array``. If you
+have compiler warnings enabled, you may notice some new conversion warnings
+after upgrading. These can be resolved using ``static_cast``.
 
 
 Deprecation of some ``py::object`` APIs
@@ -176,6 +332,33 @@ were previously available as protected constructor tags. Now the types
 should be used directly instead: ``borrowed_t{}`` and ``stolen_t{}``
 (`#771 <https://github.com/pybind/pybind11/pull/771>`_).
 
+
+Stricter compile-time error checking
+------------------------------------
+
+Some error checks have been moved from run time to compile time. Notably,
+automatic conversion of ``std::shared_ptr<T>`` is not possible when ``T`` is
+not directly registered with ``py::class_<T>`` (e.g. ``std::shared_ptr<int>``
+or ``std::shared_ptr<std::vector<T>>`` are not automatically convertible).
+Attempting to bind a function with such arguments now results in a compile-time
+error instead of waiting to fail at run time.
+
+``py::init<...>()`` constructor definitions are also stricter and now prevent
+bindings which could cause unexpected behavior:
+
+.. code-block:: cpp
+
+    struct Example {
+        Example(int &);
+    };
+
+    py::class_<Example>(m, "Example")
+        .def(py::init<int &>()); // OK, exact match
+        // .def(py::init<int>()); // compile-time error, mismatch
+
+A non-``const`` lvalue reference is not allowed to bind to an rvalue. However,
+note that a constructor taking ``const T &`` can still be registered using
+``py::init<T>()`` because a ``const`` lvalue reference can bind to an rvalue.
 
 v2.1
 ====

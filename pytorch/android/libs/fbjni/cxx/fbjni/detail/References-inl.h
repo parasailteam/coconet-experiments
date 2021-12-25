@@ -85,7 +85,6 @@ const Repr& ReprStorage<Repr>::get() const noexcept {
 
 template <typename Repr>
 JniType<Repr> ReprStorage<Repr>::jobj() const noexcept {
-  ReprAccess<Repr>::get(get());
   return ReprAccess<Repr>::get(get());
 }
 
@@ -522,11 +521,11 @@ enable_if_t<IsPlainJniReference<JniType<T>>(), decltype(static_ref_cast<T>(ref))
     return decltype(static_ref_cast<T>(ref))();
   }
 
-  static alias_ref<jclass> target_class = findClassStatic(jtype_traits<T>::base_name().c_str());
+  static alias_ref<jclass> target_class = findClassStatic(jtype_traits<T>::kBaseName.c_str());
   if (!target_class) {
     throwNewJavaException("java/lang/ClassCastException",
                           "Could not find class %s.",
-                          jtype_traits<T>::base_name().c_str());
+                          jtype_traits<T>::kBaseName.c_str());
 
   }
 
@@ -536,7 +535,7 @@ enable_if_t<IsPlainJniReference<JniType<T>>(), decltype(static_ref_cast<T>(ref))
     throwNewJavaException("java/lang/ClassCastException",
                           "Tried to cast from %s to %s.",
                           source_class->toString().c_str(),
-                          jtype_traits<T>::base_name().c_str());
+                          jtype_traits<T>::kBaseName.c_str());
   }
 
   return static_ref_cast<T>(ref);

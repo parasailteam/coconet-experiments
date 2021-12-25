@@ -1,7 +1,7 @@
 
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,7 +43,9 @@
 #include "../../util_device.cuh"
 #include "../../thread/thread_search.cuh"
 #include "../../grid/grid_queue.cuh"
-#include "../../util_namespace.cuh"
+#include "../../config.cuh"
+
+#include <thrust/system/cuda/detail/core/triple_chevron_launch.h>
 
 /// Optional outer namespace(s)
 CUB_NS_PREFIX
@@ -455,41 +457,46 @@ struct DipatchHistogram
         int             ptx_version,
         KernelConfig    &histogram_sweep_config)
     {
-    #if (CUB_PTX_ARCH > 0)
-
-        // We're on the device, so initialize the kernel dispatch configurations with the current PTX policy
-        return histogram_sweep_config.template Init<PtxHistogramSweepPolicy>();
-
-    #else
-
-        // We're on the host, so lookup and initialize the kernel dispatch configurations with the policies that match the device's PTX version
-        if (ptx_version >= 500)
+        cudaError_t result = cudaErrorNotSupported;
+        if (CUB_IS_DEVICE_CODE)
         {
-            return histogram_sweep_config.template Init<typename Policy500::HistogramSweepPolicy>();
-        }
-        else if (ptx_version >= 350)
-        {
-            return histogram_sweep_config.template Init<typename Policy350::HistogramSweepPolicy>();
-        }
-        else if (ptx_version >= 300)
-        {
-            return histogram_sweep_config.template Init<typename Policy300::HistogramSweepPolicy>();
-        }
-        else if (ptx_version >= 200)
-        {
-            return histogram_sweep_config.template Init<typename Policy200::HistogramSweepPolicy>();
-        }
-        else if (ptx_version >= 110)
-        {
-            return histogram_sweep_config.template Init<typename Policy110::HistogramSweepPolicy>();
+            #if CUB_INCLUDE_DEVICE_CODE
+                // We're on the device, so initialize the kernel dispatch configurations with the current PTX policy
+                result = histogram_sweep_config.template Init<PtxHistogramSweepPolicy>();
+            #endif
         }
         else
         {
-            // No global atomic support
-            return cudaErrorNotSupported;
+            #if CUB_INCLUDE_HOST_CODE
+                // We're on the host, so lookup and initialize the kernel dispatch configurations with the policies that match the device's PTX version
+                if (ptx_version >= 500)
+                {
+                    result = histogram_sweep_config.template Init<typename Policy500::HistogramSweepPolicy>();
+                }
+                else if (ptx_version >= 350)
+                {
+                    result = histogram_sweep_config.template Init<typename Policy350::HistogramSweepPolicy>();
+                }
+                else if (ptx_version >= 300)
+                {
+                    result = histogram_sweep_config.template Init<typename Policy300::HistogramSweepPolicy>();
+                }
+                else if (ptx_version >= 200)
+                {
+                    result = histogram_sweep_config.template Init<typename Policy200::HistogramSweepPolicy>();
+                }
+                else if (ptx_version >= 110)
+                {
+                    result = histogram_sweep_config.template Init<typename Policy110::HistogramSweepPolicy>();
+                }
+                else
+                {
+                    // No global atomic support
+                    result = cudaErrorNotSupported;
+                }
+            #endif
         }
-
-    #endif
+        return result;
     }
 
 
@@ -597,7 +604,7 @@ struct DipatchHistogram
 
             // Temporary storage allocation requirements
             const int   NUM_ALLOCATIONS = NUM_ACTIVE_CHANNELS + 1;
-            void*       allocations[NUM_ALLOCATIONS];
+            void*       allocations[NUM_ALLOCATIONS] = {};
             size_t      allocation_sizes[NUM_ALLOCATIONS];
 
             for (int CHANNEL = 0; CHANNEL < NUM_ACTIVE_CHANNELS; ++CHANNEL)
@@ -654,7 +661,10 @@ struct DipatchHistogram
                 histogram_init_grid_dims, histogram_init_block_threads, (long long) stream);
 
             // Invoke histogram_init_kernel
-            histogram_init_kernel<<<histogram_init_grid_dims, histogram_init_block_threads, 0, stream>>>(
+            thrust::cuda_cub::launcher::triple_chevron(
+                histogram_init_grid_dims, histogram_init_block_threads, 0,
+                stream
+            ).doit(histogram_init_kernel,
                 num_output_bins_wrapper,
                 d_output_histograms_wrapper,
                 tile_queue);
@@ -669,7 +679,9 @@ struct DipatchHistogram
                 histogram_sweep_config.block_threads, (long long) stream, histogram_sweep_config.pixels_per_thread, histogram_sweep_sm_occupancy);
 
             // Invoke histogram_sweep_kernel
-            histogram_sweep_kernel<<<sweep_grid_dims, histogram_sweep_config.block_threads, 0, stream>>>(
+            thrust::cuda_cub::launcher::triple_chevron(
+                sweep_grid_dims, histogram_sweep_config.block_threads, 0, stream
+            ).doit(histogram_sweep_kernel,
                 d_samples,
                 num_output_bins_wrapper,
                 num_privatized_bins_wrapper,
@@ -721,12 +733,8 @@ struct DipatchHistogram
         do
         {
             // Get PTX version
-            int ptx_version;
-    #if (CUB_PTX_ARCH == 0)
+            int ptx_version = 0;
             if (CubDebug(error = PtxVersion(ptx_version))) break;
-    #else
-            ptx_version = CUB_PTX_ARCH;
-    #endif
 
             // Get kernel dispatch configurations
             KernelConfig histogram_sweep_config;
@@ -829,12 +837,8 @@ struct DipatchHistogram
         do
         {
             // Get PTX version
-            int ptx_version;
-    #if (CUB_PTX_ARCH == 0)
+            int ptx_version = 0;
             if (CubDebug(error = PtxVersion(ptx_version))) break;
-    #else
-            ptx_version = CUB_PTX_ARCH;
-    #endif
 
             // Get kernel dispatch configurations
             KernelConfig histogram_sweep_config;
@@ -912,12 +916,8 @@ struct DipatchHistogram
         do
         {
             // Get PTX version
-            int ptx_version;
-    #if (CUB_PTX_ARCH == 0)
+            int ptx_version = 0;
             if (CubDebug(error = PtxVersion(ptx_version))) break;
-    #else
-            ptx_version = CUB_PTX_ARCH;
-    #endif
 
             // Get kernel dispatch configurations
             KernelConfig histogram_sweep_config;
@@ -1024,12 +1024,8 @@ struct DipatchHistogram
         do
         {
             // Get PTX version
-            int ptx_version;
-    #if (CUB_PTX_ARCH == 0)
+            int ptx_version = 0;
             if (CubDebug(error = PtxVersion(ptx_version))) break;
-    #else
-            ptx_version = CUB_PTX_ARCH;
-    #endif
 
             // Get kernel dispatch configurations
             KernelConfig histogram_sweep_config;

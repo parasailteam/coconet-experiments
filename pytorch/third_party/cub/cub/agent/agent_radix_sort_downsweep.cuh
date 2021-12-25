@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,9 +41,9 @@
 #include "../block/block_store.cuh"
 #include "../block/block_radix_rank.cuh"
 #include "../block/block_exchange.cuh"
+#include "../config.cuh"
 #include "../util_type.cuh"
 #include "../iterator/cache_modified_input_iterator.cuh"
-#include "../util_namespace.cuh"
 
 /// Optional outer namespace(s)
 CUB_NS_PREFIX
@@ -70,19 +70,20 @@ enum RadixRankAlgorithm
  * Parameterizable tuning policy type for AgentRadixSortDownsweep
  */
 template <
-    int                         _BLOCK_THREADS,         ///< Threads per thread block
-    int                         _ITEMS_PER_THREAD,      ///< Items per thread (per tile of input)
-    BlockLoadAlgorithm          _LOAD_ALGORITHM,        ///< The BlockLoad algorithm to use
-    CacheLoadModifier           _LOAD_MODIFIER,         ///< Cache load modifier for reading keys (and values)
-    RadixRankAlgorithm          _RANK_ALGORITHM,        ///< The radix ranking algorithm to use
-    BlockScanAlgorithm          _SCAN_ALGORITHM,        ///< The block scan algorithm to use
-    int                         _RADIX_BITS>            ///< The number of radix bits, i.e., log2(bins)
-struct AgentRadixSortDownsweepPolicy
+    int                 NOMINAL_BLOCK_THREADS_4B,       ///< Threads per thread block
+    int                 NOMINAL_ITEMS_PER_THREAD_4B,    ///< Items per thread (per tile of input)
+    typename            ComputeT,                       ///< Dominant compute type
+    BlockLoadAlgorithm  _LOAD_ALGORITHM,                ///< The BlockLoad algorithm to use
+    CacheLoadModifier   _LOAD_MODIFIER,                 ///< Cache load modifier for reading keys (and values)
+    RadixRankAlgorithm  _RANK_ALGORITHM,                ///< The radix ranking algorithm to use
+    BlockScanAlgorithm  _SCAN_ALGORITHM,                ///< The block scan algorithm to use
+    int                 _RADIX_BITS,                    ///< The number of radix bits, i.e., log2(bins)
+    typename            ScalingType = RegBoundScaling<NOMINAL_BLOCK_THREADS_4B, NOMINAL_ITEMS_PER_THREAD_4B, ComputeT> >
+struct AgentRadixSortDownsweepPolicy :
+    ScalingType
 {
     enum
     {
-        BLOCK_THREADS           = _BLOCK_THREADS,           ///< Threads per thread block
-        ITEMS_PER_THREAD        = _ITEMS_PER_THREAD,        ///< Items per thread (per tile of input)
         RADIX_BITS              = _RADIX_BITS,              ///< The number of radix bits, i.e., log2(bins)
     };
 
@@ -171,6 +172,8 @@ struct AgentRadixSortDownsweep
         ITEMS_PER_THREAD,
         LOAD_ALGORITHM> BlockLoadValuesT;
 
+    // Value exchange array type
+    typedef ValueT ValueExchangeT[TILE_ITEMS];
 
     /**
      * Shared memory storage layout
@@ -187,7 +190,7 @@ struct AgentRadixSortDownsweep
             OffsetT                             relative_bin_offsets[RADIX_DIGITS];
         };
 
-        ValueT                                  exchange_values[TILE_ITEMS];
+        Uninitialized<ValueExchangeT>           exchange_values;
 
         OffsetT                                 exclusive_digit_prefix[RADIX_DIGITS];
     };
@@ -276,10 +279,12 @@ struct AgentRadixSortDownsweep
     {
         CTA_SYNC();
 
+        ValueExchangeT &exchange_values = temp_storage.exchange_values.Alias();
+
         #pragma unroll
         for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
         {
-            temp_storage.exchange_values[ranks[ITEM]] = values[ITEM];
+            exchange_values[ranks[ITEM]] = values[ITEM];
         }
 
         CTA_SYNC();
@@ -287,9 +292,9 @@ struct AgentRadixSortDownsweep
         #pragma unroll
         for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
         {
-            ValueT value = temp_storage.exchange_values[threadIdx.x + (ITEM * BLOCK_THREADS)];
+            ValueT value = exchange_values[threadIdx.x + (ITEM * BLOCK_THREADS)];
 
-            if (FULL_TILE || 
+            if (FULL_TILE ||
                 (static_cast<OffsetT>(threadIdx.x + (ITEM * BLOCK_THREADS)) < valid_items))
             {
                 d_values_out[relative_bin_offsets[ITEM] + threadIdx.x + (ITEM * BLOCK_THREADS)] = value;
@@ -328,6 +333,10 @@ struct AgentRadixSortDownsweep
         Int2Type<false>             is_full_tile,
         Int2Type<_RANK_ALGORITHM>   rank_algorithm)
     {
+        // Register pressure work-around: moving valid_items through shfl prevents compiler
+        // from reusing guards/addressing from prior guarded loads
+        valid_items = ShuffleIndex<CUB_PTX_WARP_THREADS>(valid_items, 0, 0xffffffff);
+
         BlockLoadKeysT(temp_storage.load_keys).Load(
             d_keys_in + block_offset, keys, valid_items, oob_item);
 
@@ -361,6 +370,10 @@ struct AgentRadixSortDownsweep
         Int2Type<false>             is_full_tile,
         Int2Type<RADIX_RANK_MATCH>  rank_algorithm)
     {
+        // Register pressure work-around: moving valid_items through shfl prevents compiler
+        // from reusing guards/addressing from prior guarded loads
+        valid_items = ShuffleIndex<CUB_PTX_WARP_THREADS>(valid_items, 0, 0xffffffff);
+
         LoadDirectWarpStriped(threadIdx.x, d_keys_in + block_offset, keys, valid_items, oob_item);
     }
 
@@ -394,6 +407,10 @@ struct AgentRadixSortDownsweep
         Int2Type<false>             is_full_tile,
         Int2Type<_RANK_ALGORITHM>   rank_algorithm)
     {
+        // Register pressure work-around: moving valid_items through shfl prevents compiler
+        // from reusing guards/addressing from prior guarded loads
+        valid_items = ShuffleIndex<CUB_PTX_WARP_THREADS>(valid_items, 0, 0xffffffff);
+
         BlockLoadValuesT(temp_storage.load_values).Load(
             d_values_in + block_offset, values, valid_items);
 
@@ -407,7 +424,7 @@ struct AgentRadixSortDownsweep
     __device__ __forceinline__ void LoadValues(
         ValueT                      (&values)[ITEMS_PER_THREAD],
         OffsetT                     block_offset,
-        volatile OffsetT                     valid_items,
+        OffsetT                     valid_items,
         Int2Type<true>              is_full_tile,
         Int2Type<RADIX_RANK_MATCH>  rank_algorithm)
     {
@@ -421,10 +438,14 @@ struct AgentRadixSortDownsweep
     __device__ __forceinline__ void LoadValues(
         ValueT                      (&values)[ITEMS_PER_THREAD],
         OffsetT                     block_offset,
-        volatile OffsetT                     valid_items,
+        OffsetT                     valid_items,
         Int2Type<false>             is_full_tile,
         Int2Type<RADIX_RANK_MATCH>  rank_algorithm)
     {
+        // Register pressure work-around: moving valid_items through shfl prevents compiler
+        // from reusing guards/addressing from prior guarded loads
+        valid_items = ShuffleIndex<CUB_PTX_WARP_THREADS>(valid_items, 0, 0xffffffff);
+
         LoadDirectWarpStriped(threadIdx.x, d_values_in + block_offset, values, valid_items);
     }
 
@@ -440,9 +461,9 @@ struct AgentRadixSortDownsweep
         OffsetT         valid_items,
         Int2Type<false> /*is_keys_only*/)
     {
-        CTA_SYNC();
-
         ValueT values[ITEMS_PER_THREAD];
+
+        CTA_SYNC();
 
         LoadValues(
             values,
@@ -742,6 +763,7 @@ struct AgentRadixSortDownsweep
         else
         {
             // Process full tiles of tile_items
+            #pragma unroll 1
             while (block_offset + TILE_ITEMS <= block_end)
             {
                 ProcessTile<true>(block_offset);

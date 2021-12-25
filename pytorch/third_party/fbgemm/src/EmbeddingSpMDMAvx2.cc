@@ -15,22 +15,25 @@
 namespace fbgemm {
 namespace internal {
 
-template <typename inType, typename IndexType>
+template <typename InType, typename IndexType, typename OffsetType>
 bool EmbeddingSpMDMBlockSize1_(
     const std::int64_t output_size,
     const std::int64_t index_size,
     const std::int64_t data_size, // the number of rows in input
-    const inType* input,
+    const InType* input,
     const IndexType* indices,
-    const int* lengths,
+    const OffsetType* offsets_or_lengths,
     const float* weights, // optional, can be null for non-weighted sum
     bool normalize_by_lengths,
     float* out,
-    bool is_weight_positional) {
+    bool is_weight_positional,
+    bool use_offsets) {
   int64_t current = 0;
   for (int m = 0; m < output_size; ++m) {
     out[m] = 0;
-    if (current + lengths[m] > index_size) {
+    int len = use_offsets ? offsets_or_lengths[m + 1] - offsets_or_lengths[m]
+                          : offsets_or_lengths[m];
+    if (current + len > index_size) {
       return false;
     }
     int i = 0;
@@ -97,7 +100,7 @@ bool EmbeddingSpMDMBlockSize1_(
     }
 #endif
 
-    for (; i < lengths[m]; ++i) {
+    for (; i < len; ++i) {
       int64_t idx = indices[current];
       if (idx < 0 || idx >= data_size) {
         return false;
@@ -108,94 +111,52 @@ bool EmbeddingSpMDMBlockSize1_(
         w = weights[is_weight_positional ? i : current];
       }
 
-      const inType* inptr = input + indices[current];
+      const InType* inptr = input + indices[current];
       out[m] = std::fma(
           w,
-          std::is_same<inType, float16>::value ? cpu_half2float(*inptr)
+          std::is_same<InType, float16>::value ? cpu_half2float(*inptr)
                                                : *inptr,
           out[m]);
 
       ++current;
     }
-    if (normalize_by_lengths && lengths[m]) {
-      float scale = 1.f / lengths[m];
+    if (normalize_by_lengths && len) {
+      float scale = 1.f / len;
       out[m] *= scale;
     }
   }
   return current == index_size;
 }
 
-template bool EmbeddingSpMDMBlockSize1_(
-    const std::int64_t output_size,
-    const std::int64_t index_size,
-    const std::int64_t data_size, // the number of rows in input
-    const float* input,
-    const std::int64_t* indices,
-    const int* lengths,
-    const float* weights, // optional, can be null for non-weighted sum
-    bool normalize_by_lengths,
-    float* out,
-    bool is_weight_positional);
+#define INSTANTIATE_SPMDM_BASE(IN_TYPE, INDEX_TYPE, OFFSET_TYPE) \
+  template bool EmbeddingSpMDMBlockSize1_(                       \
+      const std::int64_t output_size,                            \
+      const std::int64_t index_size,                             \
+      const std::int64_t data_size,                              \
+      const IN_TYPE* input,                                      \
+      const INDEX_TYPE* indices,                                 \
+      const OFFSET_TYPE* offsets_or_lengths,                     \
+      const float* weights,                                      \
+      bool normalize_by_lengths,                                 \
+      float* out,                                                \
+      bool is_weight_positional,                                 \
+      bool use_offsets);
 
-template bool EmbeddingSpMDMBlockSize1_(
-    const std::int64_t output_size,
-    const std::int64_t index_size,
-    const std::int64_t data_size, // the number of rows in input
-    const float* input,
-    const std::int32_t* indices,
-    const int* lengths,
-    const float* weights, // optional, can be null for non-weighted sum
-    bool normalize_by_lengths,
-    float* out,
-    bool is_weight_positional);
+#define INSTANTIATE_SPMDM_OFFSET_T(IN_TYPE, INDEX_TYPE)     \
+  INSTANTIATE_SPMDM_BASE(IN_TYPE, INDEX_TYPE, std::int32_t) \
+  INSTANTIATE_SPMDM_BASE(IN_TYPE, INDEX_TYPE, std::int64_t)
 
-template bool EmbeddingSpMDMBlockSize1_(
-    const std::int64_t output_size,
-    const std::int64_t index_size,
-    const std::int64_t data_size, // the number of rows in input
-    const float16* input,
-    const std::int64_t* indices,
-    const int* lengths,
-    const float* weights, // optional, can be null for non-weighted sum
-    bool normalize_by_lengths,
-    float* out,
-    bool is_weight_positional);
+#define INSTANTIATE_SPMDM_INDEX_T(IN_TYPE)          \
+  INSTANTIATE_SPMDM_OFFSET_T(IN_TYPE, std::int32_t) \
+  INSTANTIATE_SPMDM_OFFSET_T(IN_TYPE, std::int64_t)
 
-template bool EmbeddingSpMDMBlockSize1_(
-    const std::int64_t output_size,
-    const std::int64_t index_size,
-    const std::int64_t data_size, // the number of rows in input
-    const float16* input,
-    const std::int32_t* indices,
-    const int* lengths,
-    const float* weights, // optional, can be null for non-weighted sum
-    bool normalize_by_lengths,
-    float* out,
-    bool is_weight_positional);
+INSTANTIATE_SPMDM_INDEX_T(float)
+INSTANTIATE_SPMDM_INDEX_T(float16)
+INSTANTIATE_SPMDM_INDEX_T(std::uint8_t)
 
-template bool EmbeddingSpMDMBlockSize1_(
-    const std::int64_t output_size,
-    const std::int64_t index_size,
-    const std::int64_t data_size, // the number of rows in input
-    const std::uint8_t* input,
-    const std::int64_t* indices,
-    const int* lengths,
-    const float* weights, // optional, can be null for non-weighted sum
-    bool normalize_by_lengths,
-    float* out,
-    bool is_weight_positional);
-
-template bool EmbeddingSpMDMBlockSize1_(
-    const std::int64_t output_size,
-    const std::int64_t index_size,
-    const std::int64_t data_size, // the number of rows in input
-    const std::uint8_t* input,
-    const std::int32_t* indices,
-    const int* lengths,
-    const float* weights, // optional, can be null for non-weighted sum
-    bool normalize_by_lengths,
-    float* out,
-    bool is_weight_positional);
+#undef INSTANTIATE_SPMDM_INDEX_T
+#undef INSTANTIATE_SPMDM_OFFSET_T
+#undef INSTANTIATE_SPMDM_BASE
 
 } // namespace internal
 } // namespace fbgemm

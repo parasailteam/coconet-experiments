@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -406,7 +406,7 @@ struct CachingDeviceAllocator
                 // in use by the device, only consider cached blocks that are
                 // either (from the active stream) or (from an idle stream)
                 if ((active_stream == block_itr->associated_stream) ||
-                    (cudaEventQuery(block_itr->ready_event) != cudaErrorNotReady))
+                    (CubDebug(cudaEventQuery(block_itr->ready_event) != cudaErrorNotReady)))
                 {
                     // Reuse existing cache block.  Insert into live blocks.
                     found = true;
@@ -585,9 +585,6 @@ struct CachingDeviceAllocator
             }
         }
 
-        // Unlock
-        mutex.Unlock();
-
         // First set to specified device (entrypoint may not be set)
         if (device != entrypoint_device)
         {
@@ -600,7 +597,11 @@ struct CachingDeviceAllocator
             // Insert the ready event in the associated stream (must have current device set properly)
             if (CubDebug(error = cudaEventRecord(search_key.ready_event, search_key.associated_stream))) return error;
         }
-        else
+
+        // Unlock
+        mutex.Unlock();
+
+        if (!recached)
         {
             // Free the allocation from the runtime and cleanup the event.
             if (CubDebug(error = cudaFree(d_ptr))) return error;

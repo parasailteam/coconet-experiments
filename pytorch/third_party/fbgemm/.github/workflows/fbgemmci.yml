@@ -1,19 +1,19 @@
 name: FBGEMMCI
 
 on:
-  push:    
+  push:
     branches:
-      - master 
+      - main
   pull_request:
     branches:
-      - master
-  
+      - main
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] 
+        os: [ubuntu-latest, macos-latest]
 
     steps:
     - uses: actions/checkout@v2
@@ -23,6 +23,16 @@ jobs:
         auth_header="$(git config --local --get http.https://github.com/.extraheader)"
         git submodule sync --recursive
         git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+    - name: Get CPU info on Ubuntu
+      if: contains(runner.os, 'linux')
+      run: |
+        cat /proc/cpuinfo
+
+    - name: Get CPU info on macOS
+      if: contains(runner.os, 'macOs')
+      run: |
+        sysctl -a | grep machdep.cpu
 
     - name: Get env vars
       run: |
@@ -37,14 +47,14 @@ jobs:
         echo GITHUB_SHA        = $GITHUB_SHA
         echo GITHUB_REF        = $GITHUB_REF
         c++ --verbose
- 
-    - name: Build static FBGEMM lib 
+
+    - name: Build static FBGEMM lib
       run: |
         set -e
         mkdir build_static
         cd build_static
         cmake -DUSE_SANITIZER=address -DFBGEMM_LIBRARY_TYPE=static ..
-        make -j
+        make
 
     - name: Test static FBGEMM lib
       if: contains(runner.os, 'linux')   # not run on macos-latest now due to supporting AVX2
@@ -59,7 +69,7 @@ jobs:
         mkdir build_shared
         cd build_shared
         cmake -DUSE_SANITIZER=address -DFBGEMM_LIBRARY_TYPE=shared ..
-        make -j
+        make
 
     - name: Test shared FBGEMM lib
       if: contains(runner.os, 'linux')   # not run on macos-latest now due to supporting AVX2
@@ -82,6 +92,11 @@ jobs:
         auth_header="$(git config --local --get http.https://github.com/.extraheader)"
         git submodule sync --recursive
         git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+    - name: Get CPU info on Windows
+      shell: cmd
+      run: |
+        wmic cpu list full
 
     - name: Build static FBGEMM lib
       shell: cmd
@@ -128,4 +143,52 @@ jobs:
         echo %PATH%
         ctest
         if errorlevel 1 exit /b 1
+
+  build-bazel:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Checkout submodules
+      shell: bash
+      run: |
+        auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+        git submodule sync --recursive
+        git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
+
+    - name: Get env vars
+      run: |
+        echo GITHUB_WORKFLOW   = $GITHUB_WORKFLOW
+        echo HOME              = $HOME
+        echo GITHUB_ACTION     = $GITHUB_ACTION
+        echo GITHUB_ACTIONS    = $GITHUB_ACTIONS
+        echo GITHUB_REPOSITORY = $GITHUB_REPOSITORY
+        echo GITHUB_EVENT_NAME = $GITHUB_EVENT_NAME
+        echo GITHUB_EVENT_PATH = $GITHUB_EVENT_PATH
+        echo GITHUB_WORKSPACE  = $GITHUB_WORKSPACE
+        echo GITHUB_SHA        = $GITHUB_SHA
+        echo GITHUB_REF        = $GITHUB_REF
+        c++ --verbose
+
+    - name: Download bazel
+      run: |
+        set -e
+        wget https://github.com/bazelbuild/bazel/releases/download/2.2.0/bazel-2.2.0-linux-x86_64 -O bazel
+        # verify content
+        echo 'b2f002ea0e6194a181af6ac84cd94bd8dc797722eb2354690bebac92dda233ff bazel' | sha256sum --quiet -c
+        chmod +x bazel
+
+
+    - name: Build FBGEMM with bazel
+      run: |
+        set -e
+        ./bazel build --verbose_explanations --verbose_failures --compilation_mode opt :*
+
+    - name: Test FBGEMM bazel build
+      run: |
+        set -e
+        ./bazel test --compilation_mode opt :*
 

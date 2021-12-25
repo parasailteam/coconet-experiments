@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2018 Intel Corporation
+* Copyright 2018-2021 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,95 +19,94 @@
 
 #include <assert.h>
 
-#include "cpu_isa_traits.hpp"
-#include "c_types_map.hpp"
-#include "cpu_shuffle_pd.hpp"
-#include "cpu_engine.hpp"
-#include "type_helpers.hpp"
-#include "utils.hpp"
+#include "common/c_types_map.hpp"
+#include "common/dnnl_thread.hpp"
+#include "common/primitive.hpp"
+#include "common/type_helpers.hpp"
+#include "common/utils.hpp"
 
-namespace mkldnn {
+#include "cpu/platform.hpp"
+
+#include "cpu/cpu_shuffle_pd.hpp"
+
+namespace dnnl {
 namespace impl {
 namespace cpu {
 
-template<int data_type_size>
-struct ref_shuffle_t : public cpu_primitive_t {
-    using shuffle_class = ref_shuffle_t<data_type_size>;
+struct ref_shuffle_t : public primitive_t {
+    struct pd_t : public cpu_shuffle_pd_t {
+        using cpu_shuffle_pd_t::cpu_shuffle_pd_t;
 
-    struct pd_t: public cpu_shuffle_pd_t {
-        pd_t(engine_t *engine, const shuffle_desc_t *adesc,
-                const primitive_attr_t *attr,
-                const shuffle_pd_t *hint_fwd_pd)
-            : cpu_shuffle_pd_t(engine, adesc, attr, hint_fwd_pd) {}
+        DECLARE_COMMON_PD_T("ref:any", ref_shuffle_t);
 
-        DECLARE_COMMON_PD_T("ref:any",shuffle_class);
+        status_t init(engine_t *engine) {
+            using namespace format_tag;
 
-        virtual status_t init() override {
-            assert(this->engine()->kind() == engine_kind::cpu);
+            const data_type_t data_type = data_md()->data_type;
+            bool ok = platform::has_data_type_support(data_type)
+                    && attr()->has_default_values()
+                    && IMPLICATION(!is_fwd(), set_default_formats_common());
+            if (!ok) return status::unimplemented;
 
-            bool ok = true
-                    && data_type_size
-                            == types::data_type_size(
-                                       this->desc()->data_desc.data_type)
-                    /*bf16<->f32 cvt operators don't work on non-avx512_core*/
-                    && IMPLICATION(this->desc()->data_desc.data_type
-                                       == data_type::bf16,
-                               mayiuse(avx512_core));
-            if (!ok)
-                return status::unimplemented;
+            if (ndims() == 5) {
+                dat_tag_ = memory_desc_matches_one_of_tag(
+                        *data_md(), nCdhw16c, nCdhw8c, nCdhw4c, ncdhw, ndhwc);
+            } else if (ndims() == 4) {
+                dat_tag_ = memory_desc_matches_one_of_tag(
+                        *data_md(), nChw16c, nChw8c, nChw4c, nchw, nhwc);
+            } else
+                dat_tag_ = any;
+
             return status::success;
         }
+
+        format_tag_t dat_tag_;
     };
 
-    ref_shuffle_t(const pd_t *apd, const input_vector &inputs,
-            const output_vector &outputs)
-        : cpu_primitive_t(apd, inputs, outputs)
-    {
+    ref_shuffle_t(const pd_t *apd) : primitive_t(apd) {}
+
+    status_t init(engine_t *engine) override {
         const int axis_size = pd()->axis_size();
         const int group_size = pd()->group_size();
-        const int transpose_row = pd()->is_fwd() ? group_size
-                                                 : axis_size / group_size;
-        const int transpose_col = pd()->is_fwd() ? axis_size / group_size
-                                                 : group_size;
-        rev_transposed_ = (int *)malloc(axis_size * sizeof(int), 64);
+        const int transpose_row
+                = pd()->is_fwd() ? group_size : axis_size / group_size;
+        const int transpose_col
+                = pd()->is_fwd() ? axis_size / group_size : group_size;
+        rev_transposed_ = (int *)malloc(
+                axis_size * sizeof(int), platform::get_cache_line_size());
+        if (rev_transposed_ == nullptr) return dnnl_out_of_memory;
         parallel_nd(transpose_col, transpose_row, [&](int i, int j) {
             rev_transposed_[j * transpose_col + i] = i * transpose_row + j;
         });
+        return dnnl_success;
     }
 
     ~ref_shuffle_t() { free(rev_transposed_); }
 
-    typedef typename typesize_traits<data_type_size>::type data_t;
-
-    virtual void execute(event_t *e) const {
-        using namespace memory_format;
-        switch (pd()->data_pd()->desc()->format) {
-        case nCdhw16c: execute_<nCdhw16c>(); break;
-        case nChw16c:  execute_<nChw16c>(); break;
-        case nCdhw8c:  execute_<nCdhw8c>(); break;
-        case nChw8c:   execute_<nChw8c>(); break;
-        case nCdhw4c:  execute_<nCdhw4c>(); break;
-        case nChw4c:   execute_<nChw4c>(); break;
-        case ncdhw:    execute_<ncdhw>(); break;
-        case nchw:     execute_<nchw>(); break;
-        case ndhwc:    execute_<ndhwc>(); break;
-        case nhwc:     execute_<nhwc>(); break;
-        default:       execute_<mkldnn_any>(); break;
+    status_t execute(const exec_ctx_t &ctx) const override {
+        const data_type_t data_type = pd()->data_md()->data_type;
+        switch (types::data_type_size(data_type)) {
+            case sizeof(float): return execute_<sizeof(float)>(ctx); break;
+            case sizeof(bfloat16_t):
+                return execute_<sizeof(bfloat16_t)>(ctx);
+                break;
+            case sizeof(int8_t): return execute_<sizeof(int8_t)>(ctx); break;
+            default: assert(!"unsupported data type size");
         }
-
-        e->set_state(event_t::ready);
+        return status::success;
     }
 
 private:
-    template<memory_format_t fmt>void execute_() const;
-    const pd_t *pd() const { return (const pd_t *)primitive_t::pd(); }
-    int *rev_transposed_;
+    template <int data_type_size>
+    status_t execute_(const exec_ctx_t &ctx) const;
+    const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
+    int *rev_transposed_ = nullptr;
 };
 
-}
-}
-}
+} // namespace cpu
+} // namespace impl
+} // namespace dnnl
 
 #endif
 
-// vim: et ts=4 sw=4 cindent cino^=l0,\:0,N-s
+// vim: et ts=4 sw=4 cindent cino+=l0,\:4,N-s

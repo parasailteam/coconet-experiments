@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2016-2018 Intel Corporation
+* Copyright 2019-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,80 +14,65 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef CPU_PRIMITIVE_HPP
-#define CPU_PRIMITIVE_HPP
+#ifndef CPU_CPU_PRIMITIVE_HPP
+#define CPU_CPU_PRIMITIVE_HPP
 
-#include "mkldnn.h"
+#include <assert.h>
 
-#include "c_types_map.hpp"
-#include "event.hpp"
-#include "memory_tracking.hpp"
-#include "primitive.hpp"
-#include "scratchpad.hpp"
+#include "oneapi/dnnl/dnnl_types.h"
 
-namespace mkldnn {
-namespace impl {
-namespace cpu {
+#include "common/c_types_map.hpp"
+#include "common/primitive_attr.hpp"
+#include "common/primitive_exec_types.hpp"
+#include "common/utils.hpp"
+#include "common/z_magic.hpp"
 
-struct cpu_memory_t;
+#define DEFINE_SCALES_BUFFER(scales) \
+    alignas(16) float CONCAT2(scales, _buf16)[16] = {0}; \
+    const float *scales; \
+    if (pd()->attr()->output_scales_.defined()) { \
+        scales = pd()->attr()->output_scales_.scales_; \
+    } else { \
+        scales = CTX_IN_MEM(const float *, DNNL_ARG_ATTR_OUTPUT_SCALES); \
+        if (scales == nullptr) return status::invalid_arguments; \
+        const auto scales_d = ctx.memory_mdw(DNNL_ARG_ATTR_OUTPUT_SCALES); \
+        bool ok = scales_d.data_type() == data_type::f32 \
+                && scales_d.ndims() == 1; \
+        if (!ok) return status::invalid_arguments; \
+        if (scales_d.dims()[0] == 1) { \
+            utils::array_set(CONCAT2(scales, _buf16), scales[0], 16); \
+            scales = CONCAT2(scales, _buf16); \
+        } \
+    } \
+    MAYBE_UNUSED(scales);
 
-struct cpu_primitive_t: public primitive_t {
-    cpu_primitive_t(const primitive_desc_t *pd, const input_vector &inputs,
-            const output_vector &outputs, bool use_global_scratchpad = false)
-        : primitive_t(pd, inputs, outputs), scratchpad_buffer_(nullptr)
-        , global_scratchpad_(nullptr)
-    {
-        size_t scratchpad_size = this->pd()->scratchpad_registry().size();
-        if (use_global_scratchpad)
-            global_scratchpad_ = create_scratchpad(scratchpad_size);
-        else
-            scratchpad_buffer_ = malloc(scratchpad_size, 64);
-    }
+#define DEFINE_ZERO_POINTS_BUFFER(zero_points_ptr, mem_arg) \
+    const int32_t *zero_points_ptr \
+            = pd()->attr()->zero_points_.defined(mem_arg) \
+            ? pd()->attr()->zero_points_.get(mem_arg) \
+            : CTX_IN_MEM( \
+                    const int32_t *, DNNL_ARG_ATTR_ZERO_POINTS | mem_arg); \
+    if (zero_points_ptr == nullptr) return status::invalid_arguments; \
+    MAYBE_UNUSED(zero_points_ptr);
 
-    virtual ~cpu_primitive_t() {
-        delete global_scratchpad_;
-        free(scratchpad_buffer_);
-    }
+#define DEFINE_ZERO_POINT_VALUE(zero_point, mem_arg) \
+    int32_t zero_point = 0; \
+    if (pd()->attr()->zero_points_.defined(mem_arg)) { \
+        const bool is_common = pd()->attr()->zero_points_.common(mem_arg); \
+        assert(is_common && "expect common zero point"); \
+        if (!is_common) return status::runtime_error; \
+        zero_point = *pd()->attr()->zero_points_.get(mem_arg); \
+    } else { \
+        const auto zero_points_d \
+                = ctx.memory_mdw(DNNL_ARG_ATTR_ZERO_POINTS | mem_arg); \
+        bool ok = zero_points_d.data_type() == data_type::s32 \
+                && zero_points_d.ndims() == 1 && zero_points_d.dims()[0] == 1; \
+        if (!ok) return status::invalid_arguments; \
+        const int32_t *zero_points_ptr = CTX_IN_MEM( \
+                const int32_t *, DNNL_ARG_ATTR_ZERO_POINTS | mem_arg); \
+        if (zero_points_ptr == nullptr) return status::invalid_arguments; \
+        zero_point = *zero_points_ptr; \
+    } \
+    MAYBE_UNUSED(zero_point);
 
-    virtual char *memory(size_t output_index = 0) const {
-        if (output_index >= this->outputs().size()) return nullptr;
-        auto p = static_cast<const cpu_primitive_t *>(
-                this->outputs()[output_index]);
-        return p->memory();
-    }
-    virtual const char *const_memory(size_t output_index = 0) const {
-        if (output_index >= this->outputs().size()) return nullptr;
-        auto p = static_cast<const cpu_primitive_t *>(
-                this->outputs()[output_index]);
-        return p->const_memory();
-    }
-
-    const char *input_memory(size_t index = 0) const {
-        if (index >= this->inputs().size()) return nullptr;
-        const size_t oi = this->inputs()[index].output_index;
-        auto p = static_cast<const cpu_primitive_t *>(
-                this->inputs()[index].primitive);
-        return p->const_memory(oi);
-    }
-
-    const cpu_memory_t *output_memory_primitive(size_t index = 0) const;
-
-protected:
-    memory_tracking::grantor_t scratchpad() const {
-        return pd()->scratchpad_registry().grantor(global_scratchpad_
-                ? global_scratchpad_->get() : scratchpad_buffer_);
-    }
-
-private:
-    /* quite ugly, but luckily both will get away in v1.0 */
-    void *scratchpad_buffer_;
-    scratchpad_t *global_scratchpad_;
-};
-
-}
-}
-}
-
-#endif
-
-// vim: et ts=4 sw=4 cindent cino^=l0,\:0,N-s
+#endif // CPU_CPU_PRIMITIVE_HPP

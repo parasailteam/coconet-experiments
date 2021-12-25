@@ -3,6 +3,7 @@
  *
  * See LICENSE.txt for license information
  ************************************************************************/
+
 #include "all_reduce.h"
 #include "common.h"
 #include "collectives.h"

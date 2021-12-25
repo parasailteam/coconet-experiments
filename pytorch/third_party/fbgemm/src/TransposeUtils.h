@@ -5,7 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 #pragma once
+
 #include "fbgemm/FbgemmBuild.h"
+
+#include <cstdint>
 
 namespace fbgemm {
 
@@ -18,13 +21,9 @@ namespace fbgemm {
  * @param dst The memory buffer of the destination matrix B.
  * @param ld_dst The leading dimension of the destination matrix B.
  */
-FBGEMM_API void transpose_ref(
-    int M,
-    int N,
-    const float* src,
-    int ld_src,
-    float* dst,
-    int ld_dst);
+template <typename T>
+FBGEMM_API void
+transpose_ref(unsigned M, unsigned N, const T* src, unsigned ld_src, T* dst, unsigned ld_dst);
 
 namespace internal {
 
@@ -33,26 +32,22 @@ namespace internal {
  *
  * This is called if the code is running on a CPU with Intel AVX2 support.
  */
-void transpose_avx2(
-    int M,
-    int N,
-    const float* src,
-    int ld_src,
-    float* dst,
-    int ld_dst);
+template <typename T>
+void transpose_avx2(unsigned M, unsigned N, const T* src, unsigned ld_src, T* dst, unsigned ld_dst);
 
 /**
  * @brief Transpose a matrix using Intel AVX512.
  *
  * This is called if the code is running on a CPU with Intel AVX512 support.
  */
+template <typename T>
 void transpose_avx512(
-    int M,
-    int N,
-    const float* src,
-    int ld_src,
-    float* dst,
-    int ld_dst);
+    int64_t M,
+    int64_t N,
+    const T* src,
+    unsigned ld_src,
+    T* dst,
+    unsigned ld_dst);
 
 } // namespace internal
 

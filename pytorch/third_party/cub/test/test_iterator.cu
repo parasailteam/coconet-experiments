@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,10 +49,10 @@
 #include <cub/util_type.cuh>
 #include <cub/util_allocator.cuh>
 
+#include "test_util.h"
+
 #include <thrust/device_ptr.h>
 #include <thrust/copy.h>
-
-#include "test_util.h"
 
 using namespace cub;
 
@@ -506,7 +506,7 @@ void TestTexObj()
 }
 
 
-#if CUDA_VERSION >= 5050
+#if CUDART_VERSION >= 5050
 
 /**
  * Test tex-ref texture iterator
@@ -670,7 +670,7 @@ void TestTexTransform()
     if (d_data) CubDebugExit(g_allocator.DeviceFree(d_data));
 }
 
-#endif  // CUDA_VERSION
+#endif  // CUDART_VERSION
 
 
 
@@ -689,11 +689,11 @@ void Test(Int2Type<false> is_integer)
     TestTexObj<T, CastT>(type_string);
 #endif  // CUB_CDP
 
-#if CUDA_VERSION >= 5050
+#if CUDART_VERSION >= 5050
     // Test tex-ref iterators for CUDA 5.5
     TestTexRef<T, CastT>();
     TestTexTransform<T, CastT>();
-#endif  // CUDA_VERSION
+#endif  // CUDART_VERSION
 }
 
 /**

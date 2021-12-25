@@ -23,8 +23,10 @@
 #include <memory>
 #include <vector>
 
+#ifndef _WIN32
 #include <dlfcn.h>
 #include <unwind.h>
+#endif
 
 #include <fbjni/detail/Log.h>
 
@@ -55,6 +57,7 @@ struct BacktraceState {
   vector<InstructionPointer>& stackTrace;
 };
 
+#ifndef _MSC_VER
 _Unwind_Reason_Code unwindCallback(struct _Unwind_Context* context, void* arg) {
   BacktraceState* state = reinterpret_cast<BacktraceState*>(arg);
   auto absoluteProgramCounter =
@@ -73,6 +76,7 @@ _Unwind_Reason_Code unwindCallback(struct _Unwind_Context* context, void* arg) {
 
   return _URC_NO_REASON;
 }
+#endif
 
 void captureBacktrace(size_t skip, vector<InstructionPointer>& stackTrace) {
   // Beware of a bug on some platforms, which makes the trace loop until the
@@ -80,7 +84,9 @@ void captureBacktrace(size_t skip, vector<InstructionPointer>& stackTrace) {
   // newer versions of gcc. https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56846
   // TODO(t10738439): Investigate workaround for the stack trace bug
   BacktraceState state = {skip, stackTrace};
+#ifndef _WIN32
   _Unwind_Backtrace(unwindCallback, &state);
+#endif
 }
 
 // this is a pointer to a function
@@ -116,6 +122,7 @@ void getStackTraceSymbols(vector<StackTraceElement>& symbols,
   symbols.clear();
   symbols.reserve(trace.size());
 
+#ifndef _WIN32
   for (size_t i = 0; i < trace.size(); ++i) {
     Dl_info info;
     if (dladdr(trace[i], &info)) {
@@ -124,6 +131,7 @@ void getStackTraceSymbols(vector<StackTraceElement>& symbols,
                            info.dli_sname ? info.dli_sname : "");
     }
   }
+#endif
 }
 
 ostream& operator<<(ostream& out, const StackTraceElement& elm) {

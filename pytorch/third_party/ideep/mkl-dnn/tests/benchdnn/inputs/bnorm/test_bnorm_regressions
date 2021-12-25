@@ -1,73 +1,18 @@
---skip-impl=ref
---fmt=nhwc
+--reset
 
---dir=FWD_D
---flags=SR --batch=bnorm_regressions
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
+--inplace=true
+--tag=axb,abx,aBx8b,aBx16b
 
-# Numerical stability issues
---flags=S mb2ic128ih2 # catastrophic cancellation results in error > machine_epsilon
---flags=S mb2ic1024ih2 # catastrophic cancellation results in error > machine_epsilon
+# training
+--dir=FWD_D,BWD_DW
+--dt=f32,bf16
+--flags=,G,S,R,GSR
+--batch=shapes_regressions
 
---attr=post_ops='relu'
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
---attr=
+# inference
+--dir=FWD_I
 
---dir=BWD_DW
---flags=SR --batch=bnorm_regressions
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
-
---dir=BWD_D
---flags=   --batch=bnorm_regressions
-
---fmt=nchw
-
---dir=FWD_D
---flags=SR --batch=bnorm_regressions
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
-
-# Numerical stability issues
---flags=S mb2ic128ih2 # catastrophic cancellation results in error > machine_epsilon
---flags=S mb2ic1024ih2 # catastrophic cancellation results in error > machine_epsilon
-
---attr=post_ops='relu'
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
---attr=
-
---dir=BWD_DW
---flags=SR --batch=bnorm_regressions
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
-
---dir=BWD_D
---flags=   --batch=bnorm_regressions
-
---fmt=nChw16c # avx512
-
---dir=FWD_D
---flags=SR --batch=bnorm_regressions
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
-
-# Numerical stability issues
---flags=S mb2ic128ih2 # catastrophic cancellation results in error > machine_epsilon
---flags=S mb2ic1024ih2 # catastrophic cancellation results in error > machine_epsilon
-
---attr=post_ops='relu'
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
---attr=
-
---dir=BWD_DW
---flags=SR --batch=bnorm_regressions
---flags=GS --batch=bnorm_regressions
---flags=S  --batch=bnorm_regressions
-
---dir=BWD_D
---flags=   --batch=bnorm_regressions
-
+--dt=f32,bf16
+--flags=,GS
+--attr-post-ops='','relu'
+--batch=shapes_regressions

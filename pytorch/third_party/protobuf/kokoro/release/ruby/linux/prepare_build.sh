@@ -7,10 +7,6 @@ echo 'DOCKER_OPTS="${DOCKER_OPTS} --graph=/tmpfs/docker"' | sudo tee --append /e
 echo 'DOCKER_OPTS="${DOCKER_OPTS} --registry-mirror=https://mirror.gcr.io"' | sudo tee --append /etc/default/docker
 sudo service docker restart
 
-# Download Docker images from DockerHub
-export DOCKERHUB_ORGANIZATION=grpctesting
-
 # All artifacts come here
 mkdir artifacts
 export ARTIFACT_DIR=$(pwd)/artifacts
-

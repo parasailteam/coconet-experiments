@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2017-2018 Intel Corporation
+* Copyright 2017-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,117 +19,158 @@
 
 #include <assert.h>
 
-#include "c_types_map.hpp"
-#include "math_utils.hpp"
-#include "nstl.hpp"
-#include "type_helpers.hpp"
-#include "utils.hpp"
+#include "common/c_types_map.hpp"
+#include "common/math_utils.hpp"
+#include "common/nstl.hpp"
+#include "common/type_helpers.hpp"
+#include "common/utils.hpp"
 
-#include "bfloat16_utils.hpp"
-
-namespace mkldnn {
+namespace dnnl {
 namespace impl {
 namespace cpu {
 
-using namespace mkldnn::impl::math;
+template <typename data_t, typename acc_t>
+inline typename utils::enable_if<!nstl::is_integral<data_t>::value,
+        typename utils::remove_reference<acc_t>::type>::type
+saturate(const acc_t &x) {
+    acc_t v = x;
+    return v;
+}
+
+template <typename data_t, typename acc_t>
+inline typename utils::enable_if<nstl::is_integral<data_t>::value,
+        typename utils::remove_reference<acc_t>::type>::type
+saturate(const acc_t &x) {
+    acc_t v = x;
+    acc_t lbound = (acc_t)nstl::numeric_limits<data_t>::lowest();
+    // Pick up a modified version of max value when do f32 -> s32.
+    acc_t ubound = types::max_value<acc_t>(data_traits<data_t>::data_type);
+    if (v < lbound) v = lbound;
+    if (v > ubound) v = ubound;
+    return v;
+}
+
+template <>
+inline uint8_t saturate<int8_t, uint8_t>(const uint8_t &x) {
+    return x <= 127u ? x : 127;
+}
+
+template <>
+inline int8_t saturate<uint8_t, int8_t>(const int8_t &x) {
+    return x >= 0 ? x : 0;
+}
 
 template <typename out_t>
-inline out_t round_and_saturate(float f, round_mode_t rmode) {
-    switch (rmode) {
-    case round_mode::nearest: f = nearbyintf(f); break;
-    case round_mode::down: f = floorf(f); break;
-    }
-    return math::saturate<out_t>(f);
+inline typename utils::enable_if<nstl::is_integral<out_t>::value,
+        typename utils::remove_reference<out_t>::type>::type
+out_round(float v) {
+    return (out_t)math::mxcsr_cvt(v);
+}
+
+template <typename out_t>
+inline typename utils::enable_if<!nstl::is_integral<out_t>::value,
+        typename utils::remove_reference<out_t>::type>::type
+out_round(float v) {
+    return v;
+}
+
+template <typename out_t, typename acc_t = float>
+inline out_t saturate_and_round(acc_t f) {
+    return out_round<out_t>(saturate<out_t, acc_t>(f));
 }
 
 /* Quantization with alpha == 1 and beta == 0 */
 template <typename in_t, typename out_t, typename enabled = void>
 struct qz_a1b0 {
-    out_t operator()(in_t in, round_mode_t rmode)
-    { return round_and_saturate<out_t>((float)in, rmode); }
+    out_t operator()(in_t in) { return saturate_and_round<out_t>((float)in); }
 };
 
 template <typename in_t, typename out_t>
 struct qz_a1b0<in_t, out_t,
-    typename utils::enable_if<true
-        && nstl::is_integral<in_t>::value
-        && !is_subset<in_t, out_t>::value
-    >::type> {
-    out_t operator()(in_t in, round_mode_t rmode)
-    { return math::saturate<out_t>(in); }
+        typename utils::enable_if<true && nstl::is_integral<in_t>::value
+                && !is_subset<in_t, out_t>::value>::type> {
+    out_t operator()(in_t in) { return saturate<out_t>(in); }
 };
 
 template <typename in_t, typename out_t>
 struct qz_a1b0<in_t, out_t,
-    typename utils::enable_if<is_subset<in_t, out_t>::value>::type> {
-    out_t operator()(in_t in, round_mode_t rmode) { return (out_t)in; }
-};
-
-template <> struct qz_a1b0<float, mkldnn_bfloat16_t> {
-    mkldnn_bfloat16_t operator()(float in, round_mode_t rmode) {
-        return bf16_cvt_utils::cvt_float_to_bfloat16(in);
-    }
+        typename utils::enable_if<is_subset<in_t, out_t>::value>::type> {
+    out_t operator()(in_t in) { return (out_t)in; }
 };
 
 /* Quantization with alpha == 1 */
-template <typename in_t, typename out_t> struct qz_a1 {
-    out_t operator()(in_t in, out_t out, float beta, round_mode_t rmode)
-    { return round_and_saturate<out_t>((float)in + beta * out, rmode); }
+template <typename in_t, typename out_t>
+struct qz_a1 {
+    out_t operator()(in_t in, out_t out, float beta) {
+        return saturate_and_round<out_t>((float)in + beta * out);
+    }
 };
 
-template <typename in_t> struct qz_a1<in_t, float> {
-    float operator()(in_t in, float out, float beta, round_mode_t rmode)
-    { return (float)in + beta * out; }
+template <typename in_t>
+struct qz_a1<in_t, float> {
+    float operator()(in_t in, float out, float beta) {
+        return (float)in + beta * out;
+    }
 };
 
 /* Quantization with beta == 0 */
-template <typename in_t, typename out_t> struct qz_b0 {
-    out_t operator()(in_t in, float alpha, round_mode_t rmode)
-    { return round_and_saturate<out_t>(alpha * in, rmode); }
+template <typename in_t, typename out_t>
+struct qz_b0 {
+    out_t operator()(in_t in, float alpha) {
+        return saturate_and_round<out_t>(alpha * in);
+    }
 };
 
-template <typename in_t> struct qz_b0<in_t, float> {
-    float operator()(in_t in, float alpha, round_mode_t rmode)
-    { return alpha * in; }
+template <typename in_t>
+struct qz_b0<in_t, float> {
+    float operator()(in_t in, float alpha) { return alpha * in; }
 };
 
 /* Quantization */
-template <typename in_t, typename out_t> struct qz {
-    out_t operator()(in_t in, out_t out, float alpha, float beta,
-            round_mode_t rmode) {
-        return round_and_saturate<out_t>(
-                alpha * in + (beta ? beta * out : 0), rmode);
+template <typename in_t, typename out_t>
+struct qz {
+    out_t operator()(in_t in, out_t out, float alpha, float beta) {
+        return saturate_and_round<out_t>(alpha * in + (beta ? beta * out : 0));
     }
 };
 
-template <typename in_t> struct qz<in_t, float> {
-    float operator()(in_t in, float out, float alpha, float beta,
-            round_mode_t rmode)
-    { return alpha * in + (beta ? beta * out : 0); }
-};
-
-template <> struct qz<mkldnn_bfloat16_t, mkldnn_bfloat16_t> {
-    mkldnn_bfloat16_t operator()(mkldnn_bfloat16_t in, mkldnn_bfloat16_t out, float alpha, float beta, round_mode_t rmode) {
-        return bf16_cvt_utils::cvt_float_to_bfloat16(alpha * bf16_cvt_utils::cvt_bfloat16_to_float(in) +
-                (beta ? beta * bf16_cvt_utils::cvt_bfloat16_to_float(out) : 0));
+template <typename in_t>
+struct qz<in_t, float> {
+    float operator()(in_t in, float out, float alpha, float beta) {
+        return alpha * in + (beta ? beta * out : 0);
     }
 };
 
-template <> struct qz<float, mkldnn_bfloat16_t> {
-    mkldnn_bfloat16_t operator()(float in, mkldnn_bfloat16_t out, float alpha, float beta, round_mode_t rmode) {
-        return bf16_cvt_utils::cvt_float_to_bfloat16(alpha * in
-                + (beta ? beta * bf16_cvt_utils::cvt_bfloat16_to_float(out) : 0));
+template <>
+struct qz<bfloat16_t, bfloat16_t> {
+    float operator()(bfloat16_t in, bfloat16_t out, float alpha, float beta) {
+        return (bfloat16_t)(alpha * (float)in + (beta ? beta * (float)out : 0));
     }
 };
 
-template <> struct qz<mkldnn_bfloat16_t, float> {
-    float operator()(mkldnn_bfloat16_t in, float out, float alpha, float beta,
-            round_mode_t rmode)
-    { return alpha * bf16_cvt_utils::cvt_bfloat16_to_float(in) + (beta ? beta * out : 0); }
+template <>
+struct qz<float, bfloat16_t> {
+    float operator()(float in, bfloat16_t out, float alpha, float beta) {
+        return (bfloat16_t)(alpha * in + (beta ? beta * out : 0));
+    }
 };
 
-}
-}
-}
+template <>
+struct qz<float16_t, float16_t> {
+    float operator()(float16_t in, float16_t out, float alpha, float beta) {
+        return (float16_t)(alpha * (float)in + (beta ? beta * (float)out : 0));
+    }
+};
+
+template <>
+struct qz<float, float16_t> {
+    float operator()(float in, float16_t out, float alpha, float beta) {
+        return (float16_t)(alpha * in + (beta ? beta * out : 0));
+    }
+};
+
+} // namespace cpu
+} // namespace impl
+} // namespace dnnl
 
 #endif

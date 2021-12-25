@@ -198,11 +198,11 @@ class ncclLLScatteredPrimitives {
           const uint64_t old_v = *(secondMomentPack+offset);
 
           //m[t] = beta1 * m[t-1] + (1-beta1)*g
-          const uint64_t new_m = MULTI<FuncFirstMomentUpdate<T>, T>()(old_m, val, beta1);
+          const uint64_t new_m = 0;//MULTI<FuncFirstMomentUpdate<T>, T>()(old_m, val, beta1);
           storeAL(firstMomentPack+offset, new_m, sizeof(uint64_t));
 
           //v[t] = beta2 * v[t-1] + (1-beta2)*g*g
-          const uint64_t new_v = MULTI<FuncSecondMomentUpdate<T>, T>()(old_v, val, beta2);
+          const uint64_t new_v = 0;//MULTI<FuncSecondMomentUpdate<T>, T>()(old_v, val, beta2);
           storeAL(secondMomentPack+offset, new_v, sizeof(uint64_t));
 
           //m_[t] = m[t]/(1-beta1^t)
@@ -242,7 +242,7 @@ class ncclLLScatteredPrimitives {
             }
             //assert(newOffset >= 0);
           uint64_t v = *(ptr+newOffset);
-          //MULTI<FuncEq<T>, T>()(v);
+          MULTI<FuncEq<T>, T>()(v);
           if(v == 0) {
             printf("v is 0 and newOffset %d offset %d nelem %d nextBuffs[0] %p nextBuffs[1] %p nextBuffs[2] %p nextBuffs[3] %p nextOffsets[0] %d nextOffsets[1] %d nextOffsets[2] %d nextOffsets[3] %d\n", newOffset, offset, nelem,
                      nextBuffs[0], nextBuffs[1], nextBuffs[2], nextBuffs[3], nextOffsets[0], nextOffsets[1], nextOffsets[2], nextOffsets[3]);
@@ -374,7 +374,7 @@ template <int RECV, int SEND, int SRC, int DST, int WEIGHT_UPDATE, int SEND_UPDA
       if (SRC) {
         uint64_t* ptr = (uint64_t*)srcScatteredPtrs[buffIdx] + (buffOffset*sizeof(T))/sizeof(uint64_t);
         val = readAL(ptr);
-        //MULTI<FuncEq<T>, T>()(val);
+        MULTI<FuncEq<T>, T>()(val);
       } else {
         val = readLL(0, offset);
       }

@@ -1,6 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2011, Duane Merrill.  All rights reserved.
- * Copyright (c) 2011-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -778,7 +778,10 @@ template <int LOGICAL_WARP_THREADS>
 void Test()
 {
     Test<1, LOGICAL_WARP_THREADS>();
-    Test<2, LOGICAL_WARP_THREADS>();
+
+    // Only power-of-two subwarps can be tiled
+    if ((LOGICAL_WARP_THREADS == 32) || PowerOfTwo<LOGICAL_WARP_THREADS>::VALUE)
+        Test<2, LOGICAL_WARP_THREADS>();
 }
 
 

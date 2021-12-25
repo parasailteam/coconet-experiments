@@ -48,6 +48,8 @@ export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 python setup.py install
 ```
 
+Check the torch installation by executing `import torch` in python in a directory other than pytorch directory
+
 ## Install Apex
 
 NVIDIA Apex (https://github.com/NVIDIA/apex) is one of the baselines. After building Pytorch, we need to reinstall Apex.

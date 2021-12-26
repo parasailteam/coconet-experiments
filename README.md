@@ -4,7 +4,7 @@ This repository contains integration experiments for CoCoNet[https://github.com/
 * `pytorch` directory contains modified PyTorch to be used by BERT and Megatron-LM.
 * `pytorch/third_party/nccl/nccl` contains NCCL modified with scattered tensors implementation for Data Parallel Training and overlapping implementation for Model and Pipeline Parallel Inference.
 * `BERT` contains NVIDIA BERT integrated with CoCoNet's scattered tensors implementation of Adam and LAMB.
-* `model-parallel-Megatron-LM` contains Megatron-LM integrated with CoCoNet's optimized Model Parallel Inference.
+* `Megatron-LM` contains Megatron-LM integrated with CoCoNet's optimized Model Parallel Inference.
 
 # Installation
 
@@ -78,7 +78,7 @@ pip install regex
 ```
 # Data Parallel Training Experiment
 
-Download the dataset from here[] and extract the directory to `coconet-experiments/BERT/training-data`. 
+Download the dataset from here[https://umass-my.sharepoint.com/:f:/g/personal/aabhinav_umass_edu/El8WQluHzD5DkpujTglljh0BBralbV1l5SucAzE4k79OoQ] and extract the directory to `coconet-experiments/BERT/training-data`. 
 Execute `data_parallel_training_results.py` to replicate Table 1 results
 
 ```
@@ -90,7 +90,7 @@ After you are done with this experiment you can remove this dataset.
 
 # Model Parallel Inference Experiment
 
-Download the GPT2 dataset from here[] and BERT dataset from here[]. Extract these to `coconet-experiments/Megatron-LM/inference-data`.
+Download the GPT2 dataset from here[https://umass-my.sharepoint.com/:f:/g/personal/aabhinav_umass_edu/EhEM6BR4OJBAjEwt7LnjaRsBkrxPrj6NOlyPwBBkNgcPpg?e=3Glgrj]  and BERT dataset from here[https://umass-my.sharepoint.com/:f:/g/personal/aabhinav_umass_edu/EmqnfTR_c6VFuaaT5YCnT08BrmtYdZCi8okYYXrZq3ILQQ?e=IbChBn]. Extract these to `coconet-experiments/Megatron-LM/inference-data`.
 Execute `model_parallel_results.py` to replicate model parallel inference experiments 
 
 ```

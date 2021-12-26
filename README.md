@@ -71,6 +71,11 @@ To install DLLogger, run (separate commands):
 pip install nvidia-pyindex
 pip install nvidia-dllogger
 ```
+
+More Megatron-LM dependencies
+```
+pip install regex
+```
 # Data Parallel Training Experiment
 
 Download the dataset from here[] and extract the directory to `coconet-experiments/BERT/training-data`. 
@@ -81,3 +86,14 @@ cd coconet-experiments/BERT
 NPROC=<number-of-process-to-invoke> python data_parallel_training_results.py coconet-experiments/BERT/training-data
 ```
 
+After you are done with this experiment you can remove this dataset.
+
+# Model Parallel Inference Experiment
+
+Download the GPT2 dataset from here[] and BERT dataset from here[]. Extract these to `coconet-experiments/Megatron-LM/inference-data`.
+Execute `model_parallel_results.py` to replicate model parallel inference experiments 
+
+```
+cd coconet-experiemts/Megatron-LM
+NPROC=<number-of-process-to-invoke> python model_parallel_results.py <path-to-GPT2-data> <path-to-BERT-data>
+```

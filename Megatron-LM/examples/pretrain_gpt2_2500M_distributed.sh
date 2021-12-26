@@ -1,8 +1,8 @@
 #! /bin/bash
 
-# Runs the 8.3B model
+# Runs the "345M" parameter model
 
-GPUS_PER_NODE=8
+GPUS_PER_NODE=2
 # Change for multinode config
 MASTER_ADDR=localhost
 MASTER_PORT=6000
@@ -10,21 +10,21 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-DATA_PATH=my-gpt2_text_document
-CHECKPOINT_PATH=/mnt/checkpoint
+DATA_PATH=/msrhyper-ddn/hai8/saemal/my-gpt2_text_document
+CHECKPOINT_PATH=/msrhyper-ddn/hai8/saemal/checkpoint
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE --nnodes $NNODES --node_rank $NODE_RANK --master_addr $MASTER_ADDR --master_port $MASTER_PORT"
 
 python -m torch.distributed.launch $DISTRIBUTED_ARGS \
        pretrain_gpt2.py \
-       --model-parallel-size $GPUS_PER_NODE \
-       --num-layers 72 \
-       --hidden-size 3072\
-       --num-attention-heads 32 \
-       --batch-size 8\
+       --model-parallel-size 1 \
+       --num-layers 54 \
+       --hidden-size 1920\
+       --num-attention-heads 20 \
+       --batch-size 1 \
        --seq-length 1024 \
        --max-position-embeddings 1024 \
-       --train-iters 50 \
+       --train-iters 500000 \
        --lr-decay-iters 320000 \
        --save $CHECKPOINT_PATH \
        --load $CHECKPOINT_PATH \
@@ -44,8 +44,8 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS \
        --log-interval 10 \
        --save-interval 10000 \
        --eval-interval 1000 \
-       --eval-iters 1 \
-       --fp16
+       --eval-iters 10 \
+       --fp16 --DDP-impl local
 
 
 

@@ -389,8 +389,8 @@ class RowParallelLinear(torch.nn.Module):
                 output_size = [input_parallel.size()[0], input_parallel.size()[1], self.weight.size()[0]]
                 output_parallel = torch.empty(output_size, dtype = input_parallel.dtype, device="cuda", requires_grad = True)
 
-            dist.overlap_matmul_allreduce_bias_dropout_layernorm([input_parallel], [self.weight], [self.bias], 
-                                                                  [add_ten], [output_parallel], output_parallel.shape[2])
+            #dist.overlap_matmul_allreduce_bias_dropout_layernorm([input_parallel], [self.weight], [self.bias], 
+            #                                                      [add_ten], [output_parallel], output_parallel.shape[2])
             return output_parallel
         else:
             output_parallel = F.linear(input_parallel, self.weight)
@@ -426,8 +426,8 @@ class RowParallelLinear(torch.nn.Module):
                     if self.bias is not None:
                         if self.apply_residual_connection_post_layernorm and layernorm_execution_type != 'REPEATED':
                             dist.model_parallel_update_with_layer_norm([output_parallel], [self.bias], [add_ten], output_parallel.shape[2])
-                        else:
-                            dist.model_parallel_update([output_parallel], [self.bias], [add_ten])
+                        #else:
+                            #dist.model_parallel_update([output_parallel], [self.bias], [add_ten])
                             
                         output = output_parallel
                     else:

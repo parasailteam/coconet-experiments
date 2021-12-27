@@ -1,0 +1,245 @@
+using world size: 1 and model-parallel size: 1 
+> building BertWordPieceLowerCase tokenizer ...
+ > padded vocab (size: 30522) with 70 dummy tokens (new size: 30592)
+> initializing torch distributed ...
+Xone init
+> initializing model parallel with size 1
+> setting random seeds to 1234 ...
+> initializing model parallel cuda seeds on global rank 0, model parallel rank 0, and data parallel rank 0 with model parallel seed: 3952 and data parallel seed: 1234
+building BERT model ...
+> learning rate decay style: linear
+> building train, validation, and test datasets for BERT ...
+ > building dataset index ...
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+ > finished creating indexed dataset in 0.109806 seconds
+ > indexed dataset stats:
+    number of documents: 6091006
+    number of sentences: 105005246
+ > dataset split:
+    train:
+     document indices in [0, 5780365) total of 5780365 documents
+     sentence indices in [0, 101602660) total of 101602660 sentences
+    validation:
+     document indices in [5780365, 6084915) total of 304550 documents
+     sentence indices in [101602660, 104945630) total of 3342970 sentences
+    test:
+     document indices in [6084915, 6091006) total of 6091 documents
+     sentence indices in [104945630, 105005246) total of 59616 sentences
+ > loading indexed mapping from /philly/rr3/msrhyperprojvc2_scratch/saemal/amir/data/wikidata/raid/Megatron-LM/my-bert_text_sentence_train_indexmap_200mns_512msl_0.10ssp_1234s.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 8716847
+ > loading indexed mapping from /philly/rr3/msrhyperprojvc2_scratch/saemal/amir/data/wikidata/raid/Megatron-LM/my-bert_text_sentence_valid_indexmap_200mns_512msl_0.10ssp_1234s.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 358908
+ > loading indexed mapping from /philly/rr3/msrhyperprojvc2_scratch/saemal/amir/data/wikidata/raid/Megatron-LM/my-bert_text_sentence_test_indexmap_200mns_512msl_0.10ssp_1234s.npy
+    loaded indexed file in 0.001 seconds
+    total number of samples: 6871
+> finished creating BERT datasets ...
+done with setups ...
+time (ms) | model and optimizer: 13837.47 | train/valid/test data iterators: 1174.76
+training ...
+ iteration        1/     100 | elapsed time per iteration (ms): 1192.1 | learning rate: 0.000E+00 | lm loss: 1.064037E+01 | sop loss: 6.820086E-01 | loss scale: 4294967296.0 |
+after 1 iterations memory (MB) | allocated: 9116.947265625 | max allocated: 11576.580078125 | cached: 14414.0 | max cached: 14414.0
+time (ms) | total time: 1191.93 | forward: 1018.81 | backward: 163.07 | allreduce: 34.64 | optimizer: 0.04 | bias in backward: 3.85 | dropout in backward: 2.60
+ iteration        2/     100 | elapsed time per iteration (ms): 205.5 | learning rate: 0.000E+00 | lm loss: 1.075276E+01 | sop loss: 4.265642E-01 | loss scale: 2147483648.0 |
+time (ms) | total time: 203.82 | forward: 61.24 | backward: 139.90 | allreduce: 29.60 | optimizer: 0.04 | bias in backward: 3.84 | dropout in backward: 2.56
+ iteration        3/     100 | elapsed time per iteration (ms): 209.1 | learning rate: 0.000E+00 | lm loss: 1.066414E+01 | sop loss: 7.797403E-01 | loss scale: 1073741824.0 |
+time (ms) | total time: 208.87 | forward: 58.94 | backward: 146.95 | allreduce: 37.58 | optimizer: 0.03 | bias in backward: 3.79 | dropout in backward: 2.57
+ iteration        4/     100 | elapsed time per iteration (ms): 198.0 | learning rate: 0.000E+00 | lm loss: 1.052025E+01 | sop loss: 7.169325E-01 | loss scale: 536870912.0 |
+time (ms) | total time: 197.77 | forward: 58.44 | backward: 137.26 | allreduce: 28.57 | optimizer: 0.03 | bias in backward: 4.09 | dropout in backward: 2.62
+ iteration        5/     100 | elapsed time per iteration (ms): 197.4 | learning rate: 0.000E+00 | lm loss: 1.051303E+01 | sop loss: 4.504339E-01 | loss scale: 268435456.0 |
+time (ms) | total time: 197.11 | forward: 58.40 | backward: 136.81 | allreduce: 28.41 | optimizer: 0.03 | bias in backward: 3.79 | dropout in backward: 2.55
+ iteration        6/     100 | elapsed time per iteration (ms): 197.3 | learning rate: 0.000E+00 | lm loss: 1.064787E+01 | sop loss: 4.416190E-01 | loss scale: 134217728.0 |
+time (ms) | total time: 197.09 | forward: 58.81 | backward: 136.27 | allreduce: 28.39 | optimizer: 0.03 | bias in backward: 3.82 | dropout in backward: 2.55
+ iteration        7/     100 | elapsed time per iteration (ms): 199.9 | learning rate: 0.000E+00 | lm loss: 1.068631E+01 | sop loss: 9.898791E-01 | loss scale: 67108864.0 |
+time (ms) | total time: 199.66 | forward: 58.77 | backward: 138.97 | allreduce: 30.12 | optimizer: 0.03 | bias in backward: 3.80 | dropout in backward: 2.55
+ iteration        8/     100 | elapsed time per iteration (ms): 199.9 | learning rate: 0.000E+00 | lm loss: 1.067144E+01 | sop loss: 4.885611E-01 | loss scale: 33554432.0 |
+time (ms) | total time: 199.61 | forward: 59.30 | backward: 138.32 | allreduce: 28.83 | optimizer: 0.03 | bias in backward: 3.79 | dropout in backward: 2.55
+ iteration        9/     100 | elapsed time per iteration (ms): 198.9 | learning rate: 0.000E+00 | lm loss: 1.064149E+01 | sop loss: 8.574156E-01 | loss scale: 16777216.0 |
+time (ms) | total time: 198.65 | forward: 58.67 | backward: 138.00 | allreduce: 28.76 | optimizer: 0.03 | bias in backward: 3.86 | dropout in backward: 2.59
+ iteration       10/     100 | elapsed time per iteration (ms): 199.4 | learning rate: 0.000E+00 | lm loss: 1.048317E+01 | sop loss: 7.052008E-01 | loss scale: 8388608.0 |
+time (ms) | total time: 199.16 | forward: 60.33 | backward: 136.86 | allreduce: 28.47 | optimizer: 0.03 | bias in backward: 3.81 | dropout in backward: 2.53
+ iteration       11/     100 | elapsed time per iteration (ms): 198.3 | learning rate: 0.000E+00 | lm loss: 1.067056E+01 | sop loss: 6.685387E-01 | loss scale: 4194304.0 |
+time (ms) | total time: 198.00 | forward: 58.47 | backward: 137.30 | allreduce: 28.65 | optimizer: 0.03 | bias in backward: 3.82 | dropout in backward: 2.55
+ iteration       12/     100 | elapsed time per iteration (ms): 196.8 | learning rate: 0.000E+00 | lm loss: 1.069550E+01 | sop loss: 4.733430E-01 | loss scale: 2097152.0 |
+time (ms) | total time: 196.52 | forward: 58.37 | backward: 136.36 | allreduce: 28.51 | optimizer: 0.03 | bias in backward: 3.80 | dropout in backward: 2.54
+ iteration       13/     100 | elapsed time per iteration (ms): 198.0 | learning rate: 0.000E+00 | lm loss: 1.068088E+01 | sop loss: 7.276876E-01 | loss scale: 1048576.0 |
+time (ms) | total time: 197.79 | forward: 58.51 | backward: 137.39 | allreduce: 28.58 | optimizer: 0.03 | bias in backward: 3.80 | dropout in backward: 2.55
+ iteration       14/     100 | elapsed time per iteration (ms): 198.3 | learning rate: 0.000E+00 | lm loss: 1.065244E+01 | sop loss: 5.622038E-01 | loss scale: 524288.0 |
+time (ms) | total time: 198.00 | forward: 58.85 | backward: 137.21 | allreduce: 28.68 | optimizer: 0.03 | bias in backward: 3.82 | dropout in backward: 2.54
+ iteration       15/     100 | elapsed time per iteration (ms): 197.8 | learning rate: 0.000E+00 | lm loss: 1.039538E+01 | sop loss: 1.026394E+00 | loss scale: 262144.0 |
+time (ms) | total time: 197.58 | forward: 58.43 | backward: 137.20 | allreduce: 28.49 | optimizer: 0.03 | bias in backward: 3.89 | dropout in backward: 2.52
+ iteration       16/     100 | elapsed time per iteration (ms): 197.1 | learning rate: 0.000E+00 | lm loss: 1.068529E+01 | sop loss: 6.159545E-01 | loss scale: 131072.0 |
+time (ms) | total time: 196.82 | forward: 58.34 | backward: 136.57 | allreduce: 28.46 | optimizer: 0.03 | bias in backward: 4.06 | dropout in backward: 2.59
+ iteration       17/     100 | elapsed time per iteration (ms): 197.2 | learning rate: 0.000E+00 | lm loss: 1.057139E+01 | sop loss: 5.318308E-01 | loss scale: 65536.0 |
+time (ms) | total time: 196.97 | forward: 58.55 | backward: 136.49 | allreduce: 28.55 | optimizer: 0.03 | bias in backward: 3.84 | dropout in backward: 2.55
+ iteration       18/     100 | elapsed time per iteration (ms): 198.0 | learning rate: 0.000E+00 | lm loss: 1.060050E+01 | sop loss: 7.606828E-01 | loss scale: 32768.0 |
+time (ms) | total time: 197.71 | forward: 58.54 | backward: 137.28 | allreduce: 28.56 | optimizer: 0.03 | bias in backward: 3.80 | dropout in backward: 2.52
+ iteration       19/     100 | elapsed time per iteration (ms): 874.1 | learning rate: 1.010E-08 | lm loss: 1.060400E+01 | sop loss: 6.938914E-01 | loss scale: 32768.0 |
+time (ms) | total time: 873.69 | forward: 59.27 | backward: 249.11 | allreduce: 28.67 | optimizer: 562.80 | bias in backward: 3.78 | dropout in backward: 2.51
+ iteration       20/     100 | elapsed time per iteration (ms): 862.0 | learning rate: 2.020E-08 | lm loss: 1.061751E+01 | sop loss: 6.997685E-01 | loss scale: 32768.0 |
+time (ms) | total time: 861.72 | forward: 546.94 | backward: 256.88 | allreduce: 35.54 | optimizer: 54.25 | bias in backward: 3.77 | dropout in backward: 2.56
+ iteration       21/     100 | elapsed time per iteration (ms): 368.1 | learning rate: 3.030E-08 | lm loss: 1.069281E+01 | sop loss: 7.835436E-01 | loss scale: 32768.0 |
+time (ms) | total time: 367.66 | forward: 58.81 | backward: 251.15 | allreduce: 29.68 | optimizer: 54.18 | bias in backward: 3.84 | dropout in backward: 2.52
+ iteration       22/     100 | elapsed time per iteration (ms): 223.4 | learning rate: 3.030E-08 | lm loss: 1.064271E+01 | sop loss: 1.102998E+00 | loss scale: 16384.0 |
+time (ms) | total time: 223.13 | forward: 58.49 | backward: 160.80 | allreduce: 29.60 | optimizer: 0.04 | bias in backward: 3.83 | dropout in backward: 2.53
+ iteration       23/     100 | elapsed time per iteration (ms): 365.7 | learning rate: 4.040E-08 | lm loss: 1.035593E+01 | sop loss: 7.830701E-01 | loss scale: 16384.0 |
+time (ms) | total time: 365.41 | forward: 58.60 | backward: 249.35 | allreduce: 29.75 | optimizer: 54.26 | bias in backward: 3.80 | dropout in backward: 2.55
+ iteration       24/     100 | elapsed time per iteration (ms): 369.1 | learning rate: 5.051E-08 | lm loss: 1.063785E+01 | sop loss: 7.829787E-01 | loss scale: 16384.0 |
+time (ms) | total time: 368.76 | forward: 59.08 | backward: 251.85 | allreduce: 30.09 | optimizer: 54.19 | bias in backward: 3.82 | dropout in backward: 2.54
+ iteration       25/     100 | elapsed time per iteration (ms): 366.9 | learning rate: 6.061E-08 | lm loss: 1.058406E+01 | sop loss: 7.518672E-01 | loss scale: 16384.0 |
+time (ms) | total time: 366.55 | forward: 58.57 | backward: 250.14 | allreduce: 29.39 | optimizer: 54.12 | bias in backward: 3.82 | dropout in backward: 2.56
+ iteration       26/     100 | elapsed time per iteration (ms): 367.6 | learning rate: 7.071E-08 | lm loss: 1.055739E+01 | sop loss: 8.893470E-01 | loss scale: 16384.0 |
+time (ms) | total time: 367.36 | forward: 59.69 | backward: 250.37 | allreduce: 30.01 | optimizer: 54.18 | bias in backward: 3.83 | dropout in backward: 2.57
+ iteration       27/     100 | elapsed time per iteration (ms): 366.2 | learning rate: 8.081E-08 | lm loss: 1.053513E+01 | sop loss: 4.322197E-01 | loss scale: 16384.0 |
+time (ms) | total time: 365.95 | forward: 58.86 | backward: 249.37 | allreduce: 29.38 | optimizer: 54.15 | bias in backward: 3.88 | dropout in backward: 2.62
+ iteration       28/     100 | elapsed time per iteration (ms): 367.8 | learning rate: 9.091E-08 | lm loss: 1.052528E+01 | sop loss: 6.856440E-01 | loss scale: 16384.0 |
+time (ms) | total time: 367.47 | forward: 58.46 | backward: 251.10 | allreduce: 29.87 | optimizer: 54.14 | bias in backward: 3.89 | dropout in backward: 2.60
+ iteration       29/     100 | elapsed time per iteration (ms): 369.9 | learning rate: 1.010E-07 | lm loss: 1.060339E+01 | sop loss: 8.896561E-01 | loss scale: 16384.0 |
+time (ms) | total time: 369.47 | forward: 59.35 | backward: 252.22 | allreduce: 29.85 | optimizer: 54.10 | bias in backward: 3.87 | dropout in backward: 2.54
+ iteration       30/     100 | elapsed time per iteration (ms): 366.7 | learning rate: 1.111E-07 | lm loss: 1.073863E+01 | sop loss: 6.040686E-01 | loss scale: 16384.0 |
+time (ms) | total time: 366.43 | forward: 58.67 | backward: 250.39 | allreduce: 29.66 | optimizer: 54.09 | bias in backward: 3.87 | dropout in backward: 2.56
+ iteration       31/     100 | elapsed time per iteration (ms): 370.7 | learning rate: 1.212E-07 | lm loss: 1.066234E+01 | sop loss: 7.060524E-01 | loss scale: 16384.0 |
+time (ms) | total time: 370.38 | forward: 58.53 | backward: 253.59 | allreduce: 30.41 | optimizer: 54.34 | bias in backward: 3.86 | dropout in backward: 2.60
+ iteration       32/     100 | elapsed time per iteration (ms): 370.8 | learning rate: 1.313E-07 | lm loss: 1.068060E+01 | sop loss: 4.526894E-01 | loss scale: 16384.0 |
+time (ms) | total time: 370.20 | forward: 59.03 | backward: 252.45 | allreduce: 30.71 | optimizer: 54.31 | bias in backward: 3.83 | dropout in backward: 2.56
+ iteration       33/     100 | elapsed time per iteration (ms): 371.4 | learning rate: 1.414E-07 | lm loss: 1.071998E+01 | sop loss: 6.903644E-01 | loss scale: 16384.0 |
+time (ms) | total time: 370.97 | forward: 60.27 | backward: 252.07 | allreduce: 30.19 | optimizer: 54.20 | bias in backward: 3.83 | dropout in backward: 2.54
+ iteration       34/     100 | elapsed time per iteration (ms): 368.1 | learning rate: 1.515E-07 | lm loss: 1.050259E+01 | sop loss: 9.911842E-01 | loss scale: 16384.0 |
+time (ms) | total time: 367.67 | forward: 58.74 | backward: 251.26 | allreduce: 29.95 | optimizer: 54.25 | bias in backward: 3.84 | dropout in backward: 2.55
+ iteration       35/     100 | elapsed time per iteration (ms): 367.4 | learning rate: 1.616E-07 | lm loss: 1.055594E+01 | sop loss: 6.976129E-01 | loss scale: 16384.0 |
+time (ms) | total time: 367.10 | forward: 59.16 | backward: 250.71 | allreduce: 29.62 | optimizer: 54.17 | bias in backward: 3.88 | dropout in backward: 2.60
+ iteration       36/     100 | elapsed time per iteration (ms): 366.5 | learning rate: 1.717E-07 | lm loss: 1.062032E+01 | sop loss: 7.465982E-01 | loss scale: 16384.0 |
+time (ms) | total time: 366.23 | forward: 58.54 | backward: 250.13 | allreduce: 29.51 | optimizer: 54.17 | bias in backward: 3.82 | dropout in backward: 2.54
+ iteration       37/     100 | elapsed time per iteration (ms): 367.1 | learning rate: 1.818E-07 | lm loss: 1.073946E+01 | sop loss: 4.472780E-01 | loss scale: 16384.0 |
+time (ms) | total time: 366.85 | forward: 58.91 | backward: 249.86 | allreduce: 29.50 | optimizer: 54.25 | bias in backward: 3.80 | dropout in backward: 2.55
+ iteration       38/     100 | elapsed time per iteration (ms): 367.3 | learning rate: 1.919E-07 | lm loss: 1.070455E+01 | sop loss: 8.926886E-01 | loss scale: 16384.0 |
+time (ms) | total time: 367.04 | forward: 59.01 | backward: 250.12 | allreduce: 29.66 | optimizer: 54.20 | bias in backward: 3.82 | dropout in backward: 2.55
+ iteration       39/     100 | elapsed time per iteration (ms): 367.8 | learning rate: 2.020E-07 | lm loss: 1.056916E+01 | sop loss: 7.888985E-01 | loss scale: 16384.0 |
+time (ms) | total time: 367.56 | forward: 58.58 | backward: 251.29 | allreduce: 29.98 | optimizer: 54.18 | bias in backward: 3.84 | dropout in backward: 2.54
+ iteration       40/     100 | elapsed time per iteration (ms): 368.7 | learning rate: 2.121E-07 | lm loss: 1.073210E+01 | sop loss: 7.517366E-01 | loss scale: 16384.0 |
+time (ms) | total time: 368.40 | forward: 58.84 | backward: 251.21 | allreduce: 29.69 | optimizer: 54.36 | bias in backward: 3.84 | dropout in backward: 2.53
+ iteration       41/     100 | elapsed time per iteration (ms): 204.9 | learning rate: 2.121E-07 | lm loss: 1.046611E+01 | sop loss: 5.377866E-01 | loss scale: 8192.0 |
+time (ms) | total time: 204.62 | forward: 58.91 | backward: 141.60 | allreduce: 29.99 | optimizer: 0.03 | bias in backward: 3.84 | dropout in backward: 2.55
+ iteration       42/     100 | elapsed time per iteration (ms): 366.6 | learning rate: 2.222E-07 | lm loss: 1.071475E+01 | sop loss: 1.037969E+00 | loss scale: 8192.0 |
+time (ms) | total time: 366.25 | forward: 58.68 | backward: 249.53 | allreduce: 29.33 | optimizer: 54.22 | bias in backward: 3.82 | dropout in backward: 2.53
+ iteration       43/     100 | elapsed time per iteration (ms): 373.1 | learning rate: 2.323E-07 | lm loss: 1.063450E+01 | sop loss: 1.016304E+00 | loss scale: 8192.0 |
+time (ms) | total time: 372.77 | forward: 61.55 | backward: 252.63 | allreduce: 30.61 | optimizer: 54.29 | bias in backward: 3.81 | dropout in backward: 2.54
+ iteration       44/     100 | elapsed time per iteration (ms): 370.9 | learning rate: 2.424E-07 | lm loss: 1.063491E+01 | sop loss: 1.083768E+00 | loss scale: 8192.0 |
+time (ms) | total time: 370.62 | forward: 59.64 | backward: 252.53 | allreduce: 30.39 | optimizer: 54.27 | bias in backward: 3.80 | dropout in backward: 2.53
+ iteration       45/     100 | elapsed time per iteration (ms): 371.6 | learning rate: 2.525E-07 | lm loss: 1.074372E+01 | sop loss: 7.441986E-01 | loss scale: 8192.0 |
+time (ms) | total time: 371.13 | forward: 59.75 | backward: 253.35 | allreduce: 30.88 | optimizer: 54.26 | bias in backward: 3.83 | dropout in backward: 2.53
+ iteration       46/     100 | elapsed time per iteration (ms): 368.9 | learning rate: 2.626E-07 | lm loss: 1.046613E+01 | sop loss: 8.318827E-01 | loss scale: 8192.0 |
+time (ms) | total time: 368.58 | forward: 59.51 | backward: 251.06 | allreduce: 29.67 | optimizer: 54.25 | bias in backward: 3.83 | dropout in backward: 2.54
+ iteration       47/     100 | elapsed time per iteration (ms): 372.6 | learning rate: 2.727E-07 | lm loss: 1.059288E+01 | sop loss: 6.905520E-01 | loss scale: 8192.0 |
+time (ms) | total time: 372.20 | forward: 58.97 | backward: 254.18 | allreduce: 31.14 | optimizer: 54.43 | bias in backward: 3.83 | dropout in backward: 2.55
+ iteration       48/     100 | elapsed time per iteration (ms): 371.3 | learning rate: 2.828E-07 | lm loss: 1.057736E+01 | sop loss: 8.633426E-01 | loss scale: 8192.0 |
+time (ms) | total time: 370.98 | forward: 59.01 | backward: 252.97 | allreduce: 30.76 | optimizer: 54.30 | bias in backward: 3.81 | dropout in backward: 2.54
+ iteration       49/     100 | elapsed time per iteration (ms): 370.7 | learning rate: 2.929E-07 | lm loss: 1.058427E+01 | sop loss: 3.984309E-01 | loss scale: 8192.0 |
+time (ms) | total time: 370.42 | forward: 60.15 | backward: 252.10 | allreduce: 30.40 | optimizer: 54.19 | bias in backward: 3.83 | dropout in backward: 2.52
+ iteration       50/     100 | elapsed time per iteration (ms): 204.2 | learning rate: 2.929E-07 | lm loss: 1.068696E+01 | sop loss: 7.945330E-01 | loss scale: 4096.0 |
+time (ms) | total time: 203.95 | forward: 58.94 | backward: 141.26 | allreduce: 29.72 | optimizer: 0.03 | bias in backward: 4.06 | dropout in backward: 2.63
+ iteration       51/     100 | elapsed time per iteration (ms): 366.6 | learning rate: 3.030E-07 | lm loss: 1.048024E+01 | sop loss: 3.840665E-01 | loss scale: 4096.0 |
+time (ms) | total time: 366.29 | forward: 58.48 | backward: 249.90 | allreduce: 29.66 | optimizer: 54.36 | bias in backward: 3.85 | dropout in backward: 2.52
+ iteration       52/     100 | elapsed time per iteration (ms): 369.9 | learning rate: 3.131E-07 | lm loss: 1.057471E+01 | sop loss: 5.666143E-01 | loss scale: 4096.0 |
+time (ms) | total time: 369.38 | forward: 59.91 | backward: 251.45 | allreduce: 30.32 | optimizer: 54.22 | bias in backward: 3.82 | dropout in backward: 2.57
+ iteration       53/     100 | elapsed time per iteration (ms): 206.8 | learning rate: 3.131E-07 | lm loss: 1.072834E+01 | sop loss: 6.802120E-01 | loss scale: 2048.0 |
+time (ms) | total time: 206.55 | forward: 61.20 | backward: 141.77 | allreduce: 29.81 | optimizer: 0.04 | bias in backward: 4.03 | dropout in backward: 2.72
+ iteration       54/     100 | elapsed time per iteration (ms): 368.8 | learning rate: 3.232E-07 | lm loss: 1.053121E+01 | sop loss: 6.435274E-01 | loss scale: 2048.0 |
+time (ms) | total time: 368.50 | forward: 58.78 | backward: 251.79 | allreduce: 30.22 | optimizer: 54.26 | bias in backward: 3.94 | dropout in backward: 2.64
+ iteration       55/     100 | elapsed time per iteration (ms): 370.1 | learning rate: 3.333E-07 | lm loss: 1.062843E+01 | sop loss: 8.153688E-01 | loss scale: 2048.0 |
+time (ms) | total time: 369.82 | forward: 58.87 | backward: 252.51 | allreduce: 30.78 | optimizer: 54.34 | bias in backward: 3.83 | dropout in backward: 2.54
+ iteration       56/     100 | elapsed time per iteration (ms): 369.9 | learning rate: 3.434E-07 | lm loss: 1.072722E+01 | sop loss: 7.239735E-01 | loss scale: 2048.0 |
+time (ms) | total time: 369.54 | forward: 59.11 | backward: 252.30 | allreduce: 29.76 | optimizer: 54.20 | bias in backward: 3.87 | dropout in backward: 2.59
+ iteration       57/     100 | elapsed time per iteration (ms): 367.9 | learning rate: 3.535E-07 | lm loss: 1.071188E+01 | sop loss: 7.892498E-01 | loss scale: 2048.0 |
+time (ms) | total time: 367.57 | forward: 59.69 | backward: 250.12 | allreduce: 29.67 | optimizer: 54.10 | bias in backward: 3.87 | dropout in backward: 2.55
+ iteration       58/     100 | elapsed time per iteration (ms): 368.2 | learning rate: 3.636E-07 | lm loss: 1.053223E+01 | sop loss: 4.705652E-01 | loss scale: 2048.0 |
+time (ms) | total time: 367.85 | forward: 58.59 | backward: 250.81 | allreduce: 29.97 | optimizer: 54.27 | bias in backward: 3.86 | dropout in backward: 2.54
+ iteration       59/     100 | elapsed time per iteration (ms): 372.2 | learning rate: 3.737E-07 | lm loss: 1.046807E+01 | sop loss: 7.674691E-01 | loss scale: 2048.0 |
+time (ms) | total time: 371.81 | forward: 60.28 | backward: 252.97 | allreduce: 30.83 | optimizer: 54.25 | bias in backward: 3.90 | dropout in backward: 2.57
+ iteration       60/     100 | elapsed time per iteration (ms): 368.1 | learning rate: 3.838E-07 | lm loss: 1.063705E+01 | sop loss: 5.033007E-01 | loss scale: 2048.0 |
+time (ms) | total time: 367.83 | forward: 58.91 | backward: 251.06 | allreduce: 29.80 | optimizer: 54.19 | bias in backward: 3.87 | dropout in backward: 2.56
+ iteration       61/     100 | elapsed time per iteration (ms): 369.8 | learning rate: 3.939E-07 | lm loss: 1.048732E+01 | sop loss: 4.628599E-01 | loss scale: 2048.0 |
+time (ms) | total time: 369.45 | forward: 58.58 | backward: 252.80 | allreduce: 30.71 | optimizer: 54.26 | bias in backward: 3.88 | dropout in backward: 2.58
+ iteration       62/     100 | elapsed time per iteration (ms): 369.2 | learning rate: 4.040E-07 | lm loss: 1.074647E+01 | sop loss: 1.014873E+00 | loss scale: 2048.0 |
+time (ms) | total time: 368.89 | forward: 59.05 | backward: 251.37 | allreduce: 30.12 | optimizer: 54.28 | bias in backward: 3.85 | dropout in backward: 2.55
+ iteration       63/     100 | elapsed time per iteration (ms): 372.8 | learning rate: 4.141E-07 | lm loss: 1.068397E+01 | sop loss: 4.417764E-01 | loss scale: 2048.0 |
+time (ms) | total time: 372.50 | forward: 59.47 | backward: 254.18 | allreduce: 31.21 | optimizer: 54.40 | bias in backward: 3.85 | dropout in backward: 2.53
+ iteration       64/     100 | elapsed time per iteration (ms): 374.0 | learning rate: 4.242E-07 | lm loss: 1.067029E+01 | sop loss: 7.719258E-01 | loss scale: 2048.0 |
+time (ms) | total time: 373.60 | forward: 59.13 | backward: 255.47 | allreduce: 31.32 | optimizer: 54.49 | bias in backward: 3.86 | dropout in backward: 2.54
+ iteration       65/     100 | elapsed time per iteration (ms): 369.8 | learning rate: 4.343E-07 | lm loss: 1.057292E+01 | sop loss: 7.483416E-01 | loss scale: 2048.0 |
+time (ms) | total time: 369.46 | forward: 60.06 | backward: 251.38 | allreduce: 29.95 | optimizer: 54.19 | bias in backward: 3.87 | dropout in backward: 2.54
+ iteration       66/     100 | elapsed time per iteration (ms): 367.2 | learning rate: 4.444E-07 | lm loss: 1.057322E+01 | sop loss: 9.170023E-01 | loss scale: 2048.0 |
+time (ms) | total time: 366.93 | forward: 58.53 | backward: 250.61 | allreduce: 29.62 | optimizer: 54.18 | bias in backward: 3.87 | dropout in backward: 2.56
+ iteration       67/     100 | elapsed time per iteration (ms): 367.0 | learning rate: 4.545E-07 | lm loss: 1.067632E+01 | sop loss: 1.055982E+00 | loss scale: 2048.0 |
+time (ms) | total time: 366.75 | forward: 58.72 | backward: 250.19 | allreduce: 29.72 | optimizer: 54.21 | bias in backward: 3.85 | dropout in backward: 2.53
+ iteration       68/     100 | elapsed time per iteration (ms): 202.6 | learning rate: 4.545E-07 | lm loss: 1.077287E+01 | sop loss: 1.021390E+00 | loss scale: 1024.0 |
+time (ms) | total time: 202.31 | forward: 58.69 | backward: 140.04 | allreduce: 29.77 | optimizer: 0.03 | bias in backward: 3.84 | dropout in backward: 2.55
+ iteration       69/     100 | elapsed time per iteration (ms): 374.7 | learning rate: 4.646E-07 | lm loss: 1.078291E+01 | sop loss: 9.005877E-01 | loss scale: 1024.0 |
+time (ms) | total time: 374.44 | forward: 58.88 | backward: 257.62 | allreduce: 30.21 | optimizer: 54.23 | bias in backward: 3.85 | dropout in backward: 2.54
+ iteration       70/     100 | elapsed time per iteration (ms): 368.0 | learning rate: 4.747E-07 | lm loss: 1.060268E+01 | sop loss: 9.352507E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.73 | forward: 58.84 | backward: 250.96 | allreduce: 29.98 | optimizer: 54.14 | bias in backward: 3.79 | dropout in backward: 2.53
+ iteration       71/     100 | elapsed time per iteration (ms): 368.1 | learning rate: 4.848E-07 | lm loss: 1.061997E+01 | sop loss: 9.895353E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.79 | forward: 58.71 | backward: 251.27 | allreduce: 29.75 | optimizer: 54.18 | bias in backward: 3.85 | dropout in backward: 2.54
+ iteration       72/     100 | elapsed time per iteration (ms): 368.0 | learning rate: 4.949E-07 | lm loss: 1.062542E+01 | sop loss: 9.237202E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.74 | forward: 59.33 | backward: 250.33 | allreduce: 29.74 | optimizer: 54.31 | bias in backward: 3.86 | dropout in backward: 2.54
+ iteration       73/     100 | elapsed time per iteration (ms): 367.4 | learning rate: 5.051E-07 | lm loss: 1.063410E+01 | sop loss: 7.882587E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.05 | forward: 58.79 | backward: 250.25 | allreduce: 29.79 | optimizer: 54.15 | bias in backward: 3.85 | dropout in backward: 2.55
+ iteration       74/     100 | elapsed time per iteration (ms): 370.5 | learning rate: 5.152E-07 | lm loss: 1.068406E+01 | sop loss: 7.730132E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.13 | forward: 58.63 | backward: 253.53 | allreduce: 30.59 | optimizer: 54.21 | bias in backward: 3.84 | dropout in backward: 2.54
+ iteration       75/     100 | elapsed time per iteration (ms): 373.0 | learning rate: 5.253E-07 | lm loss: 1.057510E+01 | sop loss: 9.057268E-01 | loss scale: 1024.0 |
+time (ms) | total time: 372.65 | forward: 59.84 | backward: 254.59 | allreduce: 30.71 | optimizer: 54.21 | bias in backward: 3.91 | dropout in backward: 2.60
+ iteration       76/     100 | elapsed time per iteration (ms): 369.2 | learning rate: 5.354E-07 | lm loss: 1.068789E+01 | sop loss: 5.602826E-01 | loss scale: 1024.0 |
+time (ms) | total time: 368.88 | forward: 58.77 | backward: 252.01 | allreduce: 29.85 | optimizer: 54.23 | bias in backward: 3.82 | dropout in backward: 2.52
+ iteration       77/     100 | elapsed time per iteration (ms): 370.0 | learning rate: 5.455E-07 | lm loss: 1.073653E+01 | sop loss: 6.012664E-01 | loss scale: 1024.0 |
+time (ms) | total time: 369.71 | forward: 58.88 | backward: 252.55 | allreduce: 30.52 | optimizer: 54.25 | bias in backward: 3.86 | dropout in backward: 2.55
+ iteration       78/     100 | elapsed time per iteration (ms): 369.7 | learning rate: 5.556E-07 | lm loss: 1.060894E+01 | sop loss: 1.013046E+00 | loss scale: 1024.0 |
+time (ms) | total time: 369.43 | forward: 59.90 | backward: 251.12 | allreduce: 30.12 | optimizer: 54.31 | bias in backward: 3.83 | dropout in backward: 2.53
+ iteration       79/     100 | elapsed time per iteration (ms): 371.9 | learning rate: 5.657E-07 | lm loss: 1.042529E+01 | sop loss: 7.206707E-01 | loss scale: 1024.0 |
+time (ms) | total time: 371.58 | forward: 58.97 | backward: 253.85 | allreduce: 30.90 | optimizer: 54.33 | bias in backward: 3.82 | dropout in backward: 2.53
+ iteration       80/     100 | elapsed time per iteration (ms): 373.7 | learning rate: 5.758E-07 | lm loss: 1.067116E+01 | sop loss: 4.190787E-01 | loss scale: 1024.0 |
+time (ms) | total time: 373.42 | forward: 59.72 | backward: 255.06 | allreduce: 31.14 | optimizer: 54.32 | bias in backward: 3.83 | dropout in backward: 2.52
+ iteration       81/     100 | elapsed time per iteration (ms): 370.2 | learning rate: 5.859E-07 | lm loss: 1.061073E+01 | sop loss: 7.072301E-01 | loss scale: 1024.0 |
+time (ms) | total time: 369.82 | forward: 59.74 | backward: 252.08 | allreduce: 29.99 | optimizer: 54.21 | bias in backward: 3.84 | dropout in backward: 2.53
+ iteration       82/     100 | elapsed time per iteration (ms): 367.7 | learning rate: 5.960E-07 | lm loss: 1.063446E+01 | sop loss: 5.894692E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.36 | forward: 58.71 | backward: 250.64 | allreduce: 29.90 | optimizer: 54.12 | bias in backward: 3.88 | dropout in backward: 2.57
+ iteration       83/     100 | elapsed time per iteration (ms): 370.6 | learning rate: 6.061E-07 | lm loss: 1.073126E+01 | sop loss: 9.342638E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.33 | forward: 58.92 | backward: 253.13 | allreduce: 30.79 | optimizer: 54.30 | bias in backward: 3.90 | dropout in backward: 2.63
+ iteration       84/     100 | elapsed time per iteration (ms): 370.8 | learning rate: 6.162E-07 | lm loss: 1.066253E+01 | sop loss: 1.002343E+00 | loss scale: 1024.0 |
+time (ms) | total time: 370.54 | forward: 58.96 | backward: 253.33 | allreduce: 30.79 | optimizer: 54.33 | bias in backward: 3.86 | dropout in backward: 2.55
+ iteration       85/     100 | elapsed time per iteration (ms): 370.9 | learning rate: 6.263E-07 | lm loss: 1.049402E+01 | sop loss: 5.828671E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.54 | forward: 60.21 | backward: 252.28 | allreduce: 30.02 | optimizer: 54.17 | bias in backward: 3.87 | dropout in backward: 2.56
+ iteration       86/     100 | elapsed time per iteration (ms): 368.1 | learning rate: 6.364E-07 | lm loss: 1.075149E+01 | sop loss: 9.480306E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.75 | forward: 59.29 | backward: 250.66 | allreduce: 29.73 | optimizer: 54.17 | bias in backward: 3.84 | dropout in backward: 2.54
+ iteration       87/     100 | elapsed time per iteration (ms): 367.4 | learning rate: 6.465E-07 | lm loss: 1.053156E+01 | sop loss: 7.518437E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.16 | forward: 58.50 | backward: 250.86 | allreduce: 30.12 | optimizer: 54.22 | bias in backward: 3.88 | dropout in backward: 2.57
+ iteration       88/     100 | elapsed time per iteration (ms): 371.0 | learning rate: 6.566E-07 | lm loss: 1.057642E+01 | sop loss: 5.148580E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.72 | forward: 59.95 | backward: 252.24 | allreduce: 30.58 | optimizer: 54.50 | bias in backward: 3.85 | dropout in backward: 2.55
+ iteration       89/     100 | elapsed time per iteration (ms): 398.5 | learning rate: 6.667E-07 | lm loss: 1.090204E+01 | sop loss: 8.031447E-01 | loss scale: 1024.0 |
+time (ms) | total time: 398.16 | forward: 60.04 | backward: 279.58 | allreduce: 56.44 | optimizer: 54.36 | bias in backward: 4.06 | dropout in backward: 2.73
+ iteration       90/     100 | elapsed time per iteration (ms): 370.3 | learning rate: 6.768E-07 | lm loss: 1.064196E+01 | sop loss: 8.465737E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.02 | forward: 59.82 | backward: 251.97 | allreduce: 29.85 | optimizer: 54.15 | bias in backward: 3.85 | dropout in backward: 2.55
+ iteration       91/     100 | elapsed time per iteration (ms): 367.9 | learning rate: 6.869E-07 | lm loss: 1.041599E+01 | sop loss: 9.184425E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.58 | forward: 58.96 | backward: 250.64 | allreduce: 29.67 | optimizer: 54.13 | bias in backward: 3.83 | dropout in backward: 2.55
+ iteration       92/     100 | elapsed time per iteration (ms): 369.4 | learning rate: 6.970E-07 | lm loss: 1.078214E+01 | sop loss: 5.547585E-01 | loss scale: 1024.0 |
+time (ms) | total time: 369.08 | forward: 60.23 | backward: 250.72 | allreduce: 30.07 | optimizer: 54.23 | bias in backward: 3.85 | dropout in backward: 2.55
+ iteration       93/     100 | elapsed time per iteration (ms): 370.9 | learning rate: 7.071E-07 | lm loss: 1.052208E+01 | sop loss: 6.774491E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.60 | forward: 59.24 | backward: 252.88 | allreduce: 30.34 | optimizer: 54.41 | bias in backward: 3.83 | dropout in backward: 2.56
+ iteration       94/     100 | elapsed time per iteration (ms): 371.6 | learning rate: 7.172E-07 | lm loss: 1.058744E+01 | sop loss: 6.422021E-01 | loss scale: 1024.0 |
+time (ms) | total time: 371.31 | forward: 59.03 | backward: 253.62 | allreduce: 30.96 | optimizer: 54.28 | bias in backward: 3.86 | dropout in backward: 2.56
+ iteration       95/     100 | elapsed time per iteration (ms): 370.9 | learning rate: 7.273E-07 | lm loss: 1.061716E+01 | sop loss: 6.230862E-01 | loss scale: 1024.0 |
+time (ms) | total time: 370.62 | forward: 59.70 | backward: 252.66 | allreduce: 29.87 | optimizer: 54.21 | bias in backward: 3.87 | dropout in backward: 2.57
+ iteration       96/     100 | elapsed time per iteration (ms): 367.5 | learning rate: 7.374E-07 | lm loss: 1.039968E+01 | sop loss: 6.883314E-01 | loss scale: 1024.0 |
+time (ms) | total time: 367.21 | forward: 59.35 | backward: 250.09 | allreduce: 29.83 | optimizer: 54.18 | bias in backward: 3.84 | dropout in backward: 2.56
+ iteration       97/     100 | elapsed time per iteration (ms): 372.6 | learning rate: 7.475E-07 | lm loss: 1.056164E+01 | sop loss: 6.785525E-01 | loss scale: 1024.0 |
+time (ms) | total time: 372.30 | forward: 63.52 | backward: 251.02 | allreduce: 30.12 | optimizer: 54.20 | bias in backward: 3.84 | dropout in backward: 2.54
+ iteration       98/     100 | elapsed time per iteration (ms): 369.2 | learning rate: 7.576E-07 | lm loss: 1.063255E+01 | sop loss: 8.628134E-01 | loss scale: 1024.0 |
+time (ms) | total time: 368.94 | forward: 58.63 | backward: 253.04 | allreduce: 30.43 | optimizer: 54.16 | bias in backward: 3.88 | dropout in backward: 2.58
+ iteration       99/     100 | elapsed time per iteration (ms): 365.5 | learning rate: 7.677E-07 | lm loss: 1.061315E+01 | sop loss: 9.567888E-01 | loss scale: 1024.0 |
+time (ms) | total time: 365.20 | forward: 58.91 | backward: 249.75 | allreduce: 28.82 | optimizer: 54.08 | bias in backward: 3.80 | dropout in backward: 2.56
+ iteration      100/     100 | elapsed time per iteration (ms): 364.6 | learning rate: 7.778E-07 | lm loss: 1.048211E+01 | sop loss: 6.849133E-01 | loss scale: 1024.0 |
+time (ms) | total time: 364.13 | forward: 58.59 | backward: 249.31 | allreduce: 28.61 | optimizer: 54.09 | bias in backward: 3.80 | dropout in backward: 2.53

@@ -1,0 +1,15 @@
+# clean process
+cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp && parallel-ssh -i -t 0 -p 200 -h pssh.host "pkill -9 python3" 
+
+# original megatron
+cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp &&  parallel-ssh -i -t 0 -p 200 -h pssh.host "sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp && sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test_32.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx && GPUS_PER_NODE=16 NNODES=2  MASTER_ADDR=10.32.252.125 MASTER_PORT=12345 LOG_NAME=origin_175B_2VM_mbs1_gbs100 MP_BARRIER=1 LD_PRELOAD=/msrhyper-ddn/hai8/saemal/nccl-2.8.4-1/build/lib/libnccl.so  WARMUP_BATCH=102 NCCL_DEBUG=VERSION   sh ./p2pfusion_experiments/test_time_break_down_2VM_1bs.sh" 2>&1 | tee ./origin_175B_2VM_mbs1_gbs100.log
+
+# p2p megatronv2
+cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp &&  parallel-ssh -i -t 0 -p 200 -h pssh.host "sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp && sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test_32.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx && GPUS_PER_NODE=16 NNODES=2  MASTER_ADDR=10.32.252.125 MASTER_PORT=12345 LOG_NAME=p2pmeg_175B_2VM_mbs1_gbs100 MP_BARRIER=1 LD_PRELOAD=/msrhyper-ddn/hai8/saemal/nccl-2.8.4-1/build/lib/libnccl.so  P2P_MEG=1 WARMUP_BATCH=102 NCCL_DEBUG=VERSION   sh ./p2pfusion_experiments/test_time_break_down_2VM_1bs.sh" 2>&1 | tee ./p2pmeg_175B_2VM_mbs1_gbs100.log
+
+# p2p shard
+cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp &&  parallel-ssh -i -t 0 -p 200 -h pssh.host "sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp && sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test_32.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx && GPUS_PER_NODE=16 NNODES=2  MASTER_ADDR=10.32.252.125 MASTER_PORT=12345 LOG_NAME=p2pmeg_175B_2VM_mbs1_gbs100 MP_BARRIER=1 LD_PRELOAD=/msrhyper-ddn/hai8/saemal/nccl-2.8.4-1/build/lib/libnccl.so  P2P_SHARD=1 WARMUP_BATCH=102 NCCL_DEBUG=VERSION   sh ./p2pfusion_experiments/test_time_break_down_2VM_1bs.sh" 2>&1 | tee ./p2pmeg_175B_2VM_mbs1_gbs100.log
+
+
+
+sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp && sudo cp /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx/examples/test_32.xml ~/test.xml && cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx && GPUS_PER_NODE=16 NNODES=1  MASTER_ADDR=10.32.252.125 MASTER_PORT=12345 LOG_NAME=origin_175B_2VM_mbs1_gbs100 MP_BARRIER=1 LD_PRELOAD=/msrhyper-ddn/hai8/saemal/nccl-2.8.4-1/build/lib/libnccl.so  WARMUP_BATCH=102 NCCL_DEBUG=VERSION   sh ./p2pfusion_experiments/test_time_break_down_2VM_1bs.sh

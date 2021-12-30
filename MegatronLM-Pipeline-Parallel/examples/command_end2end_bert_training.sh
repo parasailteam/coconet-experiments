@@ -1,0 +1,1 @@
+cd /msrhyper-ddn/hai8/v-junhuang/coconet_exp/repos/Megatron-LMx && GPUS_PER_NODE=16 NNODES=1 NODE_RANK=0   LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so  LOG_NAME=origin_end2end_bert_training MP_BARRIER=1   WARMUP_BATCH=17 NCCL_DEBUG=VERSION   sh ./examples/end2end_bert_training.sh

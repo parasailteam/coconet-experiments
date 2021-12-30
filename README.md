@@ -5,6 +5,7 @@ This repository contains integration experiments for CoCoNet[https://github.com/
 * `pytorch/third_party/nccl/nccl` contains NCCL modified with scattered tensors implementation for Data Parallel Training and overlapping implementation for Model and Pipeline Parallel Inference.
 * `Nvidia-Bert` contains NVIDIA BERT integrated with CoCoNet's scattered tensors implementation of Adam and LAMB.
 * `Megatron-LM-Model-Parallel` contains Megatron-LM integrated with CoCoNet's optimized Model Parallel Inference.
+* `Megatron-LM-Pipeline-Parallel` contains Megatron-LM integrated with CoCoNet's optimized Pipeline Parallel Inference.
 
 # Installation
 
@@ -96,4 +97,15 @@ Execute `model_parallel_results.py` to replicate model parallel inference experi
 ```
 cd coconet-experiemts/Megatron-LM
 NPROC=<number-of-process-to-invoke> python coconet-experiments.py coconet-experiments/dataset/megatron-gpt2-data coconet-experiments/dataset/megatron-bert-data
+```
+
+
+# Pipeline Parallel Inference Experiment
+
+Download the GPT3 dataset from here[https://umass-my.sharepoint.com/:f:/g/personal/aabhinav_umass_edu/EjYaQgRVJ7tOgncRLqDfUNYB_8qGUcX0XJ62BJCOP0SABw?e=pupQK8]. Copy the directory to `coconet-experiments/dataset/`.
+Execute `pipeline_parallel_results.py` to replicate model parallel inference experiments 
+
+```
+cd coconet-experiemts/Megatron-LM
+NPROC=<number-of-process-to-invoke> python coconet-experiments.py coconet-experiments/dataset/megatron-gpt3-data
 ```

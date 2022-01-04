@@ -38,7 +38,7 @@ Install pre-requisites for building PyTorch
 
 ```
 conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi
-conda install -c pytorch magma-cuda90
+conda install -c pytorch magma-cuda113
 ```
 
 Build PyTorch by:

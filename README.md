@@ -45,6 +45,8 @@ Build PyTorch by:
 
 ```
 cd pytorch
+mkdir build
+cd build
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 python setup.py install
 ```

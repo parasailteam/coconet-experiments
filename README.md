@@ -31,13 +31,13 @@ sudo chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*
 We will now build modified PyTorch. However, make sure to remove existing PyTorch installations from the conda environment.
 
 ```
-conda remove torch
+conda remove pytorch cudatoolkit
 ```
 
 Install pre-requisites for building PyTorch
 
 ```
-conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi
+conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing_extensions
 conda install -c pytorch magma-cuda113
 ```
 
